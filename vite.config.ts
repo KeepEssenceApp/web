@@ -3,8 +3,9 @@ import preact from "@preact/preset-vite";
 
 // In dev the app and the API share one origin through this proxy, as they do in production.
 const core = process.env.CORE_URL ?? "http://127.0.0.1:8801";
+// Patterns, not prefixes: a plain "/c" would also swallow the app's own /calendar.
 const proxy = Object.fromEntries(
-  ["/v1", "/oauth", "/mcp", "/.well-known", "/c"].map((p) => [p, { target: core, changeOrigin: false }]),
+  ["^/(v1|oauth|\\.well-known|c)/", "^/mcp$"].map((p) => [p, { target: core, changeOrigin: false }]),
 );
 
 export default defineConfig({

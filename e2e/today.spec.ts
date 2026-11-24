@@ -149,3 +149,22 @@ test("opening an item: original, analysis, tags; manage can change who and how l
   await expect(page.locator('[data-item="it_triaged"]')).toHaveCount(0);
   expect((await state(request)).counts.items).toBe(before - 1);
 });
+
+test("status bar: one line on other wide pages; on a phone a small mark that opens the wide one", async ({ page, isMobile }) => {
+  await signIn(page, "/notes");
+  if (!isMobile) {
+    await expect(page.locator(".page-head .status")).toHaveAttribute("data-layout", "narrow");
+    await expect(page.locator(".page-head .status")).toContainText("2 个助手在干活 · 今天存入了 7 条 · 2 条在等");
+    return;
+  }
+  const mark = page.locator(".status-mark");
+  await expect(mark).toHaveText("2");
+  await expect(mark.locator(".dot")).toHaveCount(1);
+  await expect(page.locator(".status-pop")).toHaveCount(0);
+  await mark.click();
+  await expect(page.locator(".status-pop .status-cell")).toHaveCount(4);
+  await expect(page.locator(".status-pop")).toContainText("阿深");
+  // Manage tier: from here to Assistants.
+  await page.locator(".status-pop a").click();
+  await expect(page).toHaveURL(/\/assistants$/);
+});

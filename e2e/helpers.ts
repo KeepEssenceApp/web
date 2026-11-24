@@ -14,8 +14,10 @@ export async function loginCode(request: APIRequestContext): Promise<string> {
   if (process.env.LOGIN_CODE) return process.env.LOGIN_CODE;
   // The core's operator interface (not part of the contract): invite, then mint a code.
   const headers = { Authorization: `Bearer ${process.env.ADMIN_SECRET ?? ""}` };
-  await request.post("/admin/invites", { headers, data: { email: EMAIL } });
-  const res = await request.post("/admin/login-codes", { headers, data: { email: EMAIL } });
+  // ADMIN_URL: the core itself, when BASE_URL is a dev server that does not forward /admin.
+  const admin = (process.env.ADMIN_URL ?? "").replace(/\/$/, "");
+  await request.post(`${admin}/admin/invites`, { headers, data: { email: EMAIL } });
+  const res = await request.post(`${admin}/admin/login-codes`, { headers, data: { email: EMAIL } });
   expect(res.ok(), "set LOGIN_CODE or ADMIN_SECRET to sign in against a real core").toBe(true);
   return (await res.json()).code;
 }

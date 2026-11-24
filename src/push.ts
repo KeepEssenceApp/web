@@ -44,12 +44,3 @@ export async function askAndSubscribe(): Promise<boolean> {
   await api.registerPush({ kind: "webpush", endpoint: sub.endpoint, keys: { p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" } });
   return true;
 }
-
-export async function unsubscribe() {
-  try {
-    const reg = await navigator.serviceWorker?.getRegistration();
-    await (await reg?.pushManager.getSubscription())?.unsubscribe();
-  } catch {
-    /* nothing to undo */
-  }
-}

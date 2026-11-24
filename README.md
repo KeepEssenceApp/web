@@ -66,7 +66,12 @@ npm run e2e          # 自己构建、起假核心，在 Chromium 的桌面和�
 BASE_URL=http://127.0.0.1:8792 LOGIN_EMAIL=you@example.com LOGIN_CODE=123456 npm run e2e
 ```
 
-带 `BASE_URL` 时不起假核心；依赖假核心的示例内容和 `/__test/*` 的测试会跳过。
+带 `BASE_URL` 时不起假核心；依赖假核心的示例内容和 `/__test/*` 的测试会跳过，`e2e/real-core.spec.ts` 只在这时跑（真的授权服务器、真的短码、助手存回笔记）。没有 `LOGIN_CODE` 时，测试用核心的管理接口取验证码：`ADMIN_SECRET` 是它的密钥，`ADMIN_URL` 是核心自己的地址（`BASE_URL` 是 Vite 时要给，Vite 不转 `/admin`）。
+
+```
+# 核心在 8801（见 ../core 的 README），Vite 在 8792
+BASE_URL=http://127.0.0.1:8792 ADMIN_URL=http://127.0.0.1:8801 ADMIN_SECRET=… npm run e2e
+```
 
 截图（浅色深色、桌面手机各一套，放在 `screenshots/`，不进仓库）：
 

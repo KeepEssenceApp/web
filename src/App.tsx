@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "./api";
 import { Shell } from "./components/Shell";
 import { Loading, Said } from "./components/ui";
-import { langStore, t } from "./i18n";
+import { langStore } from "./i18n";
 import { errText } from "./lib";
 import { AssistantsPage, type Section } from "./pages/AssistantsPage";
 import { Approve } from "./pages/Approve";
@@ -72,7 +72,7 @@ export function App() {
   }
 
   return (
-    <div class="app" key={lang} onClick={onLinkClick} data-title={t("nav.today")}>
+    <div class="app" key={lang} onClick={onLinkClick}>
       {body}
       <Said />
     </div>

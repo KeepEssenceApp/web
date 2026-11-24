@@ -44,7 +44,7 @@ test("W10: a share saves at once and shows the one-sentence result", async ({ pa
   await expect(page).toHaveURL(/\/share$/);
   if (FAKE) expect((await state(request)).last_saved).toMatchObject({ kind: "link", url, entry: "share", title: "分享来的文章" });
   await page.getByRole("link", { name: "去今天" }).click();
-  await expect(page.locator(".waiting a", { hasText: "分享来的文章" })).toBeVisible();
+  await expect(page.locator(".waiting a", { hasText: "分享来的文章" }).first()).toBeVisible();
 });
 
 test("W10: the system share sheet's POST, with an image, goes through the service worker", async ({ page, request }) => {
