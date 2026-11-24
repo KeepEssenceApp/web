@@ -76,6 +76,7 @@ export function SignIn({ returning }: { returning?: boolean }) {
         ) : (
           <form class="stack" onSubmit={signIn}>
             <p class="small">{t("signin.sent", { email: email.trim() })}</p>
+            <p class="small">{t("signin.sent_hint")}</p>
             <label>
               <span class="label">{t("signin.code")}</span>
               <input
@@ -109,7 +110,10 @@ export function SignIn({ returning }: { returning?: boolean }) {
           </form>
         )}
         {fail && <p class="bad small" role="alert">{fail}</p>}
-        <p class="front-foot small">{t("signin.closed")}</p>
+        <p class="front-foot small">
+          {t("signin.closed")}{" "}
+          <a href={t("signin.apply_url")}>{t("signin.apply")}</a>
+        </p>
       </div>
     </main>
   );
