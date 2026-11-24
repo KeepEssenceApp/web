@@ -3,7 +3,7 @@
 KeepEssence 的网页客户端：读的平台，加上网页收件箱。
 The KeepEssence web app: read analyses, daily digests and notes, save from the web inbox, manage assistants and devices.
 
-状态：v1.0 内测的范围做完了，对着契约的假核心验过；对着真核心和真机的验证见下面「没验的」。
+状态：1.x，内测中，线上在 keepessence.app。对着契约的假核心和线上的真核心都验过；真机上验了安卓的 Chrome（含装成应用、从分享菜单存入）和 iPhone 的 Safari。还没验的见下面「没验的」。
 
 ## 它做什么
 
@@ -107,8 +107,12 @@ npx wrangler deploy  # 只有静态文件的 Worker：keepessence-web，带单�
 
 ## 没验的
 
-- 真机（iPhone、安卓）：加到主屏幕、系统分享菜单、真手指的左右滑、浏览器通知的到达。自动测试里是 Chromium 的手机视口加触摸。
-- 线上（keepessence.app）。
+- iPhone 上的「加到主屏幕」没点过；iPhone 上的通知没验（要先加到主屏幕才收得到）。
+- 每日摘要页没有在线上的浏览器里看过，只经接口核对了内容；对着假核心的浏览器测试是过的。
+- 像密码的内容先问，只对着假核心验过。
+- 对比度没有量过。
+
+验过的：安卓真机（Samsung S23 的 Chrome）上登录、读解读、左右滑、网页收件箱存入、装成应用、从系统分享菜单存入；iPhone 12 Pro 的 Safari 上登录、读解读、左滑。线上的浏览器测试（`BASE_URL=https://keepessence.app`）覆盖存入、允许页、批准短码、笔记的快速查找和下载、月历、公开月历图。
 
 ## 参与
 

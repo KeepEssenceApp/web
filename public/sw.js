@@ -49,7 +49,9 @@ async function onPush(event) {
   const body = data.message || data.body || "";
   const url = typeof data.url === "string" && data.url.startsWith("/") ? data.url : data.item_id ? `/item/${encodeURIComponent(data.item_id)}` : "/";
   const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-  const visible = windows.filter((w) => w.visibilityState === "visible");
+  // "Open in front" means visible and focused. A tab of a browser that is itself in the
+  // background can still report visible; it is not in front of the user.
+  const visible = windows.filter((w) => w.visibilityState === "visible" && w.focused);
   // The reading interface is open: nothing pops up, the analysis just appears in Today.
   if (visible.length) {
     for (const w of visible) w.postMessage({ type: "refresh" });
