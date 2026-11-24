@@ -17,7 +17,15 @@ info:
     - Operations marked `x-mcp-tool` are also offered as tools on the assistant endpoint, with
       the same input and output.
     - `x-tier` is the client permission an operation needs: `save`, `read` or `manage`.
-      `x-step` is the assistant step it needs. An assistant calling outside its steps gets 403.
+      `x-step` is the assistant step it needs: a step name, several separated by `|` (any one
+      is enough), `kind` or `for` (the step named by that field of the request or of the claim),
+      or `any`. An assistant calling outside its steps gets 403.
+    - On the assistant endpoint the tool list holds only the tools the assistant's steps allow.
+      A tool takes the operation's path and query parameters by name and the body fields at the
+      top level; the `Idempotency-Key` header becomes the argument `idempotency_key`.
+    - `submit_result`: a result that breaks the field rules refuses the whole request with
+      `invalid_result` and stores nothing; a result that is fine but not wanted (not in this
+      claim, or already handed in under another claim) comes back as `accepted: false`.
   license:
     name: AGPL-3.0-only
     identifier: AGPL-3.0-only
@@ -1103,6 +1111,7 @@ paths:
     get:
       tags: [assistant]
       operationId: getWork
+      x-step: "any"
       summary: Is there work for this assistant. A plain request; no model and no tool call needed.
       security:
         - assistantCredential: []
@@ -1129,6 +1138,7 @@ paths:
     post:
       tags: [assistant]
       operationId: claimWork
+      x-step: "kind"
       x-mcp-tool: claim_work
       summary: Claim up to 10 pieces of work of one kind. A claim lasts 30 minutes.
       security:
@@ -1157,6 +1167,7 @@ paths:
     post:
       tags: [assistant]
       operationId: renewClaim
+      x-step: "kind"
       x-mcp-tool: renew_claim
       summary: Extend a claim by another 30 minutes. Only its holder may.
       security:
@@ -1175,6 +1186,7 @@ paths:
     delete:
       tags: [assistant]
       operationId: releaseClaim
+      x-step: "kind"
       x-mcp-tool: release_claim
       summary: Put the work back.
       security:
@@ -1188,6 +1200,7 @@ paths:
     post:
       tags: [assistant]
       operationId: submitResult
+      x-step: "kind"
       x-mcp-tool: submit_result
       summary: Hand back results for a claim, with usage.
       description: |
@@ -1236,6 +1249,7 @@ paths:
     get:
       tags: [assistant]
       operationId: getRules
+      x-step: "kind"
       x-mcp-tool: get_rules
       x-mcp-readonly: true
       summary: The user's rules and the settings that matter for one kind of work.
@@ -1256,6 +1270,7 @@ paths:
     get:
       tags: [assistant]
       operationId: getContext
+      x-step: "for"
       x-mcp-tool: get_context
       x-mcp-readonly: true
       summary: What an assistant needs to work on one item.
@@ -1281,6 +1296,7 @@ paths:
     get:
       tags: [assistant]
       operationId: getDigestContext
+      x-step: "digest"
       x-mcp-tool: get_digest_context
       x-mcp-readonly: true
       summary: The analyses to summarise for a day, including earlier days that were missed.
@@ -1297,6 +1313,7 @@ paths:
     get:
       tags: [assistant]
       operationId: searchDigestsAndNotes
+      x-step: "analysis | digest | deep_read"
       x-mcp-tool: search_digests_and_notes
       x-mcp-readonly: true
       summary: Find text in the user's daily digests and notes, as context for work.
@@ -1329,6 +1346,7 @@ paths:
     get:
       tags: [assistant]
       operationId: listDeepDiveCandidates
+      x-step: "deep_dive"
       x-mcp-tool: list_deep_dive_candidates
       x-mcp-readonly: true
       summary: What the user could dig into now. Optionally narrowed by words.
@@ -1361,6 +1379,7 @@ paths:
     post:
       tags: [assistant]
       operationId: registerDeepDive
+      x-step: "deep_dive"
       x-mcp-tool: register_deep_dive
       summary: Record that a deep dive on one item started in this assistant, only when the user asked for it.
       security:
@@ -1390,6 +1409,7 @@ paths:
     post:
       tags: [assistant]
       operationId: saveNote
+      x-step: "deep_dive"
       x-mcp-tool: save_note
       summary: Save what came out of a deep dive as a note, only after the user said so.
       security:
@@ -1928,7 +1948,7 @@ components:
         lang: { $ref: "#/components/schemas/Lang" }
         roles:
           type: object
-          description: Which assistant does each step when nothing else names one. Null means nobody.
+          description: Which assistant does each step when nothing else names one, as assistant ids. Null means nobody. Digest and deep-read work goes only to the assistant holding that role.
           properties:
             analysis: { type: [string, "null"] }
             digest: { type: [string, "null"] }
