@@ -11,7 +11,9 @@ function deviceName(): string {
   return os ? `${browser} · ${os}` : browser;
 }
 
-/** Email, then a 6-digit code. The front of the brand is dark. */
+/** Email, then a 6-digit code. The front of the brand is dark.
+    The two steps carry different keys so each gets its own form and field: without them the
+    code field (6 digits, numeric pattern) was reused as the email field and refused typing. */
 export function SignIn({ returning }: { returning?: boolean }) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -64,7 +66,7 @@ export function SignIn({ returning }: { returning?: boolean }) {
         <img class="front-logo" src="/icons/lockup-white.svg" alt="KeepEssence" width="240" height="60" />
         <p class="front-tagline">{returning ? t("signin.first") : t("signin.tagline")}</p>
         {!sent ? (
-          <form class="stack" onSubmit={send}>
+          <form class="stack" key="email-step" onSubmit={send}>
             <label>
               <span class="label">{t("signin.email")}</span>
               <input type="email" name="email" autocomplete="email" required value={email} onInput={(ev) => setEmail(ev.currentTarget.value)} />
@@ -74,7 +76,7 @@ export function SignIn({ returning }: { returning?: boolean }) {
             </button>
           </form>
         ) : (
-          <form class="stack" onSubmit={signIn}>
+          <form class="stack" key="code-step" onSubmit={signIn}>
             <p class="small">{t("signin.sent", { email: email.trim() })}</p>
             <p class="small">{t("signin.sent_hint")}</p>
             <label>

@@ -85,3 +85,21 @@ test("light and dark follow the system", async ({ browser, baseURL }) => {
   expect(await bg("light")).toBe("rgb(245, 245, 243)");
   expect(await bg("dark")).toBe("rgb(11, 11, 11)");
 });
+
+test("sign-in: after 'use another email' the email field holds the address and takes typing", async ({ page }) => {
+  await page.goto("/");
+  const email = page.locator('input[type="email"]');
+  await email.fill("first@example.com");
+  await page.locator('button[type="submit"]').click();
+  await expect(page.locator('input[name="code"]')).toBeVisible();
+  await page.locator("button.link").click();
+  await expect(email).toHaveValue("first@example.com");
+  await expect(email).not.toHaveAttribute("pattern", /.+/);
+  await expect(email).not.toHaveAttribute("maxlength", /.+/);
+  await email.fill("");
+  await email.pressSequentially("someone.else@example.com");
+  await expect(email).toHaveValue("someone.else@example.com");
+  expect(await email.evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(true);
+  await page.locator('button[type="submit"]').click();
+  await expect(page.locator('input[name="code"]')).toBeVisible();
+});
