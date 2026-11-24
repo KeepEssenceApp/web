@@ -2,6 +2,8 @@
 # an API call to it through a service binding.
 name = "keepessence-web"
 compatibility_date = "2026-11-01"
+workers_dev = false
+preview_urls = false
 
 [assets]
 directory = "./dist"
