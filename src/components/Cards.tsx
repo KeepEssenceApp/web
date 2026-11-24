@@ -37,11 +37,15 @@ export type ItemActions = ReturnType<typeof itemActions>;
 /** On touch screens a card swipes: right adds to the deep-dive queue, left is not interested. */
 export function Swipeable({ onRight, onLeft, children }: { onRight: () => void; onLeft: () => void; children: ComponentChildren }) {
   const [dx, setDx] = useState(0);
+  // `dx` moves the card; `last` is the same distance kept outside rendering, so that a quick
+  // swipe that ends before the next render is still measured correctly.
   const start = useRef<{ x: number; y: number; locked: boolean | null } | null>(null);
+  const last = useRef(0);
   if (!isTouch()) return <>{children}</>;
   const end = () => {
-    const d = dx;
+    const d = last.current;
     start.current = null;
+    last.current = 0;
     setDx(0);
     if (d > 96) onRight();
     else if (d < -96) onLeft();
@@ -58,6 +62,7 @@ export function Swipeable({ onRight, onLeft, children }: { onRight: () => void; 
         onTouchStart={(ev) => {
           const p = ev.touches[0];
           start.current = { x: p.clientX, y: p.clientY, locked: null };
+          last.current = 0;
         }}
         onTouchMove={(ev) => {
           const s = start.current;
@@ -66,11 +71,15 @@ export function Swipeable({ onRight, onLeft, children }: { onRight: () => void; 
           const mx = p.clientX - s.x;
           const my = p.clientY - s.y;
           if (s.locked === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) s.locked = Math.abs(mx) > Math.abs(my);
-          if (s.locked) setDx(mx);
+          if (s.locked) {
+            last.current = mx;
+            setDx(mx);
+          }
         }}
         onTouchEnd={end}
         onTouchCancel={() => {
           start.current = null;
+          last.current = 0;
           setDx(0);
         }}
       >

@@ -38,6 +38,8 @@ export const en: Record<keyof typeof zh, string> = {
 
   "status.label": "Assistant status",
   "status.working": "{n} assistants working",
+  "status.working_one": "1 assistant working",
+  "status.not_come_yet": "The assistant has not come yet",
   "status.none_working": "No assistant is working",
   "status.saved_today": "{n} saved today",
   "status.waiting": "{n} waiting",

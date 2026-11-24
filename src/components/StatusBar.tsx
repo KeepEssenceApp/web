@@ -31,10 +31,17 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
   if (!s) return <div class="status status-narrow" aria-label={t("status.label")} aria-busy="true" />;
 
   const active = s.assistants.filter((a) => a.state === "working" || a.state === "recent").length;
+  // An assistant that was just connected and has not made its first visit is expected soon.
+  const expected = s.assistants.some((a) => a.state === "never");
   // Red only when something will be lost: items are waiting and nobody is coming for them.
-  const losing = s.waiting > 0 && active === 0;
+  const losing = s.waiting > 0 && active === 0 && !expected;
   const dot: DotKind = losing ? "danger" : active > 0 ? "solid" : "ring";
-  const headline = active > 0 ? t("status.working", { n: active }) : t("status.none_working");
+  const headline =
+    active > 0
+      ? t(active === 1 ? "status.working_one" : "status.working", { n: active })
+      : expected
+        ? t("status.not_come_yet")
+        : t("status.none_working");
   const counts = [t("status.saved_today", { n: s.saved_today }), t("status.waiting", { n: s.waiting })];
   const manage = canManage();
   const layout = phone ? (page === "today" ? "narrow" : "narrowest") : page === "today" ? "wide" : "narrow";

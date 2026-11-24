@@ -36,6 +36,8 @@ export const zh = {
 
   "status.label": "助手的状态",
   "status.working": "{n} 个助手在干活",
+  "status.working_one": "1 个助手在干活",
+  "status.not_come_yet": "助手还没来过",
   "status.none_working": "没有助手在干活",
   "status.saved_today": "今天存入了 {n} 条",
   "status.waiting": "{n} 条在等",
