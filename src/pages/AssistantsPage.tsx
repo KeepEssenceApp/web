@@ -1,0 +1,586 @@
+import { useState } from "preact/hooks";
+import { api } from "../api";
+import { PageHead } from "../components/Shell";
+import { Loading, State, Switch } from "../components/ui";
+import { ago, lang, setLang, t, type Key } from "../i18n";
+import { copyText, say, sayError, useLoad } from "../lib";
+import { go } from "../router";
+import { dropSession, session } from "../session";
+import type { Assistant, Device, Lang, Role, Settings, Step, Tier } from "../types";
+import { askAndSubscribe, pushSupport } from "../push";
+import { useStore } from "../store";
+
+export type Section = "assistants" | "connect" | "rules" | "devices" | "calendar" | "notify" | "account";
+const TABS: { id: Section; label: Key }[] = [
+  { id: "assistants", label: "set.assistants" },
+  { id: "rules", label: "set.rules" },
+  { id: "devices", label: "set.devices" },
+  { id: "calendar", label: "set.calendar" },
+  { id: "notify", label: "set.notify" },
+  { id: "account", label: "set.account" },
+];
+const STEPS: Step[] = ["analysis", "digest", "deep_read", "deep_dive"];
+const ROLES: Role[] = ["analysis", "digest", "deep_read", "deep_dive"];
+const TIERS: Tier[] = ["save", "read", "manage"];
+
+export function AssistantsPage({ section }: { section: Section }) {
+  const tab = section === "connect" ? "assistants" : section;
+  return (
+    <div class="page assistants">
+      <PageHead title={t("nav.assistants")} />
+      <nav class="tabs" aria-label={t("nav.assistants")}>
+        {TABS.map((x) => (
+          <a key={x.id} href={x.id === "assistants" ? "/assistants" : `/assistants/${x.id}`} aria-current={x.id === tab ? "page" : undefined}>
+            {t(x.label)}
+          </a>
+        ))}
+      </nav>
+      {section === "assistants" && <AssistantList />}
+      {section === "connect" && <Connect />}
+      {section === "rules" && <Rules />}
+      {section === "devices" && <Devices />}
+      {section === "calendar" && <MyCalendar />}
+      {section === "notify" && <Notify />}
+      {section === "account" && <Account />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- inline rename
+function Rename({ name, max, onSave }: { name: string; max: number; onSave: (next: string) => Promise<unknown> }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  if (!editing)
+    return (
+      <button
+        class="link"
+        type="button"
+        onClick={() => {
+          setValue(name);
+          setEditing(true);
+        }}
+      >
+        {t("assistant.rename")}
+      </button>
+    );
+  return (
+    <form
+      class="row rename"
+      onSubmit={(ev) => {
+        ev.preventDefault();
+        const next = value.trim();
+        if (!next || next === name) return setEditing(false);
+        onSave(next).then(() => setEditing(false), sayError);
+      }}
+    >
+      <input type="text" value={value} maxLength={max} aria-label={t("assistant.name")} autoFocus onInput={(ev) => setValue(ev.currentTarget.value)} />
+      <button class="btn small" type="submit">
+        {t("common.save")}
+      </button>
+      <button class="btn quiet small" type="button" onClick={() => setEditing(false)}>
+        {t("common.cancel")}
+      </button>
+    </form>
+  );
+}
+
+function Revoke({ question, onRevoke }: { question: string; onRevoke: () => Promise<unknown> }) {
+  const [asking, setAsking] = useState(false);
+  if (!asking)
+    return (
+      <button class="link danger" type="button" onClick={() => setAsking(true)}>
+        {t("assistant.revoke")}
+      </button>
+    );
+  return (
+    <div class="confirm" role="alertdialog" aria-label={t("assistant.revoke")}>
+      <p class="bad">{question}</p>
+      <div class="row">
+        <button class="btn danger small" type="button" onClick={() => onRevoke().then(() => setAsking(false), (err) => (setAsking(false), sayError(err)))}>
+          {t("assistant.revoke")}
+        </button>
+        <button class="btn quiet small" type="button" onClick={() => setAsking(false)}>
+          {t("common.cancel")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const kindName = (a: { kind: Assistant["kind"]; built_in?: boolean }) =>
+  a.built_in ? t("assistant.built_in") : t(a.kind === "chat" ? "assistant.chat" : "assistant.scheduled");
+const seen = (iso?: string | null) => (iso ? t("status.came", { when: ago(iso) }) : t("status.never"));
+const recent = (iso?: string | null) => !!iso && Date.now() - new Date(iso).getTime() < 86400000;
+
+// ---------------------------------------------------------------- assistants and who does which step
+function AssistantList() {
+  const list = useLoad(api.assistants, []);
+  const settings = useLoad(api.settings, []);
+  if (!list.data || !settings.data) return <Loading error={list.error ?? settings.error} />;
+  const assistants = list.data.assistants;
+  const roles = settings.data.roles;
+
+  const able = (role: Role) => assistants.filter((a) => a.steps.includes(role) && (a.kind !== "chat" || role === "deep_dive"));
+  const setRole = (role: Role, id: string) =>
+    api.updateSettings({ roles: { [role]: id || null } }).then((s) => {
+      settings.set(s);
+      say(t("common.saved"));
+    }, sayError);
+  const toggleStep = (a: Assistant, step: Step, on: boolean) =>
+    api.updateAssistant(a.id, { steps: on ? [...a.steps, step] : a.steps.filter((s) => s !== step) }).then(() => {
+      list.reload();
+      settings.reload();
+    }, sayError);
+
+  return (
+    <div class="stack loose">
+      <section class="stack">
+        <div class="row spread">
+          <h2>{t("set.assistants")}</h2>
+          <a class="btn quiet small" href="/assistants/connect">
+            {t("assistant.connect")}
+          </a>
+        </div>
+        <ul class="rows">
+          {assistants.map((a) => (
+            <li key={a.id} class="stack tight" data-assistant={a.id}>
+              <div class="row spread wrap">
+                <span class="row wrap">
+                  <b>{a.name}</b>
+                  <span class="quiet small">{kindName(a)}</span>
+                </span>
+                <State dot={recent(a.last_seen_at) ? "solid" : "ring"}>
+                  <span class="small">{seen(a.last_seen_at)}</span>
+                </State>
+              </div>
+              <p class="quiet small">
+                {[a.steps.map((s) => t(`step.${s}`)).join(" · "), a.runs_at ? t("assistant.runs_at", { where: a.runs_at }) : null].filter(Boolean).join(" — ")}
+              </p>
+              {!a.built_in && (
+                <>
+                  {a.kind === "scheduled" && (
+                    <fieldset class="row wrap steps">
+                      <legend class="quiet small">{t("assistant.steps")}</legend>
+                      {STEPS.map((s) => (
+                        <label key={s} class="check">
+                          <input type="checkbox" checked={a.steps.includes(s)} onChange={(ev) => toggleStep(a, s, ev.currentTarget.checked)} />
+                          {t(`step.${s}`)}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
+                  <div class="row wrap">
+                    <Rename name={a.name} max={40} onSave={(name) => api.updateAssistant(a.id, { name }).then(list.reload)} />
+                    <Revoke question={t("assistant.revoke_confirm", { name: a.name })} onRevoke={() => api.revokeAssistant(a.id).then(() => (list.reload(), settings.reload()))} />
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section class="stack">
+        <h2>{t("assistant.roles")}</h2>
+        <div class="rows">
+          {ROLES.map((role) => (
+            <label key={role} class="row spread wrap role">
+              <span>{t(`role.${role}`)}</span>
+              <select value={roles[role] ?? ""} data-role={role} onChange={(ev) => setRole(role, ev.currentTarget.value)}>
+                <option value="">{t("common.none")}</option>
+                {able(role).map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+        <p class="quiet small">{t("assistant.roles_hint")}</p>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- connect an assistant
+type Product = "claude" | "chatgpt" | "gemini" | "self" | "muse";
+const PRODUCTS: { id: Product; name: string | null; kind: "chat" | "scheduled"; steps: number; verified: boolean }[] = [
+  { id: "claude", name: "Claude", kind: "chat", steps: 4, verified: true },
+  { id: "chatgpt", name: "ChatGPT", kind: "chat", steps: 4, verified: true },
+  { id: "gemini", name: "Gemini", kind: "chat", steps: 4, verified: true },
+  { id: "self", name: null, kind: "scheduled", steps: 3, verified: true },
+  { id: "muse", name: "Muse", kind: "scheduled", steps: 0, verified: false },
+];
+
+function Connect() {
+  const list = useLoad(api.assistants, []);
+  const [product, setProduct] = useState<Product>("claude");
+  const p = PRODUCTS.find((x) => x.id === product)!;
+  const note = `connect.${product}.note` as Key;
+  return (
+    <div class="stack loose connect">
+      <a class="link back" href="/assistants">
+        ‹ {t("set.assistants")}
+      </a>
+      <h2>{t("assistant.connect")}</h2>
+      <section class="stack tight">
+        <h3 class="label">{t("connect.address")}</h3>
+        {list.data ? (
+          <div class="row wrap">
+            <code class="address" data-testid="connect-address">{list.data.connect_url}</code>
+            <button class="btn small" type="button" onClick={() => copyText(list.data!.connect_url)}>
+              {t("common.copy")}
+            </button>
+          </div>
+        ) : (
+          <Loading error={list.error} />
+        )}
+        <p class="quiet small">{t("connect.address_hint")}</p>
+      </section>
+      <section class="stack">
+        <h3 class="label">{t("connect.pick")}</h3>
+        <div class="segments" role="tablist">
+          {PRODUCTS.map((x) => (
+            <button key={x.id} type="button" role="tab" aria-selected={x.id === product} onClick={() => setProduct(x.id)}>
+              {x.name ?? t("connect.self")}
+            </button>
+          ))}
+        </div>
+        <div class="stack tight guide" role="tabpanel" data-product={product}>
+          <p class="quiet small">
+            {t(p.kind === "chat" ? "assistant.chat" : "assistant.scheduled")}
+            {" · "}
+            {(p.kind === "chat" ? (["deep_dive"] as Step[]) : STEPS).map((s) => t(`step.${s}`)).join(" · ")}
+          </p>
+          {p.verified ? (
+            <ol class="guide-steps">
+              {Array.from({ length: p.steps }, (_, i) => (
+                <li key={i}>{t(`connect.${product}.${i + 1}` as Key)}</li>
+              ))}
+            </ol>
+          ) : (
+            <p class="sentence">{t("connect.not_verified")}</p>
+          )}
+          {p.verified && product !== "self" && <p class="quiet small">{t(note)}</p>}
+        </div>
+        <p class="quiet small">{t("connect.kinds")}</p>
+        <p class="quiet small">{t("connect.after")}</p>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- rules and expiry options
+function Rules() {
+  const settings = useLoad(api.settings, []);
+  if (!settings.data) return <Loading error={settings.error} />;
+  return <RulesForm settings={settings.data} onSaved={settings.set} />;
+}
+function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
+  const [rules, setRules] = useState(settings.rules);
+  const [expiry, setExpiry] = useState(settings.expiry_options.join(", "));
+  const [bad, setBad] = useState(false);
+  const save = (ev: Event) => {
+    ev.preventDefault();
+    const options = expiry.split(/[,，\s]+/).filter(Boolean).map(Number);
+    if (!options.length || options.length > 6 || options.some((n) => !Number.isInteger(n) || n < 1 || n > 365)) return setBad(true);
+    setBad(false);
+    api.updateSettings({ rules, expiry_options: [...new Set(options)].sort((a, b) => a - b) }).then((s) => {
+      onSaved(s);
+      setExpiry(s.expiry_options.join(", "));
+      say(t("common.saved"));
+    }, sayError);
+  };
+  return (
+    <form class="stack loose" onSubmit={save}>
+      <section class="stack tight">
+        <h2>{t("set.rules")}</h2>
+        <p class="quiet small">{t("rules.hint")}</p>
+        <textarea rows={8} maxLength={4000} value={rules} aria-label={t("set.rules")} onInput={(ev) => setRules(ev.currentTarget.value)} />
+        <p class="quiet small">{t("rules.fallback")}</p>
+      </section>
+      <section class="stack tight">
+        <label>
+          <span class="label">{t("rules.expiry")}</span>
+          <input type="text" inputMode="numeric" value={expiry} onInput={(ev) => setExpiry(ev.currentTarget.value)} />
+        </label>
+        <p class={bad ? "bad small" : "quiet small"} role={bad ? "alert" : undefined}>
+          {bad ? t("rules.expiry_invalid") : t("rules.expiry_hint")}
+        </p>
+      </section>
+      <div class="row">
+        <button class="btn" type="submit">
+          {t("common.save")}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------- devices
+function Devices() {
+  const list = useLoad(api.devices, []);
+  const [code, setCode] = useState("");
+  const [fail, setFail] = useState<{ id: string; text: string } | null>(null);
+  if (!list.data) return <Loading error={list.error} />;
+  // The core says why when the last device with the manage tier would be lowered or revoked.
+  const guard = (id: string, p: Promise<unknown>) =>
+    p.then(
+      () => {
+        setFail(null);
+        list.reload();
+      },
+      (err) => {
+        setFail({ id, text: (err as Error).message || String(err) });
+        list.reload();
+      },
+    );
+
+  return (
+    <div class="stack loose">
+      <section class="stack">
+        <h2>{t("set.devices")}</h2>
+        <p class="quiet small">{t("devices.hint")}</p>
+        <ul class="rows">
+          {list.data.devices.map((d: Device) => (
+            <li key={d.id} class="stack tight" data-device={d.id}>
+              <div class="row spread wrap">
+                <span class="row wrap">
+                  <b>{d.name}</b>
+                  <span class="quiet small">
+                    {d.category === "assistant" ? t("set.assistants") : d.client ? t(`client.${d.client}`) : t("devices.client")}
+                    {d.this_device ? ` · ${t("devices.this")}` : ""}
+                  </span>
+                </span>
+                <span class="quiet small">{d.last_used_at ? t("devices.used", { when: ago(d.last_used_at) }) : t("devices.never")}</span>
+              </div>
+              {d.category === "assistant" ? (
+                <p class="quiet small">{(d.steps ?? []).map((s) => t(`step.${s}`)).join(" · ")}</p>
+              ) : (
+                <label class="row wrap">
+                  <span class="quiet small">{t("devices.tier")}</span>
+                  <select value={d.tier} aria-label={`${t("devices.tier")}: ${d.name}`} onChange={(ev) => guard(d.id, api.updateDevice(d.id, { tier: ev.currentTarget.value as Tier }))}>
+                    {TIERS.map((x) => (
+                      <option key={x} value={x}>
+                        {t(`tier.${x}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div class="row wrap">
+                <Rename name={d.name} max={60} onSave={(name) => api.updateDevice(d.id, { name }).then(list.reload)} />
+                <Revoke
+                  question={t("devices.revoke_confirm", { name: d.name })}
+                  onRevoke={() =>
+                    guard(
+                      d.id,
+                      api.revokeDevice(d.id).then(() => {
+                        if (d.this_device) dropSession();
+                      }),
+                    )
+                  }
+                />
+              </div>
+              {fail?.id === d.id && <p class="bad small" role="alert">{fail.text}</p>}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section class="stack tight">
+        <h2>{t("devices.approve")}</h2>
+        <p class="quiet small">{t("devices.approve_hint")}</p>
+        <form
+          class="row wrap"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            if (code.trim()) go(`/approve?code=${encodeURIComponent(code.trim().toUpperCase())}`);
+          }}
+        >
+          <input class="code-input" type="text" value={code} aria-label={t("devices.code")} placeholder={t("devices.code")} autocapitalize="characters" autocomplete="off" onInput={(ev) => setCode(ev.currentTarget.value)} />
+          <button class="btn" type="submit" disabled={!code.trim()}>
+            {t("common.continue")}
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- my calendar
+function MyCalendar() {
+  const settings = useLoad(api.settings, []);
+  const [theme, setTheme] = useState<"light" | "dark" | "clear">("light");
+  const [range, setRange] = useState<"month" | "year">("month");
+  const [counts, setCounts] = useState(true);
+  const s = settings.data;
+  if (!s) return <Loading error={settings.error} />;
+  const image = s.calendar_image;
+  const address = image.enabled && image.url ? `${image.url}${image.url.includes("?") ? "&" : "?"}theme=${theme}&range=${range}&counts=${counts ? 1 : 0}` : null;
+  const turn = (on: boolean) => api.updateSettings({ calendar_image_enabled: on }).then(settings.set, sayError);
+  return (
+    <div class="stack loose">
+      <section class="stack tight">
+        <h2>{t("set.calendar")}</h2>
+        <p class="quiet small">{t("mycal.hint")}</p>
+        <div class="row spread">
+          <span>{t("mycal.switch")}</span>
+          <Switch on={image.enabled} label={t("mycal.switch")} onChange={turn} />
+        </div>
+      </section>
+      {address && (
+        <>
+          <section class="stack tight">
+            <h3 class="label">{t("mycal.look")}</h3>
+            <div class="segments">
+              {(["light", "dark", "clear"] as const).map((x) => (
+                <button key={x} type="button" aria-pressed={theme === x} onClick={() => setTheme(x)}>
+                  {t(`mycal.${x}`)}
+                </button>
+              ))}
+            </div>
+            <div class="segments">
+              {(["month", "year"] as const).map((x) => (
+                <button key={x} type="button" aria-pressed={range === x} onClick={() => setRange(x)}>
+                  {t(`mycal.${x}`)}
+                </button>
+              ))}
+            </div>
+            <label class="check">
+              <input type="checkbox" checked={counts} onChange={(ev) => setCounts(ev.currentTarget.checked)} />
+              {t("mycal.counts")}
+            </label>
+            <img class={`mycal-preview theme-${theme}`} src={address} alt={t("mycal.preview")} />
+          </section>
+          <section class="stack tight">
+            <h3 class="label">{t("mycal.address")}</h3>
+            <div class="row wrap">
+              <code class="address" data-testid="calendar-address">{address}</code>
+              <button class="btn small" type="button" onClick={() => copyText(address)}>
+                {t("common.copy")}
+              </button>
+            </div>
+            <div class="row wrap">
+              <button class="btn quiet small" type="button" onClick={() => api.rotateCalendarImage().then(settings.set, sayError)}>
+                {t("mycal.rotate")}
+              </button>
+              <span class="quiet small">{t("mycal.rotate_hint")}</span>
+            </div>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- notifications
+function Notify() {
+  const settings = useLoad(api.settings, []);
+  const me = useLoad(api.me, []);
+  const [support, setSupport] = useState(pushSupport());
+  const [busy, setBusy] = useState(false);
+  const s = settings.data;
+  if (!s || !me.data) return <Loading error={settings.error ?? me.error} />;
+  const registered = !!me.data.device.notifications && support === "granted";
+  const ios = /iPhone|iPad/.test(navigator.userAgent);
+  const sentence =
+    support === "unsupported" ? t("notify.unsupported") : support === "denied" ? t("notify.denied") : registered ? t("notify.can") : t("notify.not_yet");
+  async function notifyMe() {
+    setBusy(true);
+    try {
+      await askAndSubscribe();
+    } catch (err) {
+      sayError(err);
+    }
+    setSupport(pushSupport());
+    me.reload();
+    setBusy(false);
+  }
+  return (
+    <div class="stack loose">
+      <section class="stack tight">
+        <h2>{t("set.notify")}</h2>
+        <p class="quiet small">{t("notify.hint")}</p>
+        <div class="row spread">
+          <span>
+            {t("notify.switch")} <span class="quiet small">{t("notify.all")}</span>
+          </span>
+          <Switch on={s.notify} label={t("notify.switch")} onChange={(on) => api.updateSettings({ notify: on }).then(settings.set, sayError)} />
+        </div>
+        {!s.notify && <p class="quiet small">{t("notify.off")}</p>}
+      </section>
+      <section class="stack tight">
+        <h3 class="label">{t("devices.this")}</h3>
+        <State dot={registered ? "solid" : "ring"}>
+          <span data-testid="notify-state">{sentence}</span>
+        </State>
+        {support === "unsupported" && ios && <p class="quiet small">{t("notify.ios")}</p>}
+        {/* The browser's question comes only after this press, and only once. */}
+        {!registered && (support === "default" || support === "granted") && (
+          <div class="row">
+            <button class="btn" type="button" disabled={busy} onClick={notifyMe}>
+              {t("notify.me")}
+            </button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- account
+function Account() {
+  const settings = useLoad(api.settings, []);
+  useStore(session);
+  const [fail, setFail] = useState<string | null>(null);
+  const s = settings.data;
+  if (!s) return <Loading error={settings.error} />;
+  let zones: string[] = [];
+  try {
+    zones = (Intl as unknown as { supportedValuesOf(k: string): string[] }).supportedValuesOf("timeZone");
+  } catch {
+    /* older browsers */
+  }
+  if (!zones.includes(s.timezone)) zones = [s.timezone, ...zones];
+  const changeLang = (next: Lang) => {
+    setLang(next);
+    api.updateSettings({ lang: next }).then(settings.set, sayError);
+  };
+  const signOut = () =>
+    api.signOut().then(dropSession, (err) => setFail((err as Error).message || String(err)));
+  return (
+    <div class="stack loose">
+      <section class="stack">
+        <h2>{t("set.account")}</h2>
+        <label class="row spread wrap">
+          <span>{t("account.language")}</span>
+          <select value={lang()} data-testid="language" onChange={(ev) => changeLang(ev.currentTarget.value as Lang)}>
+            <option value="zh">{t("account.lang_zh")}</option>
+            <option value="en">{t("account.lang_en")}</option>
+          </select>
+        </label>
+        <label class="row spread wrap">
+          <span>{t("account.timezone")}</span>
+          <select value={s.timezone} onChange={(ev) => api.updateSettings({ timezone: ev.currentTarget.value }).then((x) => (settings.set(x), say(t("common.saved"))), sayError)}>
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {z}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+      <section class="stack tight">
+        <div class="row">
+          <button class="btn quiet" type="button" onClick={signOut}>
+            {t("account.sign_out")}
+          </button>
+        </div>
+        <p class="quiet small">{t("account.sign_out_hint")}</p>
+        {fail && <p class="bad small" role="alert">{fail}</p>}
+      </section>
+    </div>
+  );
+}

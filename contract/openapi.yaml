@@ -1,0 +1,2109 @@
+openapi: 3.1.0
+info:
+  title: Core API
+  version: 1.0.0
+  summary: The only interface between the core and every client and assistant.
+  description: |
+    Three groups of operations share this contract: saving, reading, and assistants.
+
+    - Every path is under `/v1` except the authorization server (`/oauth/*`, `/.well-known/*`),
+      the assistant endpoint (`/mcp`) and the public calendar image (`/c/*`).
+    - Lists use a cursor: pass `cursor` from the previous page; `limit` defaults to 20, maximum 100.
+    - No call waits for a model.
+    - Saving and submitting require an `Idempotency-Key` header. The same key within 7 days
+      returns the first response.
+    - Errors are `{ "error": { "code", "message" } }`. `code` is one of `x-error-codes`.
+      `message` is written for the user in the language of `Accept-Language` (zh or en).
+    - Operations marked `x-mcp-tool` are also offered as tools on the assistant endpoint, with
+      the same input and output.
+    - `x-tier` is the client permission an operation needs: `save`, `read` or `manage`.
+      `x-step` is the assistant step it needs. An assistant calling outside its steps gets 403.
+  license:
+    name: AGPL-3.0-only
+    identifier: AGPL-3.0-only
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: localhost:8787
+        description: Host of a deployed core.
+
+x-error-codes:
+  bad_request: The request is malformed or a field is out of range.
+  unauthorized: No credential, or it is unknown, revoked or expired.
+  forbidden: The credential is valid but its tier or steps do not allow this.
+  not_found: No such thing, or it belongs to another user.
+  conflict: The request conflicts with the current state.
+  gone: It existed and is no longer available (expired code, deleted item).
+  too_large: The upload is larger than allowed.
+  unsupported_type: The file header does not match an allowed type.
+  rate_limited: Too many requests. Retry after the `Retry-After` header.
+  not_invited: This email is not on the invitation list.
+  last_manager: The last device with the manage tier cannot be lowered or revoked.
+  claim_lost: The claim expired and the work was claimed by someone else.
+  invalid_result: A submitted result does not follow the required fields.
+  idempotency_key_required: The `Idempotency-Key` header is missing.
+  server_error: Something went wrong in the core.
+
+x-limits:
+  item_expiry_default_days: 30
+  item_expiry_max_days: 365
+  expiry_options_default: [7, 30, 90, 365]
+  claim_minutes: 30
+  claim_max_items: 10
+  device_code_minutes: 10
+  login_code_minutes: 10
+  login_code_max_attempts: 5
+  device_idle_days: 90
+  asset_max_bytes: 3145728
+  image_long_edge_px: 1600
+  storage_quota_bytes: 1073741824
+  triage_per_user_per_day: 200
+  triage_default_after_minutes: 10
+  page_fetch_timeout_seconds: 8
+  queue_idle_days: 7
+  analysis_summary_max_chars: 60
+  analysis_points_max: 3
+  notify_wait_seconds: 120
+  notify_max_wait_seconds: 600
+  text_max_chars: 200000
+
+# One copy of the rules every client shares (served by GET /v1/meta).
+x-shared-rules:
+  secret_like:
+    description: >
+      Content that looks like a password or a credential. A client must ask the user before
+      saving it, and must not silently drop it. A match on any pattern counts.
+    max_length_checked: 200
+    patterns:
+      - name: private_key_block
+        regex: "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+      - name: known_credential_prefix
+        regex: "\\b(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,})\\b"
+      - name: bearer_or_basic_header
+        regex: "(?i)\\b(authorization|bearer|basic)[:= ]+[A-Za-z0-9._~+/=-]{16,}"
+      - name: assignment_of_secret
+        regex: "(?i)\\b(pass(word|wd)?|secret|api[_-]?key|access[_-]?key|private[_-]?key)\\s*[:=]\\s*\\S{6,}"
+      - name: single_dense_string
+        description: One line, no spaces, 12 to 64 characters, with a lower-case letter, an upper-case letter, a digit and a symbol, and not a URL.
+        regex: "^(?!https?://)(?=\\S*[a-z])(?=\\S*[A-Z])(?=\\S*\\d)(?=\\S*[^A-Za-z0-9])\\S{12,64}$"
+  save_messages:
+    description: The one sentence a saving client shows. The core returns the key and the text.
+    saved: { zh: "已存入。", en: "Saved." }
+    duplicate: { zh: "之前存过了，没有重复存。", en: "Already saved. Nothing was added." }
+    saved_image_skipped_quota: { zh: "已存入。图片没存入：超出存储配额。", en: "Saved. The image was not stored: storage quota exceeded." }
+    queued_offline: { zh: "还没存入，排着队，联网后自动存入。", en: "Not saved yet. Queued, and it will be saved when you are back online." }
+    failed: { zh: "没存入：{reason}", en: "Not saved: {reason}" }
+    secret_like_question: { zh: "这段内容看起来像密码或凭据，还要存入吗？", en: "This looks like a password or a credential. Save it anyway?" }
+  verdicts:
+    worth_deep_dive: { zh: "值得深挖", en: "Worth a deep dive" }
+    good_to_know: { zh: "知道就行", en: "Good to know" }
+    skippable: { zh: "可以略过", en: "Skippable" }
+  content_unavailable: { zh: "没取到内容", en: "Content could not be fetched" }
+  notifications:
+    one_analysis: { zh: "「{title}」的解读好了，可以看判定。", en: "The analysis of “{title}” is ready. You can see the verdict." }
+    one_deep_read: { zh: "「{title}」的精读好了，可以去深挖队列看精读。", en: "The deep read of “{title}” is ready. See it in the deep-dive queue." }
+    many_analysis: { zh: "{n} 条的解读好了，可以去看。", en: "{n} analyses are ready." }
+    many_deep_read: { zh: "{n} 条的精读好了，可以去看。", en: "{n} deep reads are ready." }
+    many_mixed: { zh: "{n} 条处理好了，可以去看。", en: "{n} items are ready." }
+  opening_line:
+    description: What a user sends to a chat assistant to start a deep dive. It carries no content; the assistant fetches it.
+    zh: "深挖这一条：{first_line}"
+    en: "Deep dive into this item: {first_line}"
+
+tags:
+  - name: meta
+  - name: sign-in
+  - name: devices
+  - name: save
+  - name: read
+  - name: settings
+  - name: assistant
+  - name: authorization
+  - name: calendar-image
+
+security:
+  - deviceCredential: []
+
+paths:
+  /v1/meta:
+    get:
+      tags: [meta]
+      operationId: getMeta
+      summary: Contract version, limits and the shared rules.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Meta" }
+
+  /v1/auth/email-codes:
+    post:
+      tags: [sign-in]
+      operationId: requestLoginCode
+      summary: Send a sign-in code to an invited email address.
+      description: Always answers 202, so the response does not reveal whether an address is invited. Rate limited.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                lang: { $ref: "#/components/schemas/Lang" }
+      responses:
+        "202": { description: Accepted }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+
+  /v1/auth/sessions:
+    post:
+      tags: [sign-in]
+      operationId: signIn
+      summary: Exchange an email and its code for a device with the manage tier.
+      description: The credential is returned once and never again.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, device_name, client]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, minLength: 6, maxLength: 6 }
+                device_name: { type: string, minLength: 1, maxLength: 60 }
+                client: { $ref: "#/components/schemas/ClientKind" }
+                timezone: { type: string, description: "IANA time zone, used when the user is created." }
+      responses:
+        "201":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceGrant" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+
+  /v1/device-codes:
+    post:
+      tags: [devices]
+      operationId: createDeviceCode
+      summary: A client asks to be connected and gets a short code to show.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_name, client, requested_tier]
+              properties:
+                device_name: { type: string, minLength: 1, maxLength: 60 }
+                client: { $ref: "#/components/schemas/ClientKind" }
+                requested_tier: { $ref: "#/components/schemas/Tier" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, poll_secret, expires_at, approve_url]
+                properties:
+                  code: { type: string, description: "Short code to show, for example `K7M-2QX`." }
+                  poll_secret: { type: string, description: Sent as the bearer value when polling. Never shown. }
+                  expires_at: { type: string, format: date-time }
+                  approve_url: { type: string, format: uri, description: Page where a manage device approves. Not a credential. }
+        "429": { $ref: "#/components/responses/Error" }
+
+  /v1/device-codes/{code}:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [devices]
+      operationId: pollDeviceCode
+      summary: The waiting client asks whether it was approved.
+      description: Authenticated with the `poll_secret`. The credential is returned once, on the first poll after approval.
+      security:
+        - pollSecret: []
+      responses:
+        "200":
+          description: Current state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [pending, approved, denied] }
+                  grant: { $ref: "#/components/schemas/DeviceGrant" }
+        "401": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+
+  /v1/device-codes/{code}/request:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [devices]
+      operationId: getDeviceCodeRequest
+      summary: Who is asking to connect with this code.
+      x-tier: manage
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [device_name, client, requested_tier, expires_at]
+                properties:
+                  device_name: { type: string }
+                  client: { $ref: "#/components/schemas/ClientKind" }
+                  requested_tier: { $ref: "#/components/schemas/Tier" }
+                  expires_at: { type: string, format: date-time }
+        "404": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+
+  /v1/device-codes/{code}/approve:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [devices]
+      operationId: approveDeviceCode
+      summary: Allow the client. The tier may be lowered, never raised above what was requested.
+      x-tier: manage
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tier: { $ref: "#/components/schemas/Tier" }
+                device_name: { type: string, maxLength: 60 }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        "400": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+
+  /v1/device-codes/{code}/deny:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [devices]
+      operationId: denyDeviceCode
+      summary: Refuse the client.
+      x-tier: manage
+      responses:
+        "204": { description: Denied }
+        "410": { $ref: "#/components/responses/Error" }
+
+  /v1/devices:
+    get:
+      tags: [devices]
+      operationId: listDevices
+      summary: Every connected client and assistant.
+      x-tier: manage
+      responses:
+        "200":
+          description: Devices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [devices]
+                properties:
+                  devices: { type: array, items: { $ref: "#/components/schemas/Device" } }
+
+  /v1/devices/me:
+    get:
+      tags: [devices]
+      operationId: getThisDevice
+      summary: The calling device, its tier and the user.
+      x-tier: save
+      responses:
+        "200":
+          description: This device
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [device, user]
+                properties:
+                  device: { $ref: "#/components/schemas/Device" }
+                  user: { $ref: "#/components/schemas/User" }
+    delete:
+      tags: [devices]
+      operationId: signOutThisDevice
+      summary: Revoke the calling device (sign out).
+      x-tier: save
+      responses:
+        "204": { description: Revoked }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/devices/me/push:
+    put:
+      tags: [devices]
+      operationId: registerPush
+      summary: Register where this device receives notifications.
+      x-tier: read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTarget" }
+      responses:
+        "204": { description: Registered }
+    delete:
+      tags: [devices]
+      operationId: unregisterPush
+      summary: Stop notifications on this device.
+      x-tier: read
+      responses:
+        "204": { description: Removed }
+
+  /v1/devices/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    patch:
+      tags: [devices]
+      operationId: updateDevice
+      summary: Rename a device or change its tier.
+      x-tier: manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60 }
+                tier: { $ref: "#/components/schemas/Tier" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Device" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [devices]
+      operationId: revokeDevice
+      summary: Revoke a device. Takes effect immediately; an assistant's claims are released.
+      x-tier: manage
+      responses:
+        "204": { description: Revoked }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/push/key:
+    get:
+      tags: [devices]
+      operationId: getPushKey
+      summary: Public key a browser needs to subscribe to notifications.
+      x-tier: read
+      responses:
+        "200":
+          description: Key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [public_key]
+                properties:
+                  public_key: { type: string }
+
+  /v1/items:
+    post:
+      tags: [save]
+      operationId: saveItem
+      summary: Save one thing.
+      description: |
+        The request carries no tags and no triage information. A link saved again while the first
+        item still exists is swallowed: the answer says `duplicate` and nothing is added.
+      x-tier: save
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveRequest" }
+      responses:
+        "200":
+          description: Swallowed as a duplicate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaveResult" }
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SaveResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [read]
+      operationId: listItems
+      summary: Items in one of three views.
+      x-tier: read
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema: { type: string, enum: [today, digested, pinned] }
+          description: "`today`: saved and not yet in a daily digest. `digested`: already in one. `pinned`: kept without expiry."
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Item" } }
+                  next_cursor: { type: [string, "null"] }
+
+  /v1/items/search:
+    get:
+      tags: [read]
+      operationId: searchItems
+      summary: Keyword lookup over items that still exist. Archived items never match.
+      description: Reading clients do not show this to users; the user-facing quick find is `GET /v1/notes?q=`.
+      x-tier: read
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Matches
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Item" } }
+
+  /v1/items/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [read]
+      operationId: getItem
+      summary: One item with its body, analysis and tags.
+      x-tier: read
+      responses:
+        "200":
+          description: Item
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [settings]
+      operationId: updateItem
+      summary: Change who analyses the item and how long it is kept. Nothing else can be changed.
+      x-tier: manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiry_days: { type: integer, minimum: 1, maximum: 365 }
+                dispatch_to: { type: string, description: Id of an assistant in the user's list. }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemDetail" }
+    delete:
+      tags: [settings]
+      operationId: deleteItem
+      summary: Delete an item. It disappears at once and cannot be restored.
+      x-tier: manage
+      responses:
+        "204": { description: Deleted }
+
+  /v1/items/{id}/pin:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [read]
+      operationId: pinItem
+      summary: Keep the item without expiry.
+      x-tier: read
+      responses:
+        "204": { description: Pinned }
+    delete:
+      tags: [read]
+      operationId: unpinItem
+      summary: Give the item an expiry again.
+      x-tier: read
+      responses:
+        "204": { description: Unpinned }
+
+  /v1/items/{id}/signal:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [read]
+      operationId: setSignal
+      summary: Mark an analysis as not interested or seen.
+      x-tier: read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signal]
+              properties:
+                signal: { type: string, enum: [not_interested, seen] }
+      responses:
+        "204": { description: Marked }
+    delete:
+      tags: [read]
+      operationId: clearSignal
+      summary: Undo not interested or seen.
+      x-tier: read
+      responses:
+        "204": { description: Cleared }
+
+  /v1/digests:
+    get:
+      tags: [read]
+      operationId: listDigests
+      summary: Daily digests, newest first, without their content.
+      x-tier: read
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Digests
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [digests]
+                properties:
+                  digests:
+                    type: array
+                    items:
+                      type: object
+                      required: [day, read]
+                      properties:
+                        day: { $ref: "#/components/schemas/Day" }
+                        read: { type: boolean }
+                  next_cursor: { type: [string, "null"] }
+
+  /v1/digests/{day}:
+    parameters:
+      - { name: day, in: path, required: true, schema: { $ref: "#/components/schemas/Day" }, description: "A day, or `latest`." }
+    get:
+      tags: [read]
+      operationId: getDigest
+      summary: One daily digest in its four fixed parts.
+      x-tier: read
+      responses:
+        "200":
+          description: Digest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Digest" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/digests/{day}/read:
+    parameters:
+      - { name: day, in: path, required: true, schema: { $ref: "#/components/schemas/Day" } }
+    post:
+      tags: [read]
+      operationId: markDigestRead
+      summary: Mark the digest as read. Nothing else happens.
+      x-tier: read
+      responses:
+        "204": { description: Marked }
+
+  /v1/deep-read-queue:
+    get:
+      tags: [read]
+      operationId: listQueue
+      summary: Items the user plans to dig into, with what the core can see about each.
+      x-tier: read
+      responses:
+        "200":
+          description: Queue
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries: { type: array, items: { $ref: "#/components/schemas/QueueEntry" } }
+
+  /v1/deep-read-queue/{item_id}:
+    parameters:
+      - { name: item_id, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [read]
+      operationId: addToQueue
+      summary: Add an item to the queue. The deep-read assistant reads it on its next visit.
+      x-tier: read
+      responses:
+        "200":
+          description: In the queue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QueueEntry" }
+    delete:
+      tags: [read]
+      operationId: removeFromQueue
+      summary: Take an item out of the queue.
+      x-tier: read
+      responses:
+        "204": { description: Removed }
+
+  /v1/deep-dive-requests:
+    post:
+      tags: [read]
+      operationId: startDeepDive
+      summary: The user goes to an assistant to dig into one item. Returns how to get there.
+      x-tier: read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_id]
+              properties:
+                item_id: { type: string }
+                assistant_id: { type: string, description: Defaults to the default deep-dive assistant. }
+      responses:
+        "201":
+          description: How to start
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeepDiveEntry" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/notes:
+    get:
+      tags: [read]
+      operationId: listNotes
+      summary: Notes, newest first. With `q`, only notes whose title or body contain the words.
+      x-tier: read
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Notes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notes]
+                properties:
+                  notes: { type: array, items: { $ref: "#/components/schemas/NoteSummary" } }
+                  next_cursor: { type: [string, "null"] }
+    post:
+      tags: [read]
+      operationId: pasteNote
+      summary: The user pastes back what came out of a deep dive, as a note.
+      x-tier: read
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, body]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                body: { type: string, minLength: 1, maxLength: 200000 }
+                item_id: { type: string, description: The queue entry this came from. }
+                assistant_id: { type: string, description: The assistant the user talked to. }
+                asset_ids: { type: array, maxItems: 10, items: { type: string } }
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+
+  /v1/notes/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [read]
+      operationId: getNote
+      summary: One note.
+      x-tier: read
+      responses:
+        "200":
+          description: Note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+            text/markdown:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/assets:
+    post:
+      tags: [save]
+      operationId: requestUpload
+      summary: Ask to upload a file. If the same bytes are already stored, nothing is uploaded.
+      x-tier: save
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sha256, bytes, content_type]
+              properties:
+                sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+                bytes: { type: integer, minimum: 1, maximum: 3145728 }
+                content_type: { $ref: "#/components/schemas/AssetType" }
+      responses:
+        "200":
+          description: Already stored, or where to upload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [asset_id, status]
+                properties:
+                  asset_id: { type: string }
+                  status: { type: string, enum: [stored, upload, over_quota] }
+                  upload_url: { type: string, format: uri, description: "PUT the bytes here within 10 minutes, with the same length and type." }
+                  expires_at: { type: string, format: date-time }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+
+  /v1/assets/{id}/complete:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [save]
+      operationId: completeUpload
+      summary: The upload is done. The core checks the size, the hash and the file header.
+      x-tier: save
+      responses:
+        "204": { description: Stored }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+
+  /v1/assets/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [read]
+      operationId: getAsset
+      summary: A download address for a stored file, valid for 5 minutes.
+      x-tier: read
+      responses:
+        "200":
+          description: Where to download
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [download_url, expires_at, content_type, bytes]
+                properties:
+                  download_url: { type: string, format: uri }
+                  expires_at: { type: string, format: date-time }
+                  content_type: { type: string }
+                  bytes: { type: integer }
+
+  /v1/status:
+    get:
+      tags: [read]
+      operationId: getStatus
+      summary: What the status bar shows.
+      x-tier: read
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+
+  /v1/calendar:
+    get:
+      tags: [read]
+      operationId: getCalendar
+      summary: One month, one mark per day, and the month's counts.
+      x-tier: read
+      parameters:
+        - { name: month, in: query, schema: { type: string, pattern: "^\\d{4}-\\d{2}$" }, description: Defaults to the current month in the user's time zone. }
+      responses:
+        "200":
+          description: Calendar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+
+  /v1/stats:
+    get:
+      tags: [read]
+      operationId: getStats
+      summary: Counts by day and by source. Only numbers.
+      x-tier: read
+      parameters:
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 366, default: 30 } }
+      responses:
+        "200":
+          description: Counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [days]
+                properties:
+                  days:
+                    type: array
+                    items:
+                      type: object
+                      required: [day, saved, analysed, digests, notes]
+                      properties:
+                        day: { $ref: "#/components/schemas/Day" }
+                        saved: { type: integer }
+                        analysed: { type: integer }
+                        digests: { type: integer }
+                        notes: { type: integer }
+                        by_source: { type: object, additionalProperties: { type: integer } }
+
+  /v1/usage:
+    get:
+      tags: [settings]
+      operationId: getUsage
+      summary: What each assistant reported using.
+      x-tier: manage
+      parameters:
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 366, default: 30 } }
+      responses:
+        "200":
+          description: Usage
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assistants]
+                properties:
+                  assistants:
+                    type: array
+                    items:
+                      type: object
+                      required: [assistant_id, name, calls, input_tokens, output_tokens, items, self_reported]
+                      properties:
+                        assistant_id: { type: string }
+                        name: { type: string }
+                        calls: { type: integer }
+                        input_tokens: { type: integer }
+                        output_tokens: { type: integer }
+                        items: { type: integer }
+                        self_reported: { type: boolean }
+
+  /v1/settings:
+    get:
+      tags: [settings]
+      operationId: getSettings
+      summary: Rules, who does which step, expiry options, notifications and the calendar image.
+      x-tier: read
+      description: A device with the read tier gets the settings without the calendar image address.
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+    patch:
+      tags: [settings]
+      operationId: updateSettings
+      summary: Change settings.
+      x-tier: manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsChange" }
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /v1/settings/calendar-image/rotate:
+    post:
+      tags: [settings]
+      operationId: rotateCalendarImage
+      summary: Replace the calendar image address. The old one stops working at once.
+      x-tier: manage
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+
+  /v1/assistants:
+    get:
+      tags: [settings]
+      operationId: listAssistants
+      summary: The user's assistants, including the built-in one, with when each last came.
+      x-tier: read
+      responses:
+        "200":
+          description: Assistants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assistants, connect_url]
+                properties:
+                  assistants: { type: array, items: { $ref: "#/components/schemas/Assistant" } }
+                  connect_url: { type: string, format: uri, description: The address to enter in an assistant. The same for everyone; not a credential. }
+
+  /v1/assistants/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    patch:
+      tags: [settings]
+      operationId: updateAssistant
+      summary: Rename an assistant or change which steps it may do.
+      x-tier: manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 40 }
+                steps: { type: array, items: { $ref: "#/components/schemas/Step" } }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Assistant" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [settings]
+      operationId: revokeAssistant
+      summary: Disconnect an assistant. Its claims are released at once.
+      x-tier: manage
+      responses:
+        "204": { description: Revoked }
+
+  /v1/oauth/requests/{request_id}:
+    parameters:
+      - { name: request_id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [authorization]
+      operationId: getAuthorizationRequest
+      summary: What the allow page shows about the assistant asking to connect.
+      x-tier: manage
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [client_name, redirect_host, steps_requested]
+                properties:
+                  client_name: { type: string }
+                  client_uri: { type: [string, "null"] }
+                  redirect_host: { type: string, description: Where the content will be sent. }
+                  steps_requested: { type: array, items: { $ref: "#/components/schemas/Step" } }
+        "410": { $ref: "#/components/responses/Error" }
+
+  /v1/oauth/requests/{request_id}/decision:
+    parameters:
+      - { name: request_id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [authorization]
+      operationId: decideAuthorizationRequest
+      summary: The user allows or refuses the assistant on the allow page.
+      x-tier: manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [allow]
+              properties:
+                allow: { type: boolean }
+                name: { type: string, minLength: 1, maxLength: 40, description: Required when allowing. Unique for the user. }
+                kind: { $ref: "#/components/schemas/AssistantKind" }
+                steps: { type: array, items: { $ref: "#/components/schemas/Step" } }
+      responses:
+        "200":
+          description: Where to send the browser next
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [redirect_to]
+                properties:
+                  redirect_to: { type: string, format: uri }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+
+  # ---------------------------------------------------------------- assistants
+  /v1/assistant/work:
+    get:
+      tags: [assistant]
+      operationId: getWork
+      summary: Is there work for this assistant. A plain request; no model and no tool call needed.
+      security:
+        - assistantCredential: []
+      responses:
+        "200":
+          description: Work waiting, by kind
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [work]
+                properties:
+                  work:
+                    type: array
+                    items:
+                      type: object
+                      required: [kind, count]
+                      properties:
+                        kind: { $ref: "#/components/schemas/WorkKind" }
+                        count: { type: integer }
+                        oldest_due_at: { type: [string, "null"], format: date-time }
+
+  /v1/assistant/claims:
+    post:
+      tags: [assistant]
+      operationId: claimWork
+      x-mcp-tool: claim_work
+      summary: Claim up to 10 pieces of work of one kind. A claim lasts 30 minutes.
+      security:
+        - assistantCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind: { $ref: "#/components/schemas/WorkKind" }
+                limit: { type: integer, minimum: 1, maximum: 10, default: 10 }
+      responses:
+        "200":
+          description: The claim. `work` is empty when there is nothing to do.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Claim" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /v1/assistant/claims/{id}/renew:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [assistant]
+      operationId: renewClaim
+      x-mcp-tool: renew_claim
+      summary: Extend a claim by another 30 minutes. Only its holder may.
+      security:
+        - assistantCredential: []
+      responses:
+        "200":
+          description: The claim
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Claim" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/assistant/claims/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    delete:
+      tags: [assistant]
+      operationId: releaseClaim
+      x-mcp-tool: release_claim
+      summary: Put the work back.
+      security:
+        - assistantCredential: []
+      responses:
+        "204": { description: Released }
+
+  /v1/assistant/claims/{id}/submit:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [assistant]
+      operationId: submitResult
+      x-mcp-tool: submit_result
+      summary: Hand back results for a claim, with usage.
+      description: |
+        Submitting the same result twice returns the first outcome. A submission after the claim
+        expired is still accepted unless another claim already submitted that piece.
+      security:
+        - assistantCredential: []
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items: { $ref: "#/components/schemas/Result" }
+                usage: { $ref: "#/components/schemas/Usage" }
+      responses:
+        "200":
+          description: Outcome per result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [outcomes]
+                properties:
+                  outcomes:
+                    type: array
+                    items:
+                      type: object
+                      required: [ref, accepted]
+                      properties:
+                        ref: { type: string, description: "The item id, or the day for a digest." }
+                        accepted: { type: boolean }
+                        reason: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /v1/assistant/rules:
+    get:
+      tags: [assistant]
+      operationId: getRules
+      x-mcp-tool: get_rules
+      x-mcp-readonly: true
+      summary: The user's rules and the settings that matter for one kind of work.
+      security:
+        - assistantCredential: []
+      parameters:
+        - { name: kind, in: query, required: true, schema: { $ref: "#/components/schemas/WorkKind" } }
+      responses:
+        "200":
+          description: Rules
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rules" }
+
+  /v1/assistant/items/{id}/context:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [assistant]
+      operationId: getContext
+      x-mcp-tool: get_context
+      x-mcp-readonly: true
+      summary: What an assistant needs to work on one item.
+      security:
+        - assistantCredential: []
+      parameters:
+        - name: for
+          in: query
+          required: true
+          schema: { type: string, enum: [triage, analysis, deep_read, deep_dive] }
+      responses:
+        "200":
+          description: Context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemContext" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/assistant/digests/{day}/context:
+    parameters:
+      - { name: day, in: path, required: true, schema: { $ref: "#/components/schemas/Day" } }
+    get:
+      tags: [assistant]
+      operationId: getDigestContext
+      x-mcp-tool: get_digest_context
+      x-mcp-readonly: true
+      summary: The analyses to summarise for a day, including earlier days that were missed.
+      security:
+        - assistantCredential: []
+      responses:
+        "200":
+          description: Context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DigestContext" }
+
+  /v1/assistant/search:
+    get:
+      tags: [assistant]
+      operationId: searchDigestsAndNotes
+      x-mcp-tool: search_digests_and_notes
+      x-mcp-readonly: true
+      summary: Find text in the user's daily digests and notes, as context for work.
+      security:
+        - assistantCredential: []
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Matches
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [matches]
+                properties:
+                  matches:
+                    type: array
+                    items:
+                      type: object
+                      required: [kind, ref, title, excerpt]
+                      properties:
+                        kind: { type: string, enum: [digest, note] }
+                        ref: { type: string }
+                        title: { type: string }
+                        excerpt: { type: string }
+
+  /v1/assistant/deep-dive-candidates:
+    get:
+      tags: [assistant]
+      operationId: listDeepDiveCandidates
+      x-mcp-tool: list_deep_dive_candidates
+      x-mcp-readonly: true
+      summary: What the user could dig into now. Optionally narrowed by words.
+      security:
+        - assistantCredential: []
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+      responses:
+        "200":
+          description: Candidates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [candidates]
+                properties:
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      required: [item_id, title, from]
+                      properties:
+                        item_id: { type: string }
+                        title: { type: string }
+                        summary: { type: string }
+                        from: { type: string, enum: [queue, digest, today] }
+                        deep_read_ready: { type: boolean }
+
+  /v1/assistant/deep-dive-requests:
+    post:
+      tags: [assistant]
+      operationId: registerDeepDive
+      x-mcp-tool: register_deep_dive
+      summary: Record that a deep dive on one item started in this assistant, only when the user asked for it.
+      security:
+        - assistantCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_id]
+              properties:
+                item_id: { type: string }
+      responses:
+        "200":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item_id]
+                properties:
+                  item_id: { type: string }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/assistant/notes:
+    post:
+      tags: [assistant]
+      operationId: saveNote
+      x-mcp-tool: save_note
+      summary: Save what came out of a deep dive as a note, only after the user said so.
+      security:
+        - assistantCredential: []
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, body]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                body: { type: string, minLength: 1, maxLength: 200000, description: Markdown. Complete conclusions; sources as original address and title. }
+                item_id: { type: string }
+                sources:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [title]
+                    properties:
+                      title: { type: string }
+                      url: { type: string, format: uri }
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  # ---------------------------------------------------------------- authorization server
+  /.well-known/oauth-authorization-server:
+    get:
+      tags: [authorization]
+      operationId: getAuthorizationServerMetadata
+      summary: Authorization server metadata (RFC 8414).
+      security: []
+      responses:
+        "200": { description: Metadata, content: { application/json: { schema: { type: object } } } }
+
+  /.well-known/oauth-protected-resource:
+    get:
+      tags: [authorization]
+      operationId: getProtectedResourceMetadata
+      summary: Protected resource metadata (RFC 9728) for the assistant endpoint.
+      security: []
+      responses:
+        "200": { description: Metadata, content: { application/json: { schema: { type: object } } } }
+
+  /oauth/register:
+    post:
+      tags: [authorization]
+      operationId: registerClient
+      summary: Dynamic client registration (RFC 7591). Public clients only.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [redirect_uris]
+              properties:
+                client_name: { type: string, maxLength: 80 }
+                client_uri: { type: string, format: uri }
+                redirect_uris: { type: array, minItems: 1, maxItems: 5, items: { type: string, format: uri } }
+      responses:
+        "201": { description: Registered, content: { application/json: { schema: { type: object } } } }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /oauth/authorize:
+    get:
+      tags: [authorization]
+      operationId: authorize
+      summary: Start of the authorization-code flow with PKCE (S256). Redirects the browser to the allow page.
+      security: []
+      parameters:
+        - { name: response_type, in: query, required: true, schema: { type: string, enum: [code] } }
+        - { name: client_id, in: query, required: true, schema: { type: string }, description: "A registered id, or an https URL of a client metadata document." }
+        - { name: redirect_uri, in: query, required: true, schema: { type: string } }
+        - { name: code_challenge, in: query, required: true, schema: { type: string } }
+        - { name: code_challenge_method, in: query, required: true, schema: { type: string, enum: [S256] } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: scope, in: query, schema: { type: string }, description: Space-separated steps. }
+        - { name: resource, in: query, schema: { type: string } }
+      responses:
+        "302": { description: To the allow page }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /oauth/token:
+    post:
+      tags: [authorization]
+      operationId: token
+      summary: Exchange a code, or rotate a refresh credential. Access lasts one hour.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type: { type: string, enum: [authorization_code, refresh_token] }
+                code: { type: string }
+                code_verifier: { type: string }
+                redirect_uri: { type: string }
+                client_id: { type: string }
+                refresh_token: { type: string }
+      responses:
+        "200": { description: Credentials, content: { application/json: { schema: { type: object } } } }
+        "400": { description: OAuth error, content: { application/json: { schema: { type: object } } } }
+
+  /oauth/revoke:
+    post:
+      tags: [authorization]
+      operationId: revoke
+      summary: Revoke a refresh credential (RFC 7009).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200": { description: Done }
+
+  /mcp:
+    post:
+      tags: [assistant]
+      operationId: assistantEndpoint
+      summary: The assistant endpoint (Streamable HTTP, JSON-RPC 2.0). Offers every `x-mcp-tool` operation as a tool.
+      security:
+        - assistantCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: JSON-RPC response, content: { application/json: { schema: { type: object } } } }
+        "202": { description: Notification accepted }
+        "401": { description: No credential. The `WWW-Authenticate` header points at the protected resource metadata. }
+
+  /c/{secret}.svg:
+    parameters:
+      - { name: secret, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [calendar-image]
+      operationId: getCalendarImage
+      summary: The user's calendar as an image. Dots and numbers only; no content and no identity.
+      security: []
+      parameters:
+        - { name: theme, in: query, schema: { type: string, enum: [light, dark, clear], default: light } }
+        - { name: range, in: query, schema: { type: string, enum: [month, year], default: month } }
+        - { name: counts, in: query, schema: { type: string, enum: ["0", "1"], default: "1" } }
+      responses:
+        "200": { description: Image, content: { image/svg+xml: { schema: { type: string } } } }
+        "404": { description: Unknown or turned off }
+
+components:
+  securitySchemes:
+    deviceCredential:
+      type: http
+      scheme: bearer
+      description: A client device's credential, obtained by signing in or by an approved short code.
+    pollSecret:
+      type: http
+      scheme: bearer
+      description: The `poll_secret` returned when the short code was created.
+    assistantCredential:
+      type: oauth2
+      description: An assistant's access credential from the authorization server.
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth/authorize
+          tokenUrl: /oauth/token
+          refreshUrl: /oauth/token
+          scopes:
+            triage: Decide who analyses an item and how long it is kept.
+            analysis: Analyse items.
+            digest: Write daily digests.
+            deep_read: Read queued items in depth.
+            deep_dive: Dig into an item with the user and save notes.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+
+  schemas:
+    Lang: { type: string, enum: [zh, en] }
+    Day: { type: string, description: "A calendar day in the user's time zone, `YYYY-MM-DD`.", pattern: "^(\\d{4}-\\d{2}-\\d{2}|latest)$" }
+    Tier: { type: string, enum: [save, read, manage] }
+    Step: { type: string, enum: [triage, analysis, digest, deep_read, deep_dive] }
+    WorkKind: { type: string, enum: [triage, analysis, digest, deep_read] }
+    AssistantKind: { type: string, enum: [scheduled, chat], description: "`scheduled` runs on its own timetable; `chat` works only while the user talks to it and can only deep dive." }
+    ClientKind: { type: string, enum: [web, phone, extension, shortcut, share, menubar, eink] }
+    ItemKind: { type: string, enum: [link, text, image, file] }
+    Verdict: { type: string, enum: [worth_deep_dive, good_to_know, skippable] }
+    AssetType: { type: string, enum: [image/webp, image/png, image/jpeg, image/gif, application/pdf, text/plain, text/markdown] }
+
+    Meta:
+      type: object
+      required: [contract_version, limits, shared_rules]
+      properties:
+        contract_version: { type: string }
+        limits: { type: object, additionalProperties: true }
+        shared_rules: { type: object, additionalProperties: true }
+
+    User:
+      type: object
+      required: [id, timezone]
+      properties:
+        id: { type: string }
+        timezone: { type: string }
+        lang: { $ref: "#/components/schemas/Lang" }
+
+    Device:
+      type: object
+      required: [id, name, category, created_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string, enum: [client, assistant] }
+        client: { $ref: "#/components/schemas/ClientKind" }
+        tier: { $ref: "#/components/schemas/Tier" }
+        steps: { type: array, items: { $ref: "#/components/schemas/Step" } }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+        notifications: { type: boolean, description: Whether this device registered for notifications. }
+        this_device: { type: boolean }
+
+    DeviceGrant:
+      type: object
+      required: [credential, device, user]
+      properties:
+        credential: { type: string, description: Shown to no one. Stored by the client and sent as the bearer value. }
+        device: { $ref: "#/components/schemas/Device" }
+        user: { $ref: "#/components/schemas/User" }
+
+    PushTarget:
+      type: object
+      required: [kind, endpoint, keys]
+      properties:
+        kind: { type: string, enum: [webpush] }
+        endpoint: { type: string, format: uri }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }
+
+    SaveRequest:
+      type: object
+      required: [kind]
+      additionalProperties: false
+      properties:
+        kind: { $ref: "#/components/schemas/ItemKind" }
+        url: { type: string, format: uri, maxLength: 2000, description: Required for `link`. Optional origin for the others. }
+        title: { type: string, maxLength: 300 }
+        text: { type: string, maxLength: 200000, description: "Required for `text`. For `link`, text the client already has (a selection, or the page body)." }
+        asset_id: { type: string, description: Required for `image` and `file`. }
+        entry: { type: string, maxLength: 40, description: "Which entry point was used, for counts only. Example: `toolbar`, `context-menu`, `share`." }
+
+    SaveResult:
+      type: object
+      required: [status, message_key, message]
+      properties:
+        status: { type: string, enum: [saved, duplicate] }
+        item_id: { type: string }
+        message_key: { type: string, description: A key of `x-shared-rules.save_messages`. }
+        message: { type: string }
+        image_stored: { type: boolean }
+
+    Analysis:
+      type: object
+      required: [unavailable, assistant]
+      properties:
+        unavailable: { type: boolean, description: True when the content could not be fetched. Then only `summary` is present. }
+        summary: { type: string }
+        key_fact: { type: string }
+        points: { type: array, maxItems: 3, items: { type: string } }
+        verdict: { $ref: "#/components/schemas/Verdict" }
+        related_hint: { type: [string, "null"] }
+        assistant: { $ref: "#/components/schemas/Signature" }
+        created_at: { type: string, format: date-time }
+
+    Signature:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        submitted_by_user: { type: boolean }
+
+    Item:
+      type: object
+      required: [id, kind, title, created_at, stage]
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/ItemKind" }
+        title: { type: string }
+        site: { type: [string, "null"], description: Name of the source site. Never the raw address. }
+        url: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        stage: { type: string, enum: [saved, triaged, analysed], description: How far the item got. }
+        content_unavailable: { type: boolean }
+        dispatch_to: { type: [object, "null"], properties: { id: { type: string }, name: { type: string } } }
+        days_left: { type: [integer, "null"], description: Null when pinned. }
+        pinned: { type: boolean }
+        signal: { type: [string, "null"], enum: [not_interested, seen, null] }
+        in_queue: { type: boolean }
+        analysis: { oneOf: [{ $ref: "#/components/schemas/Analysis" }, { type: "null" }] }
+
+    ItemDetail:
+      allOf:
+        - $ref: "#/components/schemas/Item"
+        - type: object
+          properties:
+            body: { type: [string, "null"] }
+            asset_id: { type: [string, "null"] }
+            tags: { type: array, items: { type: string, description: "`kind:value`" } }
+            expiry_days: { type: [integer, "null"] }
+
+    Digest:
+      type: object
+      required: [day, read, summary, worth, rest, question, assistant]
+      properties:
+        day: { $ref: "#/components/schemas/Day" }
+        read: { type: boolean }
+        counts:
+          type: object
+          properties:
+            saved: { type: integer }
+            worth: { type: integer }
+        summary: { type: string }
+        worth:
+          type: array
+          description: Items judged worth a deep dive that the user has not dealt with.
+          items:
+            type: object
+            required: [item_id, line]
+            properties:
+              item_id: { type: string }
+              title: { type: string }
+              line: { type: string }
+              verdict: { $ref: "#/components/schemas/Verdict" }
+              available: { type: boolean, description: False once the item was deleted; the line stays. }
+              in_queue: { type: boolean }
+        rest:
+          type: array
+          items:
+            type: object
+            required: [item_id, title]
+            properties:
+              item_id: { type: string }
+              title: { type: string }
+              signal: { type: [string, "null"] }
+              in_queue: { type: boolean }
+              available: { type: boolean }
+              can_restore: { type: boolean }
+        question: { type: string }
+        assistant: { $ref: "#/components/schemas/Signature" }
+        previous_day: { type: [string, "null"] }
+        next_day: { type: [string, "null"] }
+
+    QueueEntry:
+      type: object
+      required: [item_id, title, added_at, deep_read]
+      properties:
+        item_id: { type: string }
+        title: { type: string }
+        added_at: { type: string, format: date-time }
+        deep_read: { type: string, enum: [waiting, reading, ready, none], description: "`none` when no deep-read assistant is set." }
+        report: { oneOf: [{ $ref: "#/components/schemas/DeepReadReport" }, { type: "null" }] }
+        went_at: { type: [string, "null"], format: date-time, description: When the user last pressed start. It only says they went. }
+        fetched_at: { type: [string, "null"], format: date-time, description: When an assistant last fetched the context. }
+        entry: { type: [string, "null"], description: Text the deep-read assistant attached for starting a deep dive with it; usually a link. }
+
+    DeepReadReport:
+      type: object
+      required: [read, found, questions]
+      properties:
+        read: { type: string, maxLength: 20000, description: "What the item says, read in full." }
+        found: { type: string, maxLength: 20000, description: What else was looked up. }
+        questions: { type: array, maxItems: 8, items: { type: string } }
+        assistant: { $ref: "#/components/schemas/Signature" }
+
+    DeepDiveEntry:
+      type: object
+      required: [assistant, opening_line]
+      properties:
+        assistant: { $ref: "#/components/schemas/Signature" }
+        opening_line: { type: string }
+        open_url: { type: [string, "null"], description: "Opens a new conversation with the opening line filled in, when the product supports it." }
+        entry: { type: [string, "null"] }
+
+    NoteSummary:
+      type: object
+      required: [id, title, created_at]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        created_at: { type: string, format: date-time }
+
+    Note:
+      type: object
+      required: [id, title, body, created_at, assistant]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+        assistant: { $ref: "#/components/schemas/Signature" }
+        origin:
+          type: [object, "null"]
+          properties:
+            item_id: { type: [string, "null"] }
+            item_title: { type: string }
+            item_url: { type: [string, "null"] }
+            digest_day: { type: [string, "null"] }
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              title: { type: string }
+              url: { type: [string, "null"] }
+        asset_ids: { type: array, items: { type: string } }
+
+    Status:
+      type: object
+      required: [assistants, saved_today, waiting]
+      properties:
+        assistants:
+          type: array
+          items:
+            type: object
+            required: [id, name, state]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              state: { type: string, enum: [working, recent, quiet, never], description: "`working`: holds a claim now. `recent`: came within a day. `quiet`: has not come for more than a day." }
+              last_seen_at: { type: [string, "null"], format: date-time }
+        saved_today: { type: integer }
+        waiting: { type: integer, description: Items not analysed yet. }
+        oldest_waiting_deleted_on: { type: [string, "null"], description: The day the oldest waiting item will be deleted. }
+        no_digest_reason: { type: [string, "null"], enum: [not_yet_time, nothing_analysed, no_assistant, waiting_for_assistant, null] }
+
+    Calendar:
+      type: object
+      required: [month, days, counts]
+      properties:
+        month: { type: string }
+        today: { $ref: "#/components/schemas/Day" }
+        days:
+          type: array
+          items:
+            type: object
+            required: [day, mark]
+            properties:
+              day: { $ref: "#/components/schemas/Day" }
+              mark: { type: string, enum: [empty, saved, digest_unread, digest_read, note, future] }
+              has_digest: { type: boolean }
+        counts:
+          type: object
+          required: [saved, digests, read, notes]
+          properties:
+            saved: { type: integer }
+            digests: { type: integer }
+            read: { type: integer }
+            notes: { type: integer }
+        previous_month: { type: [string, "null"] }
+        next_month: { type: [string, "null"] }
+
+    Assistant:
+      type: object
+      required: [id, name, kind, steps, built_in]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/AssistantKind" }
+        steps: { type: array, items: { $ref: "#/components/schemas/Step" } }
+        built_in: { type: boolean }
+        connected_at: { type: [string, "null"], format: date-time }
+        last_seen_at: { type: [string, "null"], format: date-time }
+        runs_at: { type: [string, "null"], description: Where the content is sent. }
+
+    Settings:
+      type: object
+      required: [rules, expiry_options, notify, timezone, lang, roles, calendar_image]
+      properties:
+        rules: { type: string, maxLength: 4000 }
+        preference: { type: [string, "null"], description: Read-only. Reserved. }
+        expiry_options: { type: array, items: { type: integer, minimum: 1, maximum: 365 } }
+        notify: { type: boolean }
+        timezone: { type: string }
+        lang: { $ref: "#/components/schemas/Lang" }
+        roles:
+          type: object
+          description: Which assistant does each step when nothing else names one. Null means nobody.
+          properties:
+            analysis: { type: [string, "null"] }
+            digest: { type: [string, "null"] }
+            deep_read: { type: [string, "null"] }
+            deep_dive: { type: [string, "null"] }
+        calendar_image:
+          type: object
+          required: [enabled]
+          properties:
+            enabled: { type: boolean }
+            url: { type: [string, "null"], description: Only for the manage tier. Not a credential. }
+
+    SettingsChange:
+      type: object
+      additionalProperties: false
+      properties:
+        rules: { type: string, maxLength: 4000 }
+        expiry_options: { type: array, minItems: 1, maxItems: 6, items: { type: integer, minimum: 1, maximum: 365 } }
+        notify: { type: boolean }
+        timezone: { type: string }
+        lang: { $ref: "#/components/schemas/Lang" }
+        roles:
+          type: object
+          additionalProperties: false
+          properties:
+            analysis: { type: [string, "null"] }
+            digest: { type: [string, "null"] }
+            deep_read: { type: [string, "null"] }
+            deep_dive: { type: [string, "null"] }
+        calendar_image_enabled: { type: boolean }
+
+    Claim:
+      type: object
+      required: [claim_id, kind, expires_at, work]
+      properties:
+        claim_id: { type: [string, "null"] }
+        kind: { $ref: "#/components/schemas/WorkKind" }
+        expires_at: { type: [string, "null"], format: date-time }
+        work:
+          type: array
+          items:
+            type: object
+            required: [ref]
+            properties:
+              ref: { type: string, description: "The item id, or the day for a digest." }
+              title: { type: string }
+
+    Rules:
+      type: object
+      required: [rules, assistants, expiry_options]
+      properties:
+        rules: { type: string }
+        preference: { type: [string, "null"] }
+        assistants:
+          type: array
+          description: Names the dispatch step may choose from.
+          items:
+            type: object
+            required: [name, steps]
+            properties:
+              name: { type: string }
+              steps: { type: array, items: { $ref: "#/components/schemas/Step" } }
+        default_analysis_assistant: { type: [string, "null"] }
+        expiry_options: { type: array, items: { type: integer } }
+        lang: { $ref: "#/components/schemas/Lang" }
+        timezone: { type: string }
+
+    ItemContext:
+      type: object
+      required: [item]
+      properties:
+        item:
+          type: object
+          required: [id, kind, title]
+          properties:
+            id: { type: string }
+            kind: { $ref: "#/components/schemas/ItemKind" }
+            title: { type: string }
+            site: { type: [string, "null"] }
+            url: { type: [string, "null"] }
+            opening: { type: string, description: The first part of the content. For `triage` this is all that is given. }
+            body: { type: [string, "null"] }
+            content_unavailable: { type: boolean }
+            asset_url: { type: [string, "null"], description: A short-lived download address for an image or file. }
+            saved_at: { type: string, format: date-time }
+        analysis: { oneOf: [{ $ref: "#/components/schemas/Analysis" }, { type: "null" }] }
+        deep_read: { oneOf: [{ $ref: "#/components/schemas/DeepReadReport" }, { type: "null" }] }
+        related:
+          type: array
+          description: Other things of the user that may be related. Empty for `triage`.
+          items:
+            type: object
+            required: [kind, ref, title]
+            properties:
+              kind: { type: string, enum: [item, digest, note] }
+              ref: { type: string }
+              title: { type: string }
+              excerpt: { type: string }
+
+    DigestContext:
+      type: object
+      required: [day, analyses]
+      properties:
+        day: { $ref: "#/components/schemas/Day" }
+        covers: { type: array, items: { $ref: "#/components/schemas/Day" }, description: The day and any earlier days that were missed. }
+        analyses:
+          type: array
+          items:
+            type: object
+            required: [item_id, title]
+            properties:
+              item_id: { type: string }
+              title: { type: string }
+              site: { type: [string, "null"] }
+              url: { type: [string, "null"] }
+              summary: { type: string }
+              key_fact: { type: string }
+              points: { type: array, items: { type: string } }
+              verdict: { $ref: "#/components/schemas/Verdict" }
+              unavailable: { type: boolean }
+              signal: { type: [string, "null"] }
+              in_queue: { type: boolean }
+
+    Usage:
+      type: object
+      properties:
+        model: { type: string, maxLength: 80 }
+        input_tokens: { type: integer, minimum: 0 }
+        output_tokens: { type: integer, minimum: 0 }
+        calls: { type: integer, minimum: 0 }
+
+    Result:
+      oneOf:
+        - $ref: "#/components/schemas/TriageResult"
+        - $ref: "#/components/schemas/AnalysisResult"
+        - $ref: "#/components/schemas/DigestResult"
+        - $ref: "#/components/schemas/DeepReadResult"
+      discriminator:
+        propertyName: kind
+        mapping:
+          triage: "#/components/schemas/TriageResult"
+          analysis: "#/components/schemas/AnalysisResult"
+          digest: "#/components/schemas/DigestResult"
+          deep_read: "#/components/schemas/DeepReadResult"
+
+    TriageResult:
+      type: object
+      required: [kind, item_id]
+      additionalProperties: false
+      properties:
+        kind: { const: triage }
+        item_id: { type: string }
+        assistant: { type: string, description: "A name from the user's assistant list. Left out, the core uses the default." }
+        expiry_days: { type: integer, description: "One of the user's expiry options. Left out, the core uses 30." }
+
+    AnalysisResult:
+      type: object
+      required: [kind, item_id]
+      additionalProperties: false
+      properties:
+        kind: { const: analysis }
+        item_id: { type: string }
+        unavailable: { type: boolean, description: True when the content could not be fetched. Then no points and no verdict. }
+        summary: { type: string, maxLength: 60, description: One sentence. }
+        key_fact: { type: string, maxLength: 120, description: One line that depends on the kind of content. }
+        points: { type: array, maxItems: 3, items: { type: string, maxLength: 120 } }
+        verdict: { $ref: "#/components/schemas/Verdict" }
+        related_hint: { type: string, maxLength: 120 }
+
+    DigestResult:
+      type: object
+      required: [kind, day, summary, question]
+      additionalProperties: false
+      properties:
+        kind: { const: digest }
+        day: { $ref: "#/components/schemas/Day" }
+        summary: { type: string, maxLength: 600, description: A few sentences on what was saved. Plain text. }
+        worth:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [item_id, line]
+            additionalProperties: false
+            properties:
+              item_id: { type: string }
+              line: { type: string, maxLength: 160, description: One sentence with the conclusion. }
+        question: { type: string, maxLength: 160, description: One question to sleep on. }
+
+    DeepReadResult:
+      type: object
+      required: [kind, item_id, read, found, questions]
+      additionalProperties: false
+      properties:
+        kind: { const: deep_read }
+        item_id: { type: string }
+        read: { type: string, maxLength: 20000 }
+        found: { type: string, maxLength: 20000 }
+        questions: { type: array, maxItems: 8, items: { type: string, maxLength: 200 } }
+        entry: { type: string, maxLength: 500, description: How the user starts a deep dive with this assistant; usually a link. }

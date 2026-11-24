@@ -1,0 +1,70 @@
+/*
+ * Design tokens: the one copy every client takes its colours, radii and type sizes from.
+ * Rules (see the brand definition):
+ *   - Black, white, paper and greys carry the interface.
+ *   - Gold marks only what was kept: a note, a "worth a deep dive" verdict, an unread daily
+ *     digest, a calendar day with a note. Never a button, link, icon, divider or selection.
+ *     On light backgrounds gold is a dot or a block, never text.
+ *   - Red is the only functional colour, for things that lose data. There is no green or yellow.
+ *   - Only things you can press have a fill or a border. A state is a dot plus words.
+ *   - Radii: marks 0, tags 4, buttons/cards/inputs 6, bottom sheets 10.
+ */
+:root {
+  --ke-black: #0B0B0B;
+  --ke-white: #FFFFFF;
+  --ke-paper: #F5F5F3;
+  --ke-gold: #C5A229;
+
+  --ke-bg: #F5F5F3;
+  --ke-card: #FFFFFF;
+  --ke-quiet: #EAEAE7;
+  --ke-line: #DEDEDA;
+  --ke-text: #0B0B0B;
+  --ke-text-2: #4A4A4A;
+  --ke-text-3: #6B6B6B;
+  --ke-danger: #B3261E;
+  --ke-on-solid: #FFFFFF;      /* text on a black button */
+  --ke-solid: #0B0B0B;         /* button fill */
+
+  --ke-radius-mark: 0;
+  --ke-radius-tag: 4px;
+  --ke-radius: 6px;
+  --ke-radius-sheet: 10px;
+
+  --ke-font: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+  --ke-size-display: 32px;   /* 700 */
+  --ke-size-title: 26px;     /* 600 */
+  --ke-size-subtitle: 20px;  /* 600 */
+  --ke-size-item: 17px;      /* 600 */
+  --ke-size-body: 15px;
+  --ke-size-secondary: 13px;
+  --ke-size-caption: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ke-bg: #0B0B0B;
+    --ke-card: #161616;
+    --ke-quiet: #1F1F1F;
+    --ke-line: #2C2C2C;
+    --ke-text: #F5F5F3;
+    --ke-text-2: #B9B9B5;
+    --ke-text-3: #929290;
+    --ke-danger: #F2877B;
+    --ke-on-solid: #0B0B0B;
+    --ke-solid: #F5F5F3;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ke-bg: #0B0B0B;
+  --ke-card: #161616;
+  --ke-quiet: #1F1F1F;
+  --ke-line: #2C2C2C;
+  --ke-text: #F5F5F3;
+  --ke-text-2: #B9B9B5;
+  --ke-text-3: #929290;
+  --ke-danger: #F2877B;
+  --ke-on-solid: #0B0B0B;
+  --ke-solid: #F5F5F3;
+}
