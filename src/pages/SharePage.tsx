@@ -67,7 +67,7 @@ export function SharePage({ search }: { search: string }) {
             <button class="btn" type="button" onClick={() => (ask(), setAsk(null))}>
               {t("inbox.save")}
             </button>
-            <button class="btn quiet" type="button" onClick={() => (setAsk(null), setResult({ ok: true, sentence: t("inbox.not_saved") }))}>
+            <button class="btn quiet" type="button" onClick={() => (setAsk(null), setResult({ ok: true, sentence: shared(meta.get()?.shared_rules.save_messages.declined) }))}>
               {t("inbox.dont_save")}
             </button>
           </div>

@@ -30,8 +30,8 @@ const SHARED_RULES = {
     patterns: [
       { name: "private_key_block", regex: "-----BEGIN [A-Z ]*PRIVATE KEY-----" },
       { name: "known_credential_prefix", regex: "\\b(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,})\\b" },
-      { name: "bearer_or_basic_header", regex: "(?i)\\b(authorization|bearer|basic)[:= ]+[A-Za-z0-9._~+/=-]{16,}" },
-      { name: "assignment_of_secret", regex: "(?i)\\b(pass(word|wd)?|secret|api[_-]?key|access[_-]?key|private[_-]?key)\\s*[:=]\\s*\\S{6,}" },
+      { name: "bearer_or_basic_header", regex: "\\b(authorization|bearer|basic)[:= ]+[A-Za-z0-9._~+/=-]{16,}", flags: "i" },
+      { name: "assignment_of_secret", regex: "\\b(pass(word|wd)?|secret|api[_-]?key|access[_-]?key|private[_-]?key)\\s*[:=]\\s*\\S{6,}", flags: "i" },
       { name: "single_dense_string", description: "One line, no spaces, 12 to 64 characters, with a lower-case letter, an upper-case letter, a digit and a symbol, and not a URL.", regex: "^(?!https?://)(?=\\S*[a-z])(?=\\S*[A-Z])(?=\\S*\\d)(?=\\S*[^A-Za-z0-9])\\S{12,64}$" },
     ],
   },
@@ -42,6 +42,8 @@ const SHARED_RULES = {
     saved_image_skipped_quota: { zh: "已存入。图片没存入：超出存储配额。", en: "Saved. The image was not stored: storage quota exceeded." },
     queued_offline: { zh: "还没存入，排着队，联网后自动存入。", en: "Not saved yet. Queued, and it will be saved when you are back online." },
     failed: { zh: "没存入：{reason}", en: "Not saved: {reason}" },
+    queued_not_connected: { zh: "还没存入，排着队，接入后自动存入。", en: "Not saved yet. Queued, and it will be saved once this device is connected." },
+    declined: { zh: "没存入。", en: "Not saved." },
     secret_like_question: { zh: "这段内容看起来像密码或凭据，还要存入吗？", en: "This looks like a password or a credential. Save it anyway?" },
   },
   verdicts: {

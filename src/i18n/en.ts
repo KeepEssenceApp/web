@@ -56,7 +56,6 @@ export const en: Record<keyof typeof zh, string> = {
   "inbox.save": "Save",
   "inbox.saving": "Saving…",
   "inbox.dont_save": "Don't save",
-  "inbox.not_saved": "Not saved.",
   "inbox.too_large": "The file is larger than {mb} MB",
   "inbox.bad_type": "This kind of file cannot be saved",
   "inbox.remove": "Remove",

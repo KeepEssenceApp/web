@@ -10,7 +10,7 @@ export type Signal = "not_interested" | "seen";
 export type LangText = Record<Lang, string>;
 
 export interface SharedRules {
-  secret_like: { max_length_checked: number; patterns: { name: string; regex: string }[] };
+  secret_like: { max_length_checked: number; patterns: { name: string; regex: string; flags?: string }[] };
   save_messages: Record<string, LangText>;
   verdicts: Record<Verdict, LangText>;
   content_unavailable: LangText;

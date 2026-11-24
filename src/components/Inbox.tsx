@@ -114,7 +114,7 @@ export function Inbox() {
               onClick={() => {
                 setAsking(false);
                 setText("");
-                setResult({ ok: true, sentence: t("inbox.not_saved") });
+                setResult({ ok: true, sentence: shared(meta.get()?.shared_rules.save_messages.declined) });
               }}
             >
               {t("inbox.dont_save")}

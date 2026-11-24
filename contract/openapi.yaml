@@ -73,7 +73,10 @@ x-shared-rules:
   secret_like:
     description: >
       Content that looks like a password or a credential. A client must ask the user before
-      saving it, and must not silently drop it. A match on any pattern counts.
+      saving it, and must not silently drop it. A match on any pattern counts. Only text of at
+      most `max_length_checked` characters after trimming is checked; longer text never counts.
+      `regex` is written without inline flags so every language can compile it; `flags: i`
+      means match without regard to case.
     max_length_checked: 200
     patterns:
       - name: private_key_block
@@ -81,9 +84,11 @@ x-shared-rules:
       - name: known_credential_prefix
         regex: "\\b(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,})\\b"
       - name: bearer_or_basic_header
-        regex: "(?i)\\b(authorization|bearer|basic)[:= ]+[A-Za-z0-9._~+/=-]{16,}"
+        regex: "\\b(authorization|bearer|basic)[:= ]+[A-Za-z0-9._~+/=-]{16,}"
+        flags: i
       - name: assignment_of_secret
-        regex: "(?i)\\b(pass(word|wd)?|secret|api[_-]?key|access[_-]?key|private[_-]?key)\\s*[:=]\\s*\\S{6,}"
+        regex: "\\b(pass(word|wd)?|secret|api[_-]?key|access[_-]?key|private[_-]?key)\\s*[:=]\\s*\\S{6,}"
+        flags: i
       - name: single_dense_string
         description: One line, no spaces, 12 to 64 characters, with a lower-case letter, an upper-case letter, a digit and a symbol, and not a URL.
         regex: "^(?!https?://)(?=\\S*[a-z])(?=\\S*[A-Z])(?=\\S*\\d)(?=\\S*[^A-Za-z0-9])\\S{12,64}$"
@@ -93,6 +98,8 @@ x-shared-rules:
     duplicate: { zh: "之前存过了，没有重复存。", en: "Already saved. Nothing was added." }
     saved_image_skipped_quota: { zh: "已存入。图片没存入：超出存储配额。", en: "Saved. The image was not stored: storage quota exceeded." }
     queued_offline: { zh: "还没存入，排着队，联网后自动存入。", en: "Not saved yet. Queued, and it will be saved when you are back online." }
+    queued_not_connected: { zh: "还没存入，排着队，接入后自动存入。", en: "Not saved yet. Queued, and it will be saved once this device is connected." }
+    declined: { zh: "没存入。", en: "Not saved." }
     failed: { zh: "没存入：{reason}", en: "Not saved: {reason}" }
     secret_like_question: { zh: "这段内容看起来像密码或凭据，还要存入吗？", en: "This looks like a password or a credential. Save it anyway?" }
   verdicts:
@@ -230,7 +237,7 @@ paths:
       tags: [devices]
       operationId: pollDeviceCode
       summary: The waiting client asks whether it was approved.
-      description: Authenticated with the `poll_secret`. The credential is returned once, on the first poll after approval.
+      description: Authenticated with the `poll_secret`. The credential is returned once, on the first poll after approval; every later poll answers 410.
       security:
         - pollSecret: []
       responses:
@@ -430,6 +437,7 @@ paths:
       description: |
         The request carries no tags and no triage information. A link saved again while the first
         item still exists is swallowed: the answer says `duplicate` and nothing is added.
+        A client that cannot read an image's bytes may save its address as a `link` instead.
       x-tier: save
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -774,6 +782,11 @@ paths:
       tags: [save]
       operationId: requestUpload
       summary: Ask to upload a file. If the same bytes are already stored, nothing is uploaded.
+      description: |
+        `upload_url` is always on the core's own origin and carries its own signature, so the
+        upload needs no credential and no extra host permission. On `over_quota` nothing is
+        uploaded; the client still saves the item with the returned `asset_id`, and the core
+        answers `saved_image_skipped_quota`.
       x-tier: save
       requestBody:
         required: true

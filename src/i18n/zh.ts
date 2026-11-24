@@ -54,7 +54,6 @@ export const zh = {
   "inbox.save": "存入",
   "inbox.saving": "正在存入…",
   "inbox.dont_save": "不存入",
-  "inbox.not_saved": "没存入。",
   "inbox.too_large": "文件超过 {mb} MB",
   "inbox.bad_type": "这种文件存不了",
   "inbox.remove": "拿掉",
