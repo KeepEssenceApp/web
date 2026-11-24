@@ -3,7 +3,7 @@
 import { chromium, devices } from "@playwright/test";
 import fs from "node:fs";
 
-const BASE = process.argv[2] ?? process.env.BASE_URL ?? "http://127.0.0.1:8793";
+const BASE = process.argv[2] ?? process.env.BASE_URL ?? "http://127.0.0.1:8803";
 const OUT = "screenshots";
 fs.mkdirSync(OUT, { recursive: true });
 

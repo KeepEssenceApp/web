@@ -220,7 +220,7 @@ export function NotesPage() {
       </section>
 
       {!query && cal.data && (
-        <a class="card cal-card" href="/calendar" aria-label={t("calendar.open")}>
+        <a class="card month-card" href="/calendar" aria-label={t("calendar.open")}>
           <span class="label">
             {t("calendar.title")} · {monthName(cal.data.month)}
           </span>

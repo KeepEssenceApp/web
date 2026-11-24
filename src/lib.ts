@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { ApiError } from "./api";
 import { createStore } from "./store";
 import { t } from "./i18n";
-import type { SharedRules } from "./types";
 
 // ---------------------------------------------------------------- loading
 export interface Loaded<T> {
@@ -90,21 +89,7 @@ export async function copyText(text: string) {
   say(t("common.copied"));
 }
 
-// ---------------------------------------------------------------- shared rule: looks like a password
-/** The contract writes case-insensitive patterns with a leading `(?i)`. */
-export function compileRule(regex: string): RegExp | null {
-  try {
-    return regex.startsWith("(?i)") ? new RegExp(regex.slice(4), "i") : new RegExp(regex);
-  } catch {
-    return null;
-  }
-}
-export function looksSecret(text: string, rules: SharedRules | undefined): boolean {
-  const rule = rules?.secret_like;
-  if (!rule) return false;
-  const head = text.trim().slice(0, rule.max_length_checked || 200);
-  return rule.patterns.some((p) => compileRule(p.regex)?.test(head));
-}
+export { compileRule, looksSecret } from "./secret";
 
 // ---------------------------------------------------------------- files
 export async function sha256Hex(data: ArrayBuffer): Promise<string> {

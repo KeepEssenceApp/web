@@ -147,7 +147,7 @@ function AssistantList() {
               <div class="row spread wrap">
                 <span class="row wrap">
                   <b>{a.name}</b>
-                  <span class="quiet small">{kindName(a)}</span>
+                  {kindName(a) !== a.name && <span class="quiet small">{kindName(a)}</span>}
                 </span>
                 <State dot={recent(a.last_seen_at) ? "solid" : "ring"}>
                   <span class="small">{seen(a.last_seen_at)}</span>

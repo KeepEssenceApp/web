@@ -1,6 +1,6 @@
 // An in-memory fake of the client side of contract/openapi.yaml, for developing and testing
 // the web app before the real core runs. One user, made-up content, nothing persisted.
-//   node dev/fake-core.mjs            (port 8793, PORT overrides)
+//   node dev/fake-core.mjs            (port 8803, PORT overrides)
 // It also serves ../dist with single-page-application fallback, as production does.
 import http from "node:http";
 import crypto from "node:crypto";
@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PORT = Number(process.env.PORT ?? 8793);
+const PORT = Number(process.env.PORT ?? 8803);
 const DIST = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "dist");
 const LOGIN_CODE = "246810";
 const TZ_OFFSET_MS = 8 * 3600e3; // the seeded user lives in Asia/Shanghai
