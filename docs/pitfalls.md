@@ -7,7 +7,7 @@
 - **共用规则会变，别拷进代码。** 像密码的内容的识别规则写到一半时，契约把 `(?i)` 前缀改成了 `flags: i`，又补了一句「超过 `max_length_checked` 个字的不查」。应用从 `GET /v1/meta` 取规则，改的只有 `src/secret.ts` 里怎么编译；`tests/words.test.ts` 会在本仓库的拷贝和旁边的 spec 仓库不一致时失败，提醒跑 `npm run sync:spec`。
 - **「不用的词」里有「深挖」。** 词表的比喻清单里列着「深挖（作动词或名词）」，可它同时是词表和用词表的正式词。`tests/words.test.ts` 把它单独放行，并在注释里写了原因。「设置」只禁作入口名：「助手设置」是正式词；接入指南里引用的别家菜单名（Gemini 的 Settings）也放行。
 - **英文里绕开 home。** iPhone 上「加到主屏幕」的英文原文是 Add to Home Screen，而 home 在不用的词里。英文写成 the phone's main screen。
-- **推送的内容契约没定。** `sw.js` 目前认 JSON `{ message, item_id?, url? }`，不是 JSON 就把正文当那一句话。核心定下来后对一遍。
+- **推送的内容契约没定。** 核心现在发的是 JSON `{ body, count, item_id, kind }`（看的是 core 的 `src/services/notify.ts`）。`sw.js` 取 `body` 当那一句话，有 `item_id` 就点开那一条，没有就开「今天」；不是 JSON 就把正文当那一句话。契约里该补上这个形状。
 
 ## 浏览器
 

@@ -12,7 +12,10 @@ export async function reset(request: APIRequestContext, body: Record<string, unk
 export async function loginCode(request: APIRequestContext): Promise<string> {
   if (FAKE) return "246810";
   if (process.env.LOGIN_CODE) return process.env.LOGIN_CODE;
-  const res = await request.get(`/admin/login-codes?email=${encodeURIComponent(EMAIL)}`, { headers: { Authorization: `Bearer ${process.env.ADMIN_SECRET ?? ""}` } });
+  // The core's operator interface (not part of the contract): invite, then mint a code.
+  const headers = { Authorization: `Bearer ${process.env.ADMIN_SECRET ?? ""}` };
+  await request.post("/admin/invites", { headers, data: { email: EMAIL } });
+  const res = await request.post("/admin/login-codes", { headers, data: { email: EMAIL } });
   expect(res.ok(), "set LOGIN_CODE or ADMIN_SECRET to sign in against a real core").toBe(true);
   return (await res.json()).code;
 }
