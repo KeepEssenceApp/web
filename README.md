@@ -11,7 +11,7 @@ The KeepEssence web app: read digests and notes, manage assistants and devices.
 |---|---|
 | 今天 | 还没进每日摘要的解读和条目 |
 | 每日摘要 | 最新一份，按日期往前翻 |
-| 笔记 | 深读队列和留下的笔记 |
+| 笔记 | 深挖队列和留下的笔记 |
 | 助手设置 | 助手、设备（改名、改档、撤销）、月历 |
 
 网页只经接口契约和核心说话。
