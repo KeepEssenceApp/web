@@ -12,8 +12,9 @@ export default defineConfig({
   // One backend with one user's state: tests take turns.
   workers: 1,
   fullyParallel: false,
-  timeout: 30000,
-  expect: { timeout: 7000 },
+  // A deployed core is farther away than the fake on this machine.
+  timeout: fake ? 30000 : 60000,
+  expect: { timeout: fake ? 7000 : 15000 },
   reporter: [["list"]],
   use: { baseURL, locale: "zh-CN", timezoneId: "Asia/Shanghai", trace: "retain-on-failure" },
   projects: [

@@ -26,6 +26,10 @@ export async function signIn(page: Page, path = "/") {
   await page.goto(path);
   await page.locator('input[type="email"]').fill(EMAIL);
   await page.locator('button[type="submit"]').click();
+  // The page's own request makes a fresh code. Wait until it has answered (the code field is
+  // shown) before fetching the code the operator would pass on, or the page's request can land
+  // second and replace it.
+  await expect(page.locator('input[name="code"]')).toBeVisible();
   await page.locator('input[name="code"]').fill(await loginCode(page.request));
   await page.locator('button[type="submit"]').click();
   await expect(page.locator('input[name="code"]')).toHaveCount(0);

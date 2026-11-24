@@ -40,7 +40,7 @@ test("real core: an assistant connects through the allow page and saves a note",
   // The core redirected the browser to the app's allow page.
   await expect(page).toHaveURL(/\/authorize\?request=/);
   await expect(page.locator(".who")).toHaveText("E2E Chat 想接入");
-  await expect(page.getByTestId("sent-to")).toContainText("127.0.0.1");
+  await expect(page.getByTestId("sent-to")).toContainText(new URL(baseURL!).hostname);
   await expect(page.locator('input[name="kind"][value="chat"]')).toBeChecked();
   const name = `阿聊${Date.now() % 100000}`;
   await page.locator('.standalone-box input[type="text"]').fill(name);
@@ -106,8 +106,8 @@ test("real core: a client connects with a short code approved on the approve pag
   await expect(row.locator("select")).toHaveValue("save");
   await row.getByRole("button", { name: "撤销" }).click();
   await row.locator(".confirm").getByRole("button", { name: "撤销" }).click();
-  const after = await request.get("/v1/devices/me", { headers: { Authorization: `Bearer ${poll.grant.credential}` } });
-  expect(after.status()).toBe(401);
+  // The page's own request has to reach the core first; from then on the credential is dead.
+  await expect.poll(async () => (await request.get("/v1/devices/me", { headers: { Authorization: `Bearer ${poll.grant.credential}` } })).status()).toBe(401);
 });
 
 test("real core: settings pages load and save; my calendar image is public once on", async ({ page }) => {
@@ -128,7 +128,7 @@ test("real core: settings pages load and save; my calendar image is public once 
   expect(img.ok()).toBe(true);
   expect(img.headers()["content-type"]).toContain("image/svg+xml");
   await sw.click();
-  expect((await page.request.get(address)).status()).toBe(404);
+  await expect.poll(async () => (await page.request.get(address)).status()).toBe(404);
   await page.goto("/assistants/notify");
   await expect(page.getByTestId("notify-state")).toBeVisible();
   expect((await credentialOf(page)).length).toBeGreaterThan(10);
