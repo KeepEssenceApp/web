@@ -50,13 +50,13 @@ export function Shell({ current, children }: { current: Entry; children: Compone
 /** The top of a main page: its name and the status bar, which is always there. */
 export function PageHead({ title, page = "other", children }: { title: string; page?: "today" | "other"; children?: ComponentChildren }) {
   return (
-    <header class={`page-head page-head-${page}`}>
+    <div class={`page-head page-head-${page}`}>
       <div class="page-title">
         <h1>{title}</h1>
         {page === "other" && <StatusBar page="other" />}
         {children}
       </div>
       {page === "today" && <StatusBar page="today" />}
-    </header>
+    </div>
   );
 }

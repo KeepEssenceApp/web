@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { api } from "../api";
 import { PageHead } from "../components/Shell";
+import { Split, opens } from "../components/Split";
 import { Loading, State, Switch } from "../components/ui";
 import { ago, lang, setLang, t, type Key } from "../i18n";
 import { copyText, say, sayError, useBusy, useLoad } from "../lib";
@@ -23,18 +24,26 @@ const STEPS: Step[] = ["analysis", "digest", "deep_read", "deep_dive"];
 const ROLES: Role[] = ["analysis", "digest", "deep_read", "deep_dive"];
 const TIERS: Tier[] = ["save", "read", "manage"];
 
-export function AssistantsPage({ section }: { section: Section }) {
+/** `wide`: the sections are a list on the left and the chosen section's content is in the panel. */
+export function AssistantsPage({ section, wide = false }: { section: Section; wide?: boolean }) {
   const tab = section === "connect" ? "assistants" : section;
-  return (
-    <div class="page assistants">
+  const head = (
+    <>
       <PageHead title={t("nav.assistants")} />
       <nav class="tabs" aria-label={t("nav.assistants")}>
-        {TABS.map((x) => (
-          <a key={x.id} href={x.id === "assistants" ? "/assistants" : `/assistants/${x.id}`} aria-current={x.id === tab ? "page" : undefined}>
-            {t(x.label)}
-          </a>
-        ))}
+        {TABS.map((x) => {
+          const href = x.id === "assistants" ? "/assistants" : `/assistants/${x.id}`;
+          return (
+            <a key={x.id} href={href} {...opens(wide ? href : null, false)} aria-current={x.id === tab ? "page" : undefined}>
+              {t(x.label)}
+            </a>
+          );
+        })}
       </nav>
+    </>
+  );
+  const content = (
+    <>
       {section === "assistants" && <AssistantList />}
       {section === "connect" && <Connect />}
       {section === "rules" && <Rules />}
@@ -42,6 +51,21 @@ export function AssistantsPage({ section }: { section: Section }) {
       {section === "calendar" && <MyCalendar />}
       {section === "notify" && <Notify />}
       {section === "account" && <Account />}
+    </>
+  );
+  if (wide)
+    return (
+      <Split
+        label={t(TABS.find((x) => x.id === tab)!.label)}
+        at={section}
+        list={<div class="page assistants">{head}</div>}
+        panel={<div class="page assistants-section" data-section={section}>{content}</div>}
+      />
+    );
+  return (
+    <div class="page assistants">
+      {head}
+      {content}
     </div>
   );
 }

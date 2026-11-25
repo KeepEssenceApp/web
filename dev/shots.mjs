@@ -48,5 +48,33 @@ for (const scheme of ["light", "dark"]) {
     await ctx.close();
   }
 }
+// Wide screens (QA #17): the list with the panel beside it, at 1440 and 1920.
+const WIDE_PAGES = [
+  ["today-item", "/item/it_worth"],
+  ["today", "/"],
+  ["digest", "/digest"],
+  ["digest-item", "/digest?item=d1_w1"],
+  ["notes", "/notes"],
+  ["note", "/notes/n1"],
+  ["assistants", "/assistants"],
+];
+for (const scheme of ["light", "dark"]) {
+  for (const [width, height] of [[1440, 900], [1920, 1080]]) {
+    const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, locale: process.env.SHOT_LOCALE ?? "zh-CN" });
+    const page = await ctx.newPage();
+    await page.goto(BASE + "/");
+    await page.fill('input[type="email"]', "reader@example.com");
+    await page.click('button[type="submit"]');
+    await page.fill('input[name="code"]', process.env.LOGIN_CODE ?? "246810");
+    await page.click('button[type="submit"]');
+    await page.waitForSelector(".nav");
+    for (const [name, path] of WIDE_PAGES) {
+      await page.goto(BASE + path);
+      await page.waitForLoadState("networkidle");
+      await page.screenshot({ path: `${OUT}/wide-${width}-${scheme}-${name}.png` });
+    }
+    await ctx.close();
+  }
+}
 await browser.close();
 console.log("screenshots in", OUT);

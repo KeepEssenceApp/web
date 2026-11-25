@@ -1,8 +1,9 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { Actions, Swipeable, itemActions, type ItemActions } from "../components/Cards";
 import { DeepDive } from "../components/DeepDive";
 import { PageHead } from "../components/Shell";
+import { opens } from "../components/Split";
 import { Loading, State } from "../components/ui";
 import { dayName, shared, t } from "../i18n";
 import { useBusy, useLoad } from "../lib";
@@ -10,13 +11,17 @@ import { canManage, digestUnread, meta, refresh, session } from "../session";
 import { useStore } from "../store";
 import type { Digest, DigestRest, DigestWorth, Signal, Status } from "../types";
 
-function WorthCard({ w, act }: { w: DigestWorth; act: ItemActions }) {
+/** Where a line's item opens: beside the digest on a wide screen (`beside`), on its own page otherwise. */
+const itemHref = (id: string, beside?: string) => (beside ? `${beside}?item=${encodeURIComponent(id)}` : `/item/${id}`);
+
+function WorthCard({ w, act, beside, selected }: { w: DigestWorth; act: ItemActions; beside?: string; selected: boolean }) {
   const [sheet, setSheet] = useState(false);
   const rules = useStore(meta)?.shared_rules;
   const gone = w.available === false;
+  const href = itemHref(w.item_id, beside);
   const card = (
-    <article class="card worth" data-item={w.item_id}>
-      {w.title && <h3>{gone ? w.title : <a class="title-clip" href={`/item/${w.item_id}`} title={w.title}>{w.title}</a>}</h3>}
+    <article class="card worth" data-item={w.item_id} {...opens(beside && !gone ? href : null, selected)}>
+      {w.title && <h3>{gone ? w.title : <a class="title-clip" href={href} title={w.title}>{w.title}</a>}</h3>}
       <p class="summary">{w.line}</p>
       <p class="quiet small">{shared(rules?.verdicts[w.verdict ?? "worth_deep_dive"])}</p>
       {gone ? <p class="quiet small">{t("digest.item_deleted")}</p> : <Actions itemId={w.item_id} act={act} onSheet={() => setSheet(true)} />}
@@ -33,11 +38,12 @@ function WorthCard({ w, act }: { w: DigestWorth; act: ItemActions }) {
   );
 }
 
-function RestLine({ r, onRestore }: { r: DigestRest; onRestore: () => void }) {
+function RestLine({ r, onRestore, beside, selected }: { r: DigestRest; onRestore: () => void; beside?: string; selected: boolean }) {
   const why = r.available === false ? t("digest.item_deleted") : r.in_queue ? t("digest.in_queue") : r.signal === "not_interested" ? t("action.not_interested") : r.signal === "seen" ? t("action.seen") : null;
   return (
-    <li class="rest-line" data-item={r.item_id}>
-      <span class="rest-title">{r.title}</span>
+    <li class="rest-line" data-item={r.item_id} {...opens(beside && r.available !== false ? itemHref(r.item_id, beside) : null, selected)}>
+      {/* Beside the digest a line opens its item; on a narrow screen the line is only a line. */}
+      <span class="rest-title">{beside && r.available !== false ? <a href={itemHref(r.item_id, beside)}>{r.title}</a> : r.title}</span>
       {why && <span class="quiet small">{why}</span>}
       {r.can_restore && (
         <button class="link" type="button" onClick={onRestore}>
@@ -89,8 +95,12 @@ function NoDigest({ day, reason }: { day: string; reason: Status["no_digest_reas
   );
 }
 
-/** One daily digest: four parts in a fixed order, then "Read. Good night". */
-export function DigestPage({ day }: { day: string }) {
+/**
+ * One daily digest: four parts in a fixed order, then "Read. Good night".
+ * On a wide screen (`beside`) the item behind a line opens in the panel; `selected` is that item.
+ */
+export function DigestPage({ day, beside = false, selected }: { day: string; beside?: boolean; selected?: string | null }) {
+  const base = beside ? (day === "latest" ? "/digest" : `/digest/${day}`) : undefined;
   const tick = useStore(refresh);
   const digest = useLoad(() => api.digest(day), [day, tick]);
   const status = useLoad(api.status, [tick]);
@@ -107,6 +117,12 @@ export function DigestPage({ day }: { day: string }) {
     });
   });
   const d = digest.data;
+  // The line that is open in the panel is shown: the rest unfolds for it (and is never folded for the user).
+  const restRef = useRef<HTMLDetailsElement>(null);
+  const inRest = !!selected && !!d?.rest.some((r) => r.item_id === selected);
+  useEffect(() => {
+    if (inRest && restRef.current) restRef.current.open = true;
+  }, [inRest]);
 
   const restore = (r: DigestRest) => act.restore(r.item_id, { signal: (r.signal as Signal | null) ?? null, in_queue: r.in_queue });
   const markRead = (dg: Digest) =>
@@ -152,7 +168,7 @@ export function DigestPage({ day }: { day: string }) {
             {d.worth.length ? (
               <div class="cards two">
                 {d.worth.map((w) => (
-                  <WorthCard key={w.item_id} w={w} act={act} />
+                  <WorthCard key={w.item_id} w={w} act={act} beside={base} selected={w.item_id === selected} />
                 ))}
               </div>
             ) : (
@@ -161,11 +177,11 @@ export function DigestPage({ day }: { day: string }) {
           </section>
 
           <section data-part="rest">
-            <details class="rest">
+            <details class="rest" ref={restRef}>
               <summary class="label">{t("digest.rest_n", { n: d.rest.length })}</summary>
               <ul>
                 {d.rest.map((r) => (
-                  <RestLine key={r.item_id} r={r} onRestore={() => restore(r)} />
+                  <RestLine key={r.item_id} r={r} onRestore={() => restore(r)} beside={base} selected={r.item_id === selected} />
                 ))}
               </ul>
             </details>

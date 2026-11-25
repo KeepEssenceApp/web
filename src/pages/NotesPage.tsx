@@ -1,10 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
-import { CalendarCounts, CalendarDots } from "../components/CalendarDots";
 import { DeepDive } from "../components/DeepDive";
+import { MonthCard, ReportBody } from "../components/Panels";
+import { opens } from "../components/Split";
 import { PageHead } from "../components/Shell";
 import { Loading, Sheet, State, type DotKind } from "../components/ui";
-import { ago, monthName, shortDate, t } from "../i18n";
+import { ago, shortDate, t } from "../i18n";
 import { errText, say, sayError, useBusy, useLoad } from "../lib";
 import { go } from "../router";
 import { refresh, session } from "../session";
@@ -14,32 +15,9 @@ import type { QueueEntry } from "../types";
 const READ_DOT: Record<QueueEntry["deep_read"], DotKind> = { waiting: "ring", reading: "grey", ready: "solid", none: "small" };
 
 function Report({ entry, onClose }: { entry: QueueEntry; onClose: () => void }) {
-  const r = entry.report!;
   return (
     <Sheet title={entry.title} onClose={onClose} wide>
-      <div class="stack report">
-        <section>
-          <h3 class="label">{t("queue.report_read")}</h3>
-          <p class="pre">{r.read}</p>
-        </section>
-        {r.found && (
-          <section>
-            <h3 class="label">{t("queue.report_found")}</h3>
-            <p class="pre">{r.found}</p>
-          </section>
-        )}
-        {r.questions.length > 0 && (
-          <section>
-            <h3 class="label">{t("queue.report_questions")}</h3>
-            <ul class="points">
-              {r.questions.map((q, i) => (
-                <li key={i}>{q}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {r.assistant && <p class="quiet small">{r.assistant.name}</p>}
-      </div>
+      <ReportBody report={entry.report!} />
     </Sheet>
   );
 }
@@ -104,7 +82,8 @@ function PasteBack({ entry, onClose, onSaved }: { entry: QueueEntry; onClose: ()
   );
 }
 
-function QueueRow({ e, onChanged }: { e: QueueEntry; onChanged: () => void }) {
+/** `beside`: a wide screen, where the deep read opens in the panel instead of a dialog. */
+function QueueRow({ e, onChanged, beside, selected }: { e: QueueEntry; onChanged: () => void; beside: boolean; selected: boolean }) {
   const [open, setOpen] = useState<null | "report" | "dive" | "paste">(null);
   const [busy, run] = useBusy();
   // Lists and the status bar elsewhere follow at once.
@@ -126,7 +105,7 @@ function QueueRow({ e, onChanged }: { e: QueueEntry; onChanged: () => void }) {
       });
     });
   return (
-    <li class="queue-row" data-item={e.item_id}>
+    <li class="queue-row" data-item={e.item_id} {...opens(beside && e.report ? readHref(e.item_id) : null, selected)}>
       <div class="stack tight">
         <a class="queue-title title-clip" href={`/item/${e.item_id}`} title={e.title}>
           {e.title}
@@ -138,7 +117,7 @@ function QueueRow({ e, onChanged }: { e: QueueEntry; onChanged: () => void }) {
       </div>
       <div class="row wrap">
         {e.report && (
-          <button class="btn quiet small" type="button" onClick={() => setOpen("report")}>
+          <button class="btn quiet small" type="button" aria-pressed={beside ? selected : undefined} onClick={() => (beside ? go(readHref(e.item_id)) : setOpen("report"))}>
             {t("queue.report")}
           </button>
         )}
@@ -173,7 +152,13 @@ function QueueRow({ e, onChanged }: { e: QueueEntry; onChanged: () => void }) {
   );
 }
 
-export function NotesPage() {
+const readHref = (itemId: string) => `/notes?read=${encodeURIComponent(itemId)}`;
+
+/**
+ * On a wide screen (`beside`) the opened note (`selected`) or the deep read of a queue entry
+ * (`reading`) is in the panel, and so is the month card.
+ */
+export function NotesPage({ beside = false, selected, reading }: { beside?: boolean; selected?: string; reading?: string | null }) {
   const tick = useStore(refresh);
   const [find, setFind] = useState("");
   const [query, setQuery] = useState("");
@@ -183,7 +168,7 @@ export function NotesPage() {
   }, [find]);
   const notes = useLoad(() => api.notes(query || undefined), [query, tick]);
   const queue = useLoad(api.queue, [tick]);
-  const cal = useLoad(() => api.calendar(), [tick]);
+  const cal = useLoad(async () => (beside ? null : api.calendar()), [tick, beside]);
 
   return (
     <div class="page notes">
@@ -203,7 +188,7 @@ export function NotesPage() {
           <h2 class="label">{t("notes.queue")}</h2>
           <ul class="queue">
             {queue.data.entries.map((e) => (
-              <QueueRow key={e.item_id} e={e} onChanged={queue.reload} />
+              <QueueRow key={e.item_id} e={e} onChanged={queue.reload} beside={beside} selected={e.item_id === reading} />
             ))}
           </ul>
         </section>
@@ -221,7 +206,7 @@ export function NotesPage() {
           <ul class="note-list">
             {notes.data.notes.map((n) => (
               <li key={n.id}>
-                <a class="note-row" href={`/notes/${n.id}`}>
+                <a class="note-row" href={`/notes/${n.id}`} {...opens(`/notes/${n.id}`, n.id === selected)}>
                   <span class="stack tight">
                     <b class="title-clip" title={n.title}>{n.title}</b>
                     {n.excerpt && <span class="quiet small clamp">{n.excerpt}</span>}
@@ -234,15 +219,7 @@ export function NotesPage() {
         )}
       </section>
 
-      {!query && cal.data && (
-        <a class="card month-card" href="/calendar" aria-label={t("calendar.open")}>
-          <span class="label">
-            {t("calendar.title")} · {monthName(cal.data.month)}
-          </span>
-          <CalendarDots cal={cal.data} size="card" />
-          <CalendarCounts cal={cal.data} />
-        </a>
-      )}
+      {!beside && !query && cal.data && <MonthCard cal={cal.data} />}
     </div>
   );
 }

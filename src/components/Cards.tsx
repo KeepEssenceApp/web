@@ -7,6 +7,7 @@ import { meta, refresh } from "../session";
 import { useStore } from "../store";
 import type { Analysis, Item, Signal } from "../types";
 import { DeepDive } from "./DeepDive";
+import { opens } from "./Split";
 import { KindIcon, VerdictMark } from "./ui";
 
 /** What an action changes on an item, as the lists and the item page see it. */
@@ -219,13 +220,14 @@ export function AnalysisFields({ a }: { a: Analysis }) {
 }
 
 /** One analysis: four fixed fields, the related hint when there is one, three actions. */
-export function AnalysisCard({ item, act }: { item: Item; act: ItemActions }) {
+export function AnalysisCard({ item, act, selected = false }: { item: Item; act: ItemActions; selected?: boolean }) {
   const [sheet, setSheet] = useState(false);
   const a = item.analysis!;
   return (
     <>
     <Swipeable onRight={() => act.queue(item.id)} onLeft={() => act.notInterested(item.id)}>
-      <article class="card analysis" data-item={item.id}>
+      {/* A div with the article role: the opened item beside the list is the page's <article>. */}
+      <div class="card analysis" role="article" data-item={item.id} {...opens(`/item/${item.id}`, selected)}>
         <header class="card-head">
           <KindIcon kind={item.kind} />
           <h3>
@@ -243,7 +245,7 @@ export function AnalysisCard({ item, act }: { item: Item; act: ItemActions }) {
           <Actions itemId={item.id} act={act} onSheet={() => setSheet(true)} />
           <span class="quiet small signed">{t("today.signed", { name: a.assistant.name })}</span>
         </footer>
-      </article>
+      </div>
     </Swipeable>
     {sheet && <DeepDive itemId={item.id} onClose={() => setSheet(false)} onQueued={() => act.queued(item.id)} />}
     </>
@@ -251,7 +253,7 @@ export function AnalysisCard({ item, act }: { item: Item; act: ItemActions }) {
 }
 
 /** An item nobody has analysed yet: the same card, lighter. */
-export function WaitingRow({ item }: { item: Item }) {
+export function WaitingRow({ item, selected = false }: { item: Item; selected?: boolean }) {
   const rules = useStore(meta)?.shared_rules;
   const facts: string[] = [];
   if (item.stage === "saved") facts.push(t("today.just_saved"));
@@ -261,7 +263,7 @@ export function WaitingRow({ item }: { item: Item }) {
     else if (typeof item.days_left === "number") facts.push(t("today.days_left", { n: item.days_left }));
   }
   return (
-    <li class="waiting" data-item={item.id}>
+    <li class="waiting" data-item={item.id} {...opens(`/item/${item.id}`, selected)}>
       <KindIcon kind={item.kind} />
       <div>
         <a class="title-clip" href={`/item/${item.id}`} title={item.title}>{item.title}</a>

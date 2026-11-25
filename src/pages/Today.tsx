@@ -3,6 +3,7 @@ import { AnalysisCard, WaitingRow, itemActions } from "../components/Cards";
 import { CalendarDots } from "../components/CalendarDots";
 import { Inbox } from "../components/Inbox";
 import { PageHead } from "../components/Shell";
+import { opens } from "../components/Split";
 import { Loading } from "../components/ui";
 import { t } from "../i18n";
 import { useLoad } from "../lib";
@@ -11,7 +12,8 @@ import { useStore } from "../store";
 
 const newest = (a: { created_at: string }, b: { created_at: string }) => (a.created_at < b.created_at ? 1 : -1);
 
-export function Today() {
+/** `selected` is the item open in the panel beside the list (wide screens). */
+export function Today({ selected }: { selected?: string }) {
   const tick = useStore(refresh);
   const items = useLoad(api.today, [tick]);
   const cal = useLoad(() => api.calendar(), [tick]);
@@ -57,7 +59,7 @@ export function Today() {
               </h2>
               <div class="cards">
                 {analyses.map((i) => (
-                  <AnalysisCard key={i.id} item={i} act={act} />
+                  <AnalysisCard key={i.id} item={i} act={act} selected={i.id === selected} />
                 ))}
               </div>
             </section>
@@ -70,7 +72,7 @@ export function Today() {
               </h2>
               <ul class="waiting-list">
                 {waiting.map((i) => (
-                  <WaitingRow key={i.id} item={i} />
+                  <WaitingRow key={i.id} item={i} selected={i.id === selected} />
                 ))}
               </ul>
             </section>
@@ -81,7 +83,7 @@ export function Today() {
                 <summary class="label">{t("today.handled_n", { n: handled.length })}</summary>
                 <ul>
                   {handled.map((i) => (
-                    <li class="rest-line" key={i.id} data-handled={i.id}>
+                    <li class="rest-line" key={i.id} data-handled={i.id} {...opens(`/item/${i.id}`, i.id === selected)}>
                       <span class="rest-title">
                         <a class="title-clip" href={`/item/${i.id}`} title={i.title}>{i.title}</a>
                       </span>

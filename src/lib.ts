@@ -77,6 +77,8 @@ export function useMedia(query: string): boolean {
   return on;
 }
 export const PHONE = "(max-width: 760px)";
+/** From this width the signed-in pages show a list and, beside it, what is open. */
+export const WIDE = "(min-width: 1100px)";
 /** Swiping exists on touch screens only. */
 export const isTouch = () => matchMedia("(pointer: coarse)").matches || (navigator.maxTouchPoints > 0 && matchMedia("(hover: none)").matches);
 

@@ -20,10 +20,16 @@ export function retentionSentence(it: ItemDetail, timeZone?: string): string {
   return t("item.now_days", { n: it.expiry_days ?? it.days_left ?? 0, date: endDay(end, timeZone) });
 }
 
-/** One item opened from Today: the original, the analysis, the tags. */
-export function ItemPage({ id }: { id: string }) {
+/**
+ * One item: the original, the analysis, the tags. On its own page it leads back to Today; on a
+ * wide screen the same thing sits in the panel beside the list it was opened from (`panel`),
+ * and `back` is that list.
+ */
+export function ItemPage({ id, back = "/", panel = false }: { id: string; back?: string; panel?: boolean }) {
   const rules = useStore(meta)?.shared_rules;
-  const item = useLoad(() => api.item(id), [id]);
+  const tick = useStore(refresh);
+  // Beside a list, what is done in the list shows here too.
+  const item = useLoad(() => api.item(id), panel ? [id, tick] : [id]);
   const manage = canManage();
   const extra = useLoad(async () => (manage ? Promise.all([api.assistants(), api.settings()]) : null), [manage]);
   const asset = useLoad(async () => (item.data?.asset_id ? api.asset(item.data.asset_id) : null), [item.data?.asset_id]);
@@ -35,7 +41,7 @@ export function ItemPage({ id }: { id: string }) {
     if (item.data) item.set({ ...item.data, ...change });
   });
   const it = item.data;
-  if (!it) return <div class="page reading"><BackLink /><Loading error={item.error} /></div>;
+  if (!it) return <div class="page reading"><BackLink to={back} panel={panel} /><Loading error={item.error} /></div>;
   const zone = session.get().user?.timezone;
 
   /** After any change the core's answer replaces what is shown, and one sentence says what is true now. */
@@ -68,7 +74,7 @@ export function ItemPage({ id }: { id: string }) {
       await api.deleteItem(id);
       refresh.set((n) => n + 1);
       say(t("item.deleted"));
-      go("/", true);
+      go(back, true);
     });
 
   // Everyone who can analyse, and whoever has the item now even if they no longer can.
@@ -83,8 +89,8 @@ export function ItemPage({ id }: { id: string }) {
   const was = { signal: it.signal ?? null, in_queue: !!it.in_queue };
 
   return (
-    <div class="page reading">
-      <BackLink />
+    <div class="page reading" data-open-item={id}>
+      <BackLink to={back} panel={panel} />
       <article class="stack">
         <header class="stack tight">
           <h1 class="item-title">
@@ -226,10 +232,11 @@ export function ItemPage({ id }: { id: string }) {
   );
 }
 
-function BackLink() {
+/** Back to the list: a way back on the item's own page, "Close" when the list is beside it. */
+function BackLink({ to, panel }: { to: string; panel: boolean }) {
   return (
-    <a class="link back" href="/">
-      ‹ {t("nav.today")}
+    <a class="link back" href={to} data-testid={panel ? "panel-close" : undefined}>
+      {panel ? t("common.close") : `‹ ${t(to.startsWith("/digest") ? "nav.digest" : "nav.today")}`}
     </a>
   );
 }

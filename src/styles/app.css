@@ -529,3 +529,41 @@ button.btn[aria-busy="true"]::after, button.link[aria-busy="true"]::after { cont
 @media (prefers-reduced-motion: reduce) {
   .switch[aria-busy="true"] .switch-knob { animation: none; }
 }
+
+/* ---------------------------------------------------------------- wide screens: a list, and beside it what is open
+   From 1100 px: the rail, a list column of about 560 px, then a panel that takes the rest, its
+   text no wider than 720 px. One line separates list and panel; each scrolls on its own.
+   Below 1100 px none of this applies: one column, and an item opens as its own page. */
+@media (min-width: 1100px) {
+  .split { display: grid; grid-template-columns: clamp(440px, 52%, 560px) minmax(0, 1fr); height: 100vh; height: 100dvh; }
+  .split-list, .split-panel { min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .split-list { border-right: 1px solid var(--ke-line); }
+  .split-list > .page { max-width: none; padding: 28px 28px 80px 36px; }
+  .split-panel > .page { max-width: 792px; padding: 28px 36px 80px; }
+  .split-list:focus-visible, .split-panel:focus-visible { outline: none; }
+
+  /* A row that opens beside the list. The open one is said calmly: the card's border takes the
+     text colour; a plain row gets the quiet fill. No gold: gold is for what was kept. */
+  .split-list [data-open] { cursor: pointer; }
+  .split-list .card[aria-current="true"] { border-color: var(--ke-text); }
+  .split-list :is(.waiting, .rest-line, .queue-row, .note-row)[aria-current="true"] {
+    background: var(--ke-quiet);
+    box-shadow: -10px 0 0 var(--ke-quiet), 10px 0 0 var(--ke-quiet);
+    color: var(--ke-text);
+  }
+  .split-list [data-open]:focus-visible, .split-list [data-open] a:focus-visible { outline-offset: 1px; }
+
+  /* Assistants: the sections are the list. */
+  .split-list .tabs { flex-direction: column; gap: 0; border-bottom: 0; overflow: visible; }
+  .split-list .tabs a { margin: 0; padding: 12px 0; border-bottom: 0; border-top: 1px solid var(--ke-line); }
+  .split-list .tabs a[aria-current="page"] { background: var(--ke-quiet); box-shadow: -10px 0 0 var(--ke-quiet), 10px 0 0 var(--ke-quiet); }
+
+  .panel-rest { gap: 26px; }
+  .panel-rest .sentence { padding: 0; }
+  .panel-rest .month-card { align-self: flex-start; min-width: 320px; }
+  .panel-counts { font-size: var(--ke-size-item); font-weight: 600; }
+  .digest-dates a { padding: 12px 0; }
+  .digest-dates li { padding: 0; }
+  .digest-dates a[aria-current="true"] { font-weight: 600; }
+  .digest-dates a:hover span:first-child { text-decoration: underline; text-underline-offset: 3px; }
+}

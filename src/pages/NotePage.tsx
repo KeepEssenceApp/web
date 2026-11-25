@@ -17,14 +17,14 @@ function asMarkdown(n: Note): string {
 }
 const fileName = (title: string) => `${title.replace(/[\\/:*?"<>|\n\r]+/g, " ").trim().slice(0, 80) || "note"}.md`;
 
-export function NotePage({ id }: { id: string }) {
+export function NotePage({ id, panel = false }: { id: string; panel?: boolean }) {
   const note = useLoad(() => api.note(id), [id]);
   const assets = useLoad(async () => Promise.all((note.data?.asset_ids ?? []).map((a) => api.asset(a))), [note.data?.id]);
   const n = note.data;
   if (!n)
     return (
       <div class="page reading">
-        <Back />
+        <Back panel={panel} />
         {note.status === 404 ? <p class="sentence">{t("notes.not_found")}</p> : <Loading error={note.error} />}
       </div>
     );
@@ -48,7 +48,7 @@ export function NotePage({ id }: { id: string }) {
 
   return (
     <div class="page reading">
-      <Back />
+      <Back panel={panel} />
       <article class="stack note" data-note={n.id}>
         <header class="stack tight">
           <div class="row spread wrap">
@@ -119,10 +119,10 @@ export function NotePage({ id }: { id: string }) {
   );
 }
 
-function Back() {
+function Back({ panel }: { panel: boolean }) {
   return (
-    <a class="link back" href="/notes">
-      ‹ {t("nav.notes")}
+    <a class="link back" href="/notes" data-testid={panel ? "panel-close" : undefined}>
+      {panel ? t("common.close") : `‹ ${t("nav.notes")}`}
     </a>
   );
 }
