@@ -25,8 +25,10 @@ const PAGES = [
   ["approve", "/approve"],
 ];
 
+// SHOTS=qa24 takes only the wide-screen set of QA #24 (the last block).
+const ONLY = process.env.SHOTS ?? "";
 const browser = await chromium.launch();
-for (const scheme of ["light", "dark"]) {
+for (const scheme of ONLY ? [] : ["light", "dark"]) {
   for (const [form, opts] of [
     ["desktop", { viewport: { width: 1280, height: 860 } }],
     ["phone", { ...devices["Pixel 7"] }],
@@ -58,7 +60,7 @@ const WIDE_PAGES = [
   ["note", "/notes/n1"],
   ["assistants", "/assistants"],
 ];
-for (const scheme of ["light", "dark"]) {
+for (const scheme of ONLY ? [] : ["light", "dark"]) {
   for (const [width, height] of [[1440, 900], [1920, 1080]]) {
     const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, locale: process.env.SHOT_LOCALE ?? "zh-CN" });
     const page = await ctx.newPage();
@@ -72,6 +74,38 @@ for (const scheme of ["light", "dark"]) {
       await page.goto(BASE + path);
       await page.waitForLoadState("networkidle");
       await page.screenshot({ path: `${OUT}/wide-${width}-${scheme}-${name}.png` });
+    }
+    await ctx.close();
+  }
+}
+// QA #24: Today, Notes, Calendar and Account at 1440 and 1920, light and dark, with nothing open
+// ("idle") and with something open ("open"): an item, a note, a day, and the delete area filled in.
+const yesterday = new Date(Date.now() + 8 * 3600e3 - 86400e3).toISOString().slice(0, 10);
+const QA24 = [
+  ["today-idle", "/"],
+  ["today-open", "/item/it_worth"],
+  ["notes-idle", "/notes"],
+  ["notes-open", "/notes/n1"],
+  ["calendar-idle", "/calendar"],
+  ["calendar-open", `/calendar?day=${yesterday}`],
+  ["account-idle", "/assistants/account"],
+  ["account-open", "/assistants/account", async (page) => page.fill('input[name="confirm_email"]', "reader@example.com")],
+];
+for (const scheme of ["light", "dark"]) {
+  for (const [width, height] of [[1440, 900], [1920, 1080]]) {
+    const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, locale: process.env.SHOT_LOCALE ?? "zh-CN" });
+    const page = await ctx.newPage();
+    await page.goto(BASE + "/");
+    await page.fill('input[type="email"]', "reader@example.com");
+    await page.click('button[type="submit"]');
+    await page.fill('input[name="code"]', process.env.LOGIN_CODE ?? "246810");
+    await page.click('button[type="submit"]');
+    await page.waitForSelector(".nav");
+    for (const [name, path, then] of QA24) {
+      await page.goto(BASE + path);
+      await page.waitForLoadState("networkidle");
+      if (then) await then(page);
+      await page.screenshot({ path: `${OUT}/qa24-${width}-${scheme}-${name}.png` });
     }
     await ctx.close();
   }

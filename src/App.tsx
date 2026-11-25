@@ -68,7 +68,7 @@ export function App() {
   else if (s.device.tier === "save") body = <SaveOnly onSignOut={() => api.signOut().then(dropSession, dropSession)} />;
   else if (page === "approve") body = <Approve code={(query.get("code") ?? "").trim().toUpperCase()} />;
   else if (page === "authorize") body = <Authorize request={query.get("request") ?? ""} />;
-  else if (page === "calendar") body = <Shell current="notes"><CalendarPage month={seg[1]} /></Shell>;
+  else if (page === "calendar") body = <Shell current="notes"><CalendarPage month={seg[1]} wide={wide} day={query.get("day")} /></Shell>;
   else if (page === "assistants" && s.device.tier === "manage") {
     const section = (SECTIONS.includes(seg[1] as Section) ? seg[1] : "assistants") as Section;
     body = <Shell current="assistants"><AssistantsPage section={section} wide={wide} /></Shell>;

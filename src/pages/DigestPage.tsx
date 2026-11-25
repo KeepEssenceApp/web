@@ -99,8 +99,10 @@ function NoDigest({ day, reason }: { day: string; reason: Status["no_digest_reas
  * One daily digest: four parts in a fixed order, then "Read. Good night".
  * On a wide screen (`beside`) the item behind a line opens in the panel; `selected` is that item.
  */
-export function DigestPage({ day, beside = false, selected }: { day: string; beside?: boolean; selected?: string | null }) {
-  const base = beside ? (day === "latest" ? "/digest" : `/digest/${day}`) : undefined;
+export function DigestPage({ day, beside = false, selected, embedded = false }: { day: string; beside?: boolean; selected?: string | null; embedded?: boolean }) {
+  // `embedded`: one day's digest inside the calendar's panel. The day is named above it, there
+  // is no page head and no paging, and a line's item opens beside that day's digest.
+  const base = beside || embedded ? (day === "latest" ? "/digest" : `/digest/${day}`) : undefined;
   const tick = useStore(refresh);
   const digest = useLoad(() => api.digest(day), [day, tick]);
   const status = useLoad(api.status, [tick]);
@@ -134,11 +136,15 @@ export function DigestPage({ day, beside = false, selected }: { day: string; bes
     });
 
   return (
-    <div class="page reading digest">
-      <PageHead title={t("nav.digest")} />
+    <div class={embedded ? "digest digest-embedded" : "page reading digest"}>
+      {!embedded && <PageHead title={t("nav.digest")} />}
       {!d ? (
         digest.status === 404 ? (
-          <NoDigest day={day} reason={status.data?.no_digest_reason ?? null} />
+          embedded ? (
+            <p class="quiet">{t("digest.none_day")}</p>
+          ) : (
+            <NoDigest day={day} reason={status.data?.no_digest_reason ?? null} />
+          )
         ) : (
           <Loading error={digest.error} />
         )
@@ -146,7 +152,7 @@ export function DigestPage({ day, beside = false, selected }: { day: string; bes
         <article class="stack loose" data-day={d.day}>
           <header class="stack tight">
             <div class="row spread">
-              <h2 class="digest-day">{dayName(d.day)}</h2>
+              {embedded ? <h2 class="label">{t("calendar.day_digest")}</h2> : <h2 class="digest-day">{dayName(d.day)}</h2>}
               <State dot={d.read ? "solid" : "ring"}>{d.read ? t("digest.is_read") : t("digest.unread")}</State>
             </div>
             <p class="digest-counts" data-testid="digest-header">
@@ -202,7 +208,7 @@ export function DigestPage({ day, beside = false, selected }: { day: string; bes
             )}
           </div>
 
-          <nav class="row spread pager" aria-label={t("nav.digest")}>
+          {!embedded && <nav class="row spread pager" aria-label={t("nav.digest")}>
             {d.previous_day ? (
               <a class="link" href={`/digest/${d.previous_day}`} rel="prev">
                 ‹ {t("digest.older")}
@@ -215,7 +221,7 @@ export function DigestPage({ day, beside = false, selected }: { day: string; bes
                 {t("digest.newer")} ›
               </a>
             )}
-          </nav>
+          </nav>}
         </article>
       )}
     </div>

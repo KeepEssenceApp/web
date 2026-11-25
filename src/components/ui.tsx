@@ -29,6 +29,20 @@ export function State({ dot, children, title }: { dot: DotKind; children?: Compo
   );
 }
 
+/** A few numbers, each over its name, laid out as a grid that fills the width it is given. */
+export function Stats({ cells, testid }: { cells: { id: string; n: number | string; label: string }[]; testid?: string }) {
+  return (
+    <dl class="stats" data-testid={testid}>
+      {cells.map((c) => (
+        <div key={c.id} data-stat={c.id}>
+          <dt class="stat-label">{c.label}</dt>
+          <dd class="stat-n">{c.n}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 const VERDICT_DOT: Record<Verdict, DotKind> = { worth_deep_dive: "gold-ring", good_to_know: "solid", skippable: "small" };
 export function VerdictMark({ verdict }: { verdict: Verdict }) {
   const rules = useStore(meta)?.shared_rules;

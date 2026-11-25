@@ -13,9 +13,23 @@ export function dayLabel(d: Day, today?: string): string {
  * One month: one dot a day, seven to a row, in date order. Days in the future are not drawn.
  * `faint` is the background on Today, `card` the card under Notes, `large` the opened month.
  * In the opened month every day can be pointed at or reached with the keyboard (`onPoint` then
- * names it), and a day with a daily digest opens that digest.
+ * names it), and a day with a daily digest opens that digest. With `select` (wide screens) every
+ * day is chosen instead, and shows in the panel beside the month.
  */
-export function CalendarDots({ cal, size, onPoint }: { cal: Calendar; size: "faint" | "card" | "large"; onPoint?: (day: string | null) => void }) {
+export function CalendarDots({
+  cal,
+  size,
+  onPoint,
+  select,
+  selected,
+}: {
+  cal: Calendar;
+  size: "faint" | "card" | "large";
+  onPoint?: (day: string | null) => void;
+  /** Wide screens: every day can be chosen, and opens beside the month at this address. */
+  select?: (day: string) => string;
+  selected?: string | null;
+}) {
   const days = cal.days.filter((d) => d.mark !== "future");
   return (
     <div class={`cal cal-${size}`} role={size === "faint" ? "presentation" : "list"}>
@@ -29,6 +43,14 @@ export function CalendarDots({ cal, size, onPoint }: { cal: Calendar; size: "fai
           onFocus: () => onPoint(d.day),
           onBlur: () => onPoint(null),
         };
+        if (size === "large" && select) {
+          const href = select(d.day);
+          return (
+            <a class={cls} role="listitem" key={d.day} href={href} data-day={d.day} data-open={href} aria-current={d.day === selected ? "true" : undefined} aria-label={label} title={label} {...point}>
+              {dot}
+            </a>
+          );
+        }
         // Only a day with a daily digest can be pressed, and only in the opened month.
         return size === "large" && d.has_digest ? (
           <a class={cls} role="listitem" key={d.day} href={`/digest/${d.day}`} data-day={d.day} aria-label={t("calendar.day_open", { label })} title={label} {...point}>
