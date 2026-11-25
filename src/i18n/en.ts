@@ -109,6 +109,7 @@ export const en: Record<keyof typeof zh, string> = {
   "action.not_interested": "Not interested",
   "action.seen": "Seen",
   "action.restore": "Restore",
+  "action.restore_hint": "Take back “{what}”. The item is not deleted; it goes back among those not dealt with.",
   "action.restored": "Restored.",
   "action.original": "Original",
 
@@ -154,7 +155,7 @@ export const en: Record<keyof typeof zh, string> = {
   "dive.queue_no_reader": "No assistant does the deep read yet, so nothing is read ahead of you. While it is in the queue the item is not deleted, and it waits for you at the top of Notes; after {days} day{s:days} with no activity it leaves the queue.",
   "dive.queue_nobody": "No assistant can deep read or deep dive yet. Adding it to the queue now only keeps the item: while it is in the queue it is not deleted, and it waits at the top of Notes; after {days} day{s:days} with no activity it leaves the queue. Nothing reads it until you connect an assistant that does deep reads.",
 
-  "digest.header": "{saved} in this daily digest. {worth} worth a deep dive.",
+  "digest.header": "{saved} in this daily digest. {worth} worth a deep dive not dealt with yet.",
   "digest.summary": "Summary",
   "digest.worth": "Worth a deep dive",
   "digest.rest": "The rest",

@@ -188,7 +188,7 @@ for (const [width, height] of [
       await expect(day.getByTestId("month-counts").locator(".stat-n")).toHaveCount(4);
       const digest = day.locator("article[data-day]");
       await expect(digest).toHaveAttribute("data-day", yesterday);
-      await expect(digest.getByTestId("digest-header")).toHaveText("这份每日摘要里有 8 条。2 条值得深挖。");
+      await expect(digest.getByTestId("digest-header")).toHaveText("这份每日摘要里有 8 条。2 条值得深挖的还没处理。");
       await expect(digest.locator('[data-part="worth"] .card')).toHaveCount(2);
       await expect(digest.locator(".card").first().locator(".actions button")).toHaveText(["深挖", "不感兴趣", "看过了"]);
       await expect(digest.locator('[data-part="question"]')).toContainText("如果只能留下今天读到的一句话");

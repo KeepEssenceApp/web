@@ -47,7 +47,7 @@ function RestLine({ r, onRestore, beside, selected }: { r: DigestRest; onRestore
       <span class="rest-title">{beside && r.available !== false ? <a href={itemHref(r.item_id, beside)}>{r.title}</a> : r.title}</span>
       {why && <span class="quiet small">{why}</span>}
       {r.can_restore && (
-        <button class="link" type="button" onClick={onRestore}>
+        <button class="link" type="button" onClick={onRestore} title={why ? t("action.restore_hint", { what: why }) : undefined}>
           {t("action.restore")}
         </button>
       )}

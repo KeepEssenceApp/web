@@ -177,7 +177,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
               {state && (
                 <p class="row wrap item-state" data-testid="item-state" aria-label={t("item.state")}>
                   <State dot="solid">{state}</State>
-                  <button class="link" type="button" onClick={() => act.restore(id, was)}>
+                  <button class="link" type="button" onClick={() => act.restore(id, was)} title={it.in_queue ? undefined : t("action.restore_hint", { what: state })}>
                     {it.in_queue ? t("queue.remove") : t("action.restore")}
                   </button>
                 </p>

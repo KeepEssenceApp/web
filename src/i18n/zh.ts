@@ -107,6 +107,7 @@ export const zh = {
   "action.not_interested": "不感兴趣",
   "action.seen": "看过了",
   "action.restore": "挽回",
+  "action.restore_hint": "收回「{what}」。这一条没有删除，会回到还没处理的里面。",
   "action.restored": "已挽回。",
   "action.original": "原文",
 
@@ -152,7 +153,7 @@ export const zh = {
   "dive.queue_no_reader": "还没有精读助手，所以没有人会先替你精读。在队列里期间这一条不会删除，并排在笔记页最上面等你；{days} 天没有动静会自动移出。",
   "dive.queue_nobody": "还没有能精读或深挖的助手。现在加入队列只是把这一条留住：在队列里期间它不会删除，并排在笔记页最上面；{days} 天没有动静会自动移出。接入能精读的助手之前，没有人会读它。",
 
-  "digest.header": "这份每日摘要里有 {saved} 条。{worth} 条值得深挖。",
+  "digest.header": "这份每日摘要里有 {saved} 条。{worth} 条值得深挖的还没处理。",
   "digest.summary": "总结",
   "digest.worth": "值得深挖的",
   "digest.rest": "其余的",

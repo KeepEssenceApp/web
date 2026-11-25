@@ -9,7 +9,7 @@ test("W3: opens on the latest; four parts in order; unread dot; Read. Good night
   // One dot on the entry while the latest digest is unread.
   await expect(page.getByTestId("digest-unread")).toHaveCount(1);
   await page.locator('[data-entry="digest"]').click();
-  await expect(page.getByTestId("digest-header")).toHaveText(/这份每日摘要里有 \d+ 条。\d+ 条值得深挖。/);
+  await expect(page.getByTestId("digest-header")).toHaveText(/这份每日摘要里有 \d+ 条。\d+ 条值得深挖的还没处理。/);
   const parts = await page.locator("[data-part]").evaluateAll((els) => els.map((e) => e.getAttribute("data-part")));
   expect(parts).toEqual(["summary", "worth", "rest", "question"]);
   await expect(page.locator("[data-part] .label, [data-part] summary.label")).toHaveText(["总结", "值得深挖的", /^其余的 · \d+ 条$/, "睡前一问"]);
