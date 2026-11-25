@@ -18,7 +18,7 @@ h1, h2, h3, h4, p, ul, ol, dl, dd, figure, fieldset, blockquote, pre { margin: 0
 ul, ol { list-style: none; }
 fieldset { border: 0; min-width: 0; }
 legend { padding: 0; }
-h1 { font-size: var(--ke-size-title); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+h1 { font-size: var(--ke-size-title); font-weight: 600; line-height: 1.25; }
 h2 { font-size: var(--ke-size-subtitle); font-weight: 600; line-height: 1.3; }
 h3 { font-size: var(--ke-size-item); font-weight: 600; line-height: 1.35; }
 a { color: inherit; text-decoration: none; }
@@ -299,7 +299,7 @@ label > .label { margin-bottom: 6px; }
 .confirm { display: flex; flex-direction: column; gap: 8px; }
 
 /* ---------------------------------------------------------------- daily digest */
-.digest-day { font-size: var(--ke-size-display); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+.digest-day { font-size: var(--ke-size-display); font-weight: 700; line-height: 1.15; }
 .digest-counts { font-size: var(--ke-size-item); font-weight: 600; }
 .digest-summary { color: var(--ke-text-2); line-height: 1.75; }
 .digest-question { font-size: var(--ke-size-subtitle); font-weight: 600; line-height: 1.5; }
@@ -318,7 +318,7 @@ label > .label { margin-bottom: 6px; }
 .note-row b { font-size: var(--ke-size-item); }
 .note-row:hover b { text-decoration: underline; text-underline-offset: 3px; }
 .month-card { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-.note-title { font-size: var(--ke-size-display); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.note-title { font-size: var(--ke-size-display); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .prose { font-size: 16px; line-height: 1.8; display: flex; flex-direction: column; gap: 14px; overflow-wrap: anywhere; }
 .prose h2 { margin-top: 10px; }
 .prose ul, .prose ol { padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }

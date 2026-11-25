@@ -8,6 +8,7 @@
  *   - Red is the only functional colour, for things that lose data. There is no green or yellow.
  *   - Only things you can press have a fill or a border. A state is a dot plus words.
  *   - Radii: marks 0, tags 4, buttons/cards/inputs 6, bottom sheets 10.
+ *   - No negative letter-spacing: titles often hold Chinese, which must not be squeezed.
  */
 :root {
   --ke-black: #0B0B0B;
@@ -31,7 +32,9 @@
   --ke-radius: 6px;
   --ke-radius-sheet: 10px;
 
-  --ke-font: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+  /* System fonts only. No web font is loaded: what a developer sees is then what a phone shows,
+     and Chinese text, which a Latin web font never covers, is set in the same family as the rest. */
+  --ke-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --ke-size-display: 32px;   /* 700 */
   --ke-size-title: 26px;     /* 600 */
   --ke-size-subtitle: 20px;  /* 600 */
@@ -39,6 +42,15 @@
   --ke-size-body: 15px;
   --ke-size-secondary: 13px;
   --ke-size-caption: 12px;
+}
+
+/* Phones: text that has to be read is larger. Chinese at 12 to 13 px is hard to read on a phone. */
+@media (max-width: 640px) {
+  :root {
+    --ke-size-body: 16px;
+    --ke-size-secondary: 14px;
+    --ke-size-caption: 13px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
