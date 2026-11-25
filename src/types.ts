@@ -169,6 +169,16 @@ export interface Assistant {
   last_seen_at?: string | null;
   runs_at?: string | null;
 }
+/** One assistant's row of `GET /v1/usage`: what it used in the days asked for. */
+export interface AssistantUsage {
+  assistant_id: string;
+  name: string;
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  items: number;
+  self_reported: boolean;
+}
 export type Role = "analysis" | "digest" | "deep_read" | "deep_dive";
 export interface Settings {
   rules: string;

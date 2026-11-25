@@ -399,6 +399,15 @@ a.cal-day:hover { border-color: var(--ke-text); }
 .tabs a { padding: 8px 0; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--ke-text-2); white-space: nowrap; }
 .tabs a[aria-current="page"] { color: var(--ke-text); font-weight: 600; border-bottom-color: var(--ke-text); }
 .rows > li, .rows > label { padding: 14px 0; border-top: 1px solid var(--ke-line); }
+/* An assistant's row opens in place: a small mark at its left turns when it is open. */
+.about-row > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; }
+.about-row > summary::-webkit-details-marker { display: none; }
+.about-row > summary::before { content: "›"; flex: none; color: var(--ke-text-3); transition: transform 0.15s; }
+.about-row[open] > summary::before { transform: rotate(90deg); }
+.about-row > summary > .stack { flex: 1 1 auto; min-width: 0; }
+.about-row > summary:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.about { margin: 12px 0 4px 18px; font-size: var(--ke-size-secondary); }
+.about .fields > div { grid-template-columns: 132px minmax(0, 1fr); }
 .rename input { max-width: 240px; }
 .steps { gap: 6px 16px; }
 .steps legend { float: left; margin-right: 12px; }
@@ -528,7 +537,7 @@ a.cal-day:hover { border-color: var(--ke-text); }
   .cal-large { --cell: 32px; --gap: 10px; --dot: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .swipe-top, .switch-knob { transition: none; }
+  .swipe-top, .switch-knob, .about-row > summary::before { transition: none; }
 }
 
 /* ---------------------------------------------------------------- waiting on the core

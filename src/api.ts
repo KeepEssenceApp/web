@@ -130,6 +130,9 @@ export const api = {
   /** The last `days` days, today included, as numbers. */
   stats: (days: number) => json<{ days: T.DayCounts[] }>(`/v1/stats${q({ days })}`),
 
+  /** What each assistant used in the last `days` days. */
+  usage: (days: number) => json<{ assistants: T.AssistantUsage[] }>(`/v1/usage${q({ days })}`),
+
   settings: () => json<T.Settings>("/v1/settings"),
   updateSettings: (body: T.SettingsChange) => json<T.Settings>("/v1/settings", { method: "PATCH", body }),
   rotateCalendarImage: () => json<T.Settings>("/v1/settings/calendar-image/rotate", { method: "POST" }),

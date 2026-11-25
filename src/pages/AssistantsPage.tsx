@@ -8,7 +8,7 @@ import { exportFileName, localDate, notesFileName, notesMarkdown } from "../expo
 import { copyText, downloadText, errText, say, sayError, useBusy, useLoad } from "../lib";
 import { go } from "../router";
 import { accountDeleted, dropSession, refresh, session } from "../session";
-import type { Assistant, Device, ExportDoc, Lang, Role, Settings, Step, Tier } from "../types";
+import type { Assistant, AssistantUsage, Device, ExportDoc, Lang, Role, Settings, Step, Tier } from "../types";
 import { askAndSubscribe, pushSupport } from "../push";
 import { useStore } from "../store";
 
@@ -153,9 +153,68 @@ const kindName = (a: { kind: Assistant["kind"]; built_in?: boolean }) =>
 const seen = (iso?: string | null) => (iso ? t("status.came", { when: ago(iso) }) : t("status.never"));
 const recent = (iso?: string | null) => !!iso && Date.now() - new Date(iso).getTime() < 86400000;
 
+/** How many days of usage an assistant's row shows. */
+const USAGE_DAYS = 30;
+const count = (n: number) => new Intl.NumberFormat(lang() === "zh" ? "zh-CN" : "en-GB").format(n);
+
+/**
+ * What an assistant's row opens to (QA #30): what it does, whose it is, when it last came,
+ * where content is sent, and what it used. Only what the core says: nothing is made up.
+ */
+function AssistantAbout({ a, usage }: { a: Assistant; usage: { rows?: AssistantUsage[]; error: string | null } }) {
+  const u = usage.rows?.find((x) => x.assistant_id === a.id);
+  return (
+    <div class="stack about" data-testid="assistant-about">
+      <dl class="fields">
+        <div data-about="steps">
+          <dt>{t("assistant.steps")}</dt>
+          <dd>{a.steps.length ? a.steps.map((s) => t(`step.${s}`)).join(" · ") : t("common.none")}</dd>
+        </div>
+        <div data-about="origin">
+          <dt>{t("assistant.origin")}</dt>
+          <dd>
+            {a.built_in
+              ? t("assistant.origin.built_in")
+              : a.connected_at
+                ? t("assistant.origin.connected", { when: ago(a.connected_at) })
+                : t("assistant.origin.connected_plain")}
+          </dd>
+        </div>
+        <div data-about="came">
+          <dt>{t("assistant.last_came")}</dt>
+          <dd>{seen(a.last_seen_at)}</dd>
+        </div>
+        <div data-about="sent">
+          <dt>{t("assistant.sent")}</dt>
+          <dd>{a.runs_at ? t("assistant.runs_at", { where: a.runs_at }) : a.built_in ? t("assistant.sent.built_in") : t("assistant.sent.unknown")}</dd>
+        </div>
+        <div data-about="usage">
+          <dt>{t("assistant.usage", { days: USAGE_DAYS })}</dt>
+          <dd class="stack tight">
+            {!usage.rows ? (
+              <Loading error={usage.error} />
+            ) : !u || (u.calls === 0 && u.items === 0 && u.input_tokens === 0 && u.output_tokens === 0) ? (
+              <span>{t("assistant.usage.none", { days: USAGE_DAYS })}</span>
+            ) : (
+              <>
+                <span>{t("assistant.usage.line", { calls: count(u.calls), items: count(u.items), input: count(u.input_tokens), output: count(u.output_tokens) })}</span>
+                {u.self_reported && <span class="quiet small" data-testid="usage-self">{t("assistant.usage.self")}</span>}
+              </>
+            )}
+          </dd>
+        </div>
+      </dl>
+      {a.built_in && (
+        <p class="quiet small" data-testid="built-in-fixed">{t("assistant.built_in_fixed")}</p>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- assistants and who does which step
 function AssistantList() {
   const list = useLoad(api.assistants, []);
+  const used = useLoad(() => api.usage(USAGE_DAYS), []);
   const settings = useLoad(api.settings, []);
   const [busy, run] = useBusy();
   if (!list.data || !settings.data) return <Loading error={list.error ?? settings.error} />;
@@ -189,18 +248,26 @@ function AssistantList() {
         <ul class="rows">
           {assistants.map((a) => (
             <li key={a.id} class="stack tight" data-assistant={a.id}>
-              <div class="row spread wrap">
-                <span class="row wrap">
-                  <b>{a.name}</b>
-                  {kindName(a) !== a.name && <span class="quiet small">{kindName(a)}</span>}
-                </span>
-                <State dot={recent(a.last_seen_at) ? "solid" : "ring"}>
-                  <span class="small">{seen(a.last_seen_at)}</span>
-                </State>
-              </div>
-              <p class="quiet small">
-                {[a.steps.map((s) => t(`step.${s}`)).join(" · "), a.runs_at ? t("assistant.runs_at", { where: a.runs_at }) : null].filter(Boolean).join(" — ")}
-              </p>
+              {/* The row opens in place: every assistant, the built-in one too, says what it is (QA #30). */}
+              <details class="about-row">
+                <summary>
+                  <span class="stack tight">
+                    <span class="row spread wrap">
+                      <span class="row wrap">
+                        <b>{a.name}</b>
+                        {kindName(a) !== a.name && <span class="quiet small">{kindName(a)}</span>}
+                      </span>
+                      <State dot={recent(a.last_seen_at) ? "solid" : "ring"}>
+                        <span class="small">{seen(a.last_seen_at)}</span>
+                      </State>
+                    </span>
+                    <span class="quiet small">
+                      {[a.steps.map((s) => t(`step.${s}`)).join(" · "), a.runs_at ? t("assistant.runs_at", { where: a.runs_at }) : null].filter(Boolean).join(" — ")}
+                    </span>
+                  </span>
+                </summary>
+                <AssistantAbout a={a} usage={{ rows: used.data?.assistants, error: used.error }} />
+              </details>
               {!a.built_in && (
                 <>
                   {a.kind === "scheduled" && (
