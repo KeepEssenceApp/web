@@ -203,6 +203,11 @@ export function NotesPage({ beside = false, selected, reading }: { beside?: bool
         placeholder={t("notes.find_placeholder")}
         aria-label={t("notes.find")}
         onInput={(ev) => setFind(ev.currentTarget.value)}
+        // Whatever emptied or filled the box without an input event (a clear button, a tool that
+        // sets the value) is still read: the list follows what the box holds (QA #55).
+        onChange={(ev) => setFind(ev.currentTarget.value)}
+        onKeyUp={(ev) => setFind(ev.currentTarget.value)}
+        onBlur={(ev) => setFind(ev.currentTarget.value)}
       />
 
       {!searching && queue.data && queue.data.entries.length > 0 && (

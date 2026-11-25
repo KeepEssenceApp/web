@@ -36,3 +36,15 @@ test("QA #54: the empty sentence belongs to the words being looked for", async (
   await expect(empty).toHaveCount(0, { timeout: 200 });
   await expect(empty).toHaveText("还没有笔记。");
 });
+
+test("QA #55: a box emptied without typing is still read, and the list goes back", async ({ page }) => {
+  await page.route("**/v1/notes*", (route) => route.fulfill({ json: { notes: [], next_cursor: null } }));
+  await signIn(page, "/notes");
+  const empty = page.getByTestId("notes-empty");
+  await page.locator(".find").fill("digest");
+  await expect(empty).toHaveText("没有找到笔记。");
+  // The value is set from outside, with no input event, and the box is left.
+  await page.locator(".find").evaluate((el: HTMLInputElement) => (el.value = ""));
+  await page.locator(".find").blur();
+  await expect(empty).toHaveText("还没有笔记。");
+});
