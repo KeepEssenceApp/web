@@ -1,7 +1,8 @@
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { shared, t } from "../i18n";
 import { looksSecret } from "../lib";
 import { combine, saveFile, saveText, type Outcome } from "../save";
+import { useRoute } from "../router";
 import { meta } from "../session";
 import { useStore } from "../store";
 
@@ -15,6 +16,16 @@ export function Inbox() {
   const [over, setOver] = useState(false);
   const [result, setResult] = useState<Outcome | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  // The sentence answers one save. It goes when the user moves on to something else (opens an
+  // item, closes it, comes back): later it would speak of a save long past (QA #76).
+  const route = useRoute();
+  const at = `${route.path}${route.search}`;
+  const first = useRef(at);
+  useEffect(() => {
+    if (first.current === at) return;
+    first.current = at;
+    if (!busy) setResult((r) => (r?.ok ? null : r));
+  }, [at]);
 
   const add = (list: FileList | File[] | null | undefined) => {
     const next = [...(list ?? [])];

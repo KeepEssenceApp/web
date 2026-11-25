@@ -48,3 +48,20 @@ test("QA #75: the month says what each kind of dot means", async ({ page }) => {
   await expect(legend.first()).toContainText("什么都没存入");
   for (const box of await legend.locator(".cal-dot").all()) expect((await box.boundingBox())!.width).toBeGreaterThan(2);
 });
+
+test("QA #76: the save box's sentence goes once the user moves on", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 900, "on a narrow screen opening an item leaves Today, and the box with it");
+  await signIn(page, "/");
+  await page.locator(".inbox-box").fill("一条用来看提示的文字");
+  await page.locator(".inbox-box").press("Meta+Enter");
+  const result = page.locator(".inbox-result");
+  await expect(result).toHaveText("已存入。");
+  // Open an item beside the list: Today, and the box, stay on the screen.
+  await page.evaluate(() => {
+    history.pushState(null, "", "/?item=it_worth");
+    dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await expect(page).toHaveURL(/\?item=it_worth$/);
+  await expect(page.locator(".inbox-box")).toBeVisible();
+  await expect(result).toHaveText("");
+});
