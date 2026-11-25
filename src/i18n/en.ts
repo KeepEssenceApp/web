@@ -384,7 +384,7 @@ export const en: Record<keyof typeof zh, string> = {
   "rest.digests": "Daily digests",
   "rest.digests_unread": "Unread",
   "cal.saved": "Saved",
-  "cal.analysed": "Analysed",
+  "cal.analysed": "Items analysed",
   "cal.digests": "Daily digests",
   "cal.read": "Digests read",
   "cal.notes": "Notes",

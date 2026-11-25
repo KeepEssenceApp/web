@@ -111,6 +111,7 @@ function DayPanel({ cal, day, close }: { cal: Calendar; day: string; close: stri
       <section aria-label={t("calendar.day_counts")}>
         <h2 class="label">{t("calendar.day_counts")}</h2>
         {counts ? (
+          <>
           <Stats
             testid="day-counts"
             cells={[
@@ -120,6 +121,8 @@ function DayPanel({ cal, day, close }: { cal: Calendar; day: string; close: stri
               { id: "notes", n: counts.notes, label: t("cal.notes") },
             ]}
           />
+          <p class="quiet small" data-testid="day-counts-rule">{t("calendar.rule")}</p>
+          </>
         ) : stats.data !== undefined ? (
           <p class="quiet">{t("calendar.no_counts")}</p>
         ) : (

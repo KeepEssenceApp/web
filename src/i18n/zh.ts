@@ -382,7 +382,7 @@ export const zh = {
   "rest.digests": "每日摘要",
   "rest.digests_unread": "还没读",
   "cal.saved": "存入",
-  "cal.analysed": "解读",
+  "cal.analysed": "解读了几条",
   "cal.digests": "每日摘要",
   "cal.read": "读了的摘要",
   "cal.notes": "笔记",

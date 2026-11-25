@@ -158,7 +158,7 @@ for (const [width, height] of [
       await expectFrame(page, width);
       await expect(day.locator("h1")).toContainText(`${Number(today.slice(5, 7))}月${Number(today.slice(8))}日`);
       await expect(day.getByTestId("day-mark")).toHaveText("今天，存入了条目，还没有每日摘要");
-      await expect(day.getByTestId("day-counts").locator(".stat-label")).toHaveText(["存入", "解读", "每日摘要", "笔记"]);
+      await expect(day.getByTestId("day-counts").locator(".stat-label")).toHaveText(["存入", "解读了几条", "每日摘要", "笔记"]);
       await expect(day.getByTestId("day-counts").locator(".stat-n")).toHaveText(["7", "6", "0", "0"]);
       await expectInARow(day.getByTestId("day-counts").locator("> div"), 4);
       await expect(day.getByTestId("month-counts").locator(".stat-n")).toHaveCount(4);
