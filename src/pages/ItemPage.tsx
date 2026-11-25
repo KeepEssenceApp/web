@@ -124,7 +124,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   const decided = sorted || !!it.pinned || mine.current.retention;
   const days = it.pinned || !decided ? null : (it.expiry_days ?? null);
   const options = [...new Set([...(extra.data?.[1].expiry_options ?? []), ...(days === null ? [] : [days])])].sort((a, b) => a - b);
-  const life = it.pinned ? t("today.kept") : decided && typeof it.days_left === "number" ? t("today.days_left", { n: it.days_left }) : null;
+  const life = it.pinned ? t("today.kept") : decided && typeof it.days_left === "number" ? (it.days_left === 0 && !it.in_queue ? t("today.last_day") : t("today.days_left", { n: it.days_left })) : null;
   // After sorting, a value the user has not chosen says who set it.
   // The core says who decided each value; an older core does not, and then the note shows unless
   // this page changed the value itself.

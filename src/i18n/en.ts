@@ -493,4 +493,5 @@ export const en: Record<keyof typeof zh, string> = {
   "feedback.another": "Write another",
   "feedback.back": "Back to Today",
   "rules.nothing_to_save": "Nothing to save: this is what is saved now.",
+  "today.last_day": "Ends today",
 };

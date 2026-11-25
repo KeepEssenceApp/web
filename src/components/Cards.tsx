@@ -271,7 +271,7 @@ export function WaitingRow({ item, selected = false }: { item: Item; selected?: 
   } else {
     if (item.dispatch_to) facts.push(t("today.given_to", { name: item.dispatch_to.name }));
     if (item.pinned) facts.push(t("today.kept"));
-    else if (typeof item.days_left === "number") facts.push(t("today.days_left", { n: item.days_left }));
+    else if (typeof item.days_left === "number") facts.push(item.days_left === 0 && !item.in_queue ? t("today.last_day") : t("today.days_left", { n: item.days_left }));
   }
   return (
     <li class="waiting" data-item={item.id} {...opens(`/item/${item.id}`, selected)}>

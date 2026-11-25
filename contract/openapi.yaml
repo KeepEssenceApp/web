@@ -1844,7 +1844,7 @@ components:
         stage: { type: string, enum: [saved, triaged, analysed], description: How far the item got. }
         content_unavailable: { type: boolean }
         dispatch_to: { type: [object, "null"], properties: { id: { type: string }, name: { type: string } } }
-        days_left: { type: [integer, "null"], description: Null when pinned. }
+        days_left: { type: [integer, "null"], description: "Days from the date of today to the date the item ends on, in the time zone of the user. 0 means it ends today. Null when pinned." }
         pinned: { type: boolean }
         signal: { type: [string, "null"], enum: [not_interested, seen, null] }
         in_queue: { type: boolean }
