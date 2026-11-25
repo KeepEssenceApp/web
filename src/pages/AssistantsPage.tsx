@@ -411,6 +411,11 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
   // answer is still there for someone who looks a little later than the passing sentence (QA #53).
   const [outcome, setOutcome] = useState<string | null>(null);
   const [busy, run] = useBusy();
+  // Nothing differs from what is saved: there is nothing to save, and the button says so by being
+  // off (QA #82). Days that cannot be read count as a change, so that pressing Save says what is wrong.
+  const typed = expiryOptions(expiry);
+  const same = (xs: number[]) => [...new Set(xs)].sort((x, y) => x - y).join(",");
+  const dirty = rules !== settings.rules || !typed || same(typed) !== same(settings.expiry_options);
   const save = (ev: Event) => {
     ev.preventDefault();
     setOutcome(null);
@@ -470,10 +475,10 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
         </p>
       </section>
       <div class="row">
-        <button class="btn" type="submit" disabled={busy !== null} aria-busy={busy !== null}>
+        <button class="btn" type="submit" disabled={busy !== null || !dirty} aria-busy={busy !== null}>
           {t("common.save")}
         </button>
-        <span class="quiet small" role="status" data-testid="rules-outcome">{busy === null ? outcome : null}</span>
+        <span class="quiet small" role="status" data-testid="rules-outcome">{busy !== null ? null : outcome ?? (dirty ? null : t("rules.nothing_to_save"))}</span>
       </div>
     </form>
   );

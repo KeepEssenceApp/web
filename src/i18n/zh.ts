@@ -490,4 +490,5 @@ export const zh = {
   "feedback.sent": "收到了，谢谢。会有人读。",
   "feedback.another": "再写一条",
   "feedback.back": "回到今天",
+  "rules.nothing_to_save": "没有要保存的：现在保存的就是这样。",
 };

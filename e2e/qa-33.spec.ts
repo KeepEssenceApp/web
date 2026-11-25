@@ -111,15 +111,23 @@ test("QA #33: deleting the account — the core's refusal goes when the email is
   await expect(zone.getByTestId("delete-confirm")).toBeEnabled();
 });
 
-test("QA #47: saving the rules with nothing changed says so, and sends nothing", async ({ page }) => {
+test("QA #47, #82: with nothing changed there is nothing to save: the button is off and a line says so", async ({ page }) => {
   await signIn(page, "/assistants/rules");
-  let sent = 0;
-  page.on("request", (r) => {
-    if (r.method() === "PATCH" && new URL(r.url()).pathname === "/v1/settings") sent++;
-  });
-  await page.getByRole("button", { name: "保存" }).click();
-  await expect(page.locator(".said")).toHaveText("没有改动，规则还是原来保存的样子。");
-  expect(sent).toBe(0);
+  const save = page.getByRole("button", { name: "保存" });
+  const outcome = page.getByTestId("rules-outcome");
+  await expect(save).toBeDisabled();
+  await expect(outcome).toHaveText("没有要保存的：现在保存的就是这样。");
+  // An edit turns it on; undoing the edit turns it off again. The same days in another order are no change.
+  const days = page.locator('input[inputmode="numeric"]');
+  const was = await days.inputValue();
+  await days.fill("7, 30");
+  await expect(save).toBeEnabled();
+  await expect(outcome).toHaveText("");
+  await days.fill(was.split(", ").reverse().join(","));
+  await expect(save).toBeDisabled();
+  // Days that cannot be read keep it on, so that pressing it says what is wrong.
+  await days.fill("abc");
+  await expect(save).toBeEnabled();
 });
 
 test("QA #48: the sentence under the notifications switch follows the switch at once", async ({ page, request }) => {
@@ -148,7 +156,8 @@ test("QA #53: a rules save that changed something stays confirmed beside the but
   // Still there after the passing sentence has gone.
   await expect(page.locator(".said")).toHaveCount(0, { timeout: 8000 });
   await expect(outcome).toHaveText("已保存。");
-  await expect(page.getByRole("button", { name: "保存" })).toBeEnabled();
+  // Saved, and nothing differs from it any more: the button is off until the next edit (QA #82).
+  await expect(page.getByRole("button", { name: "保存" })).toBeDisabled();
   // It goes as soon as something is edited: it spoke of what was saved, not of what is typed now.
   await days.fill("7, 30");
   await expect(outcome).toHaveText("");

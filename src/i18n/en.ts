@@ -492,4 +492,5 @@ export const en: Record<keyof typeof zh, string> = {
   "feedback.sent": "Received. Thank you: a person will read it.",
   "feedback.another": "Write another",
   "feedback.back": "Back to Today",
+  "rules.nothing_to_save": "Nothing to save: this is what is saved now.",
 };
