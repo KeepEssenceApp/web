@@ -355,6 +355,7 @@ export const en: Record<keyof typeof zh, string> = {
   "notify.title": "KeepEssence",
 
   "account.language": "Language",
+  "account.language_hint": "New analyses and digests are written in this language.",
   "account.lang_zh": "中文",
   "account.lang_en": "English",
   "account.timezone": "Time zone",

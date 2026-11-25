@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "./api";
 import { Shell } from "./components/Shell";
 import { Loading, Said } from "./components/ui";
-import { langStore } from "./i18n";
+import { lang as currentLang, langStore, setLang } from "./i18n";
 import { errText } from "./lib";
 import { AssistantsPage, type Section } from "./pages/AssistantsPage";
 import { Approve } from "./pages/Approve";
@@ -41,6 +41,12 @@ export function App() {
         (err) => session.get().signedIn && setBootError(errText(err)),
       );
   }, [s.signedIn, s.device]);
+  // The account has one language: analyses and daily digests are written in it, and the interface
+  // of a signed-in device follows it (QA #18). Before sign-in the browser's language decides.
+  const accountLang = s.user?.lang;
+  useEffect(() => {
+    if (accountLang && accountLang !== currentLang()) setLang(accountLang);
+  }, [accountLang]);
   // One dot on the daily digest entry while the latest one is unread.
   const reads = s.device?.tier === "read" || s.device?.tier === "manage";
   useEffect(() => {

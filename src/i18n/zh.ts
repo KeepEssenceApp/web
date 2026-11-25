@@ -353,6 +353,7 @@ export const zh = {
   "notify.title": "KeepEssence",
 
   "account.language": "语言",
+  "account.language_hint": "新的解读和每日摘要用这种语言写。",
   "account.lang_zh": "中文",
   "account.lang_en": "English",
   "account.timezone": "时区",

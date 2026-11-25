@@ -126,6 +126,8 @@ function seed(opts = {}) {
     delay: 0, failNext: null,
     pushKey: (() => { const e = crypto.createECDH("prime256v1"); e.generateKeys(); return e.getPublicKey().toString("base64url"); })(),
   };
+  // An account that exists already, in this language: signing in does not change it.
+  if (opts.account_lang) { S.user.lang = opts.account_lang; S.signedInOnce = true; }
   S.devices.set("dev_ext", { id: "dev_ext", name: "Chrome 扩展 · Mac", category: "client", client: "extension", tier: "save", created_at: ago(9 * DAY), last_used_at: ago(3 * 3600e3), notifications: false });
   S.oauth.set("req_demo", { client_name: "Example Chat", client_uri: "https://chat.example.com", redirect_host: "chat.example.com", steps_requested: ["deep_dive"], state: "xyz" });
   S.oauth.set("req_agent", { client_name: "My Agent", client_uri: null, redirect_host: "agent.example.com", steps_requested: ["analysis", "digest", "deep_read", "deep_dive"], state: "xyz" });
@@ -363,11 +365,19 @@ function pendingCode(code) {
 
 on("GET", "/v1/meta", null, () => [200, { contract_version: "1.0.0", limits: LIMITS, shared_rules: SHARED_RULES }]);
 
-on("POST", "/v1/auth/email-codes", null, (c) => { need(typeof c.body.email === "string" && /^\S+@\S+\.\S+$/.test(c.body.email)); return [202]; });
+on("POST", "/v1/auth/email-codes", null, (c) => {
+  need(typeof c.body.email === "string" && /^\S+@\S+\.\S+$/.test(c.body.email));
+  if (c.body.lang !== undefined) { need(["zh", "en"].includes(c.body.lang)); S.codeLang = c.body.lang; }
+  return [202];
+});
 on("POST", "/v1/auth/sessions", null, (c) => {
   const b = c.body;
   need(b.email && b.code && b.device_name && CLIENTS.includes(b.client));
   if (!/@example\.com$/i.test(b.email) || b.code !== LOGIN_CODE) fail(401, "unauthorized", c.lang === "zh" ? "验证码不对，或已经失效。" : "The code is wrong or has expired.");
+  // As in the core: the first sign-in makes the account, in the language of the sign-in page
+  // that asked for the code. Later sign-ins leave the account's language alone.
+  if (!S.signedInOnce) S.user.lang = S.codeLang ?? c.lang;
+  S.signedInOnce = true;
   const { d, credential } = createDevice(b.device_name, b.client, "manage");
   return [201, { credential, device: deviceOut(d, d), user: S.user }];
 });

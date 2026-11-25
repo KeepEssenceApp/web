@@ -601,10 +601,16 @@ function Account() {
     /* older browsers */
   }
   if (!zones.includes(s.timezone)) zones = [s.timezone, ...zones];
-  const changeLang = (next: Lang) => {
-    setLang(next);
-    api.updateSettings({ lang: next }).then(settings.set, sayError);
-  };
+  // The language belongs to the account: analyses and daily digests are written in it. It is
+  // sent to the core first; the interface follows only once the core has it (QA #18).
+  const changeLang = (next: Lang) =>
+    run("lang", async () => {
+      const saved = await api.updateSettings({ lang: next });
+      settings.set(saved);
+      const now = session.get();
+      if (now.user) session.set({ ...now, user: { ...now.user, lang: saved.lang } });
+      setLang(saved.lang);
+    });
   const signOut = () => {
     setFail(null);
     return run("out", () => api.signOut().then(dropSession, (err) => setFail((err as Error).message || String(err))));
@@ -613,13 +619,16 @@ function Account() {
     <div class="stack loose">
       <section class="stack">
         <h2>{t("set.account")}</h2>
-        <label class="row spread wrap">
-          <span>{t("account.language")}</span>
-          <select value={lang()} data-testid="language" onChange={(ev) => changeLang(ev.currentTarget.value as Lang)}>
-            <option value="zh">{t("account.lang_zh")}</option>
-            <option value="en">{t("account.lang_en")}</option>
-          </select>
-        </label>
+        <div class="stack tight">
+          <label class="row spread wrap">
+            <span>{t("account.language")}</span>
+            <select value={s.lang ?? lang()} data-testid="language" disabled={busy !== null} aria-busy={busy === "lang"} onChange={(ev) => changeLang(ev.currentTarget.value as Lang)}>
+              <option value="zh">{t("account.lang_zh")}</option>
+              <option value="en">{t("account.lang_en")}</option>
+            </select>
+          </label>
+          <p class="quiet small" data-testid="language-hint">{t("account.language_hint")}</p>
+        </div>
         <label class="row spread wrap">
           <span>{t("account.timezone")}</span>
           <select
