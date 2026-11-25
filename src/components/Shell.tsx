@@ -4,6 +4,10 @@ import { canManage, digestUnread } from "../session";
 import { useStore } from "../store";
 import { StatusBar } from "./StatusBar";
 import { Logo } from "./ui";
+import todayIcon from "../icons/tabbar/today.svg?raw";
+import digestIcon from "../icons/tabbar/digest.svg?raw";
+import notesIcon from "../icons/tabbar/notes.svg?raw";
+import assistantsIcon from "../icons/tabbar/assistants.svg?raw";
 
 type Entry = "today" | "digest" | "notes" | "assistants";
 const ENTRIES: { id: Entry; href: string; label: Key }[] = [
@@ -13,16 +17,9 @@ const ENTRIES: { id: Entry; href: string; label: Key }[] = [
   { id: "assistants", href: "/assistants", label: "nav.assistants" },
 ];
 
-function EntryIcon({ id }: { id: Entry }) {
-  return (
-    <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square">
-      {id === "today" && <path d="M3.5 3.5h13v13h-13zM10 8.2a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6z" />}
-      {id === "digest" && <path d="M4 5h12M4 10h12M4 15h7" />}
-      {id === "notes" && <path d="M5 3h7l3 3v11H5zM12 3v3h3M8 11h4M8 14h4" />}
-      {id === "assistants" && <path d="M4 6.5h6M14 6.5h2M4 13.5h2M10 13.5h6M12 4.5v4M8 11.5v4" />}
-    </svg>
-  );
-}
+// The four tab icons are the brand's files, unchanged. They are inlined so that their
+// strokes follow the entry's text colour (currentColor).
+const ICONS: Record<Entry, string> = { today: todayIcon, digest: digestIcon, notes: notesIcon, assistants: assistantsIcon };
 
 /** Four entries in a fixed order: a left rail on wide screens, a bottom bar on phones. */
 export function Shell({ current, children }: { current: Entry; children: ComponentChildren }) {
@@ -38,7 +35,7 @@ export function Shell({ current, children }: { current: Entry; children: Compone
         {entries.map((e) => (
           <a key={e.id} class="nav-entry" href={e.href} aria-current={e.id === current ? "page" : undefined} data-entry={e.id}>
             <span class="nav-icon">
-              <EntryIcon id={e.id} />
+              <span class="nav-glyph" aria-hidden="true" dangerouslySetInnerHTML={{ __html: ICONS[e.id] }} />
               {e.id === "digest" && unread && <i class="dot gold nav-dot" role="img" aria-label={t("nav.unread")} data-testid="digest-unread" />}
             </span>
             <span class="nav-text">{t(e.label)}</span>

@@ -63,7 +63,14 @@ export function SignIn({ returning }: { returning?: boolean }) {
   return (
     <main class="front">
       <div class="front-box">
-        <img class="front-logo" src="/icons/lockup-white.svg" alt="KeepEssence" width="240" height="60" />
+        {/* The mark is an image; the name is set as text beside it. */}
+        <div class="front-brand">
+          <img class="front-mark" src="/icons/mark-white.svg" alt="" width="54" height="48" />
+          <div class="front-names">
+            <span class="front-name">{t("brand.name")}</span>
+            <span class="front-name-zh" lang="zh">{t("brand.name_zh")}</span>
+          </div>
+        </div>
         <p class="front-tagline">{returning ? t("signin.first") : t("signin.tagline")}</p>
         {!sent ? (
           <form class="stack" key="email-step" onSubmit={send}>

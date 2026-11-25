@@ -2,9 +2,11 @@
  * Design tokens: the one copy every client takes its colours, radii and type sizes from.
  * Rules (see the brand definition):
  *   - Black, white, paper and greys carry the interface.
- *   - Gold marks only what was kept: a note, a "worth a deep dive" verdict, an unread daily
- *     digest, a calendar day with a note. Never a button, link, icon, divider or selection.
- *     On light backgrounds gold is a dot or a block, never text.
+ *   - Gold (#C5A229) is the brand accent. It marks what was kept: a note, a "worth a deep dive"
+ *     verdict, an unread daily digest, a calendar day with a note. It may also mark the selected
+ *     tab, as a short line above the icon. Never a button, link, divider or decoration, and
+ *     never body text on a light background. A screen carries little of it.
+ *     The icons and the mark come from design/brand/.
  *   - Red is the only functional colour, for things that lose data. There is no green or yellow.
  *   - Only things you can press have a fill or a border. A state is a dot plus words.
  *   - Radii: marks 0, tags 4, buttons/cards/inputs 6, bottom sheets 10.

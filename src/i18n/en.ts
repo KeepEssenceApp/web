@@ -2,6 +2,9 @@
 import type { zh } from "./zh";
 
 export const en: Record<keyof typeof zh, string> = {
+  // The name beside the mark. It is the same in both languages: the English name with a space, and the Chinese name.
+  "brand.name": "Keep Essence",
+  "brand.name_zh": "精华",
   "nav.today": "Today",
   "nav.digest": "Daily digest",
   "nav.notes": "Notes",

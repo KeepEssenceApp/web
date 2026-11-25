@@ -1,5 +1,8 @@
 // Every visible string in Chinese. Words come from design/terms.md and the glossary only.
 export const zh = {
+  // The name beside the mark. It is the same in both languages: the English name with a space, and the Chinese name.
+  "brand.name": "Keep Essence",
+  "brand.name_zh": "精华",
   "nav.today": "今天",
   "nav.digest": "每日摘要",
   "nav.notes": "笔记",

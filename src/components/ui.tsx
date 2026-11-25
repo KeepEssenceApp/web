@@ -6,20 +6,15 @@ import { meta } from "../session";
 import { shared, t } from "../i18n";
 import type { ItemKind, Verdict } from "../types";
 
-/** The simplified mark: lines follow the text colour, the dot stays gold. */
-export function Logo({ size = 28 }: { size?: number }) {
+/** The brand mark, from the brand's own files: black on light, white on dark (the style sheet
+    shows the one that fits the theme). `size` is its height; under 28 the small variant is due. */
+export function Logo({ size = 32 }: { size?: number }) {
+  const width = Math.round((size * 720) / 644);
   return (
-    <svg class="logo" viewBox="168 152 720 720" width={size} height={size} role="img" aria-label="KeepEssence">
-      <g fill="currentColor">
-        <polygon points="204,234 306,234 532,460 430,460" />
-        <polygon points="204,790 306,790 532,564 430,564" />
-        <rect x="510" y="234" width="342" height="72" />
-        <rect x="510" y="718" width="342" height="72" />
-        <rect x="510" y="234" width="72" height="226" />
-        <rect x="510" y="564" width="72" height="226" />
-      </g>
-      <circle class="logo-dot" cx="704" cy="512" r="56" />
-    </svg>
+    <span class="logo" role="img" aria-label="KeepEssence">
+      <img class="logo-on-light" src="/icons/mark-black.svg" alt="" width={width} height={size} />
+      <img class="logo-on-dark" src="/icons/mark-white.svg" alt="" width={width} height={size} />
+    </span>
   );
 }
 
