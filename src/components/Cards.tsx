@@ -211,9 +211,10 @@ export function AnalysisFields({ a }: { a: Analysis }) {
         </dl>
       )}
       {a.related_hint && (
-        <p class="related">
-          <span class="label">{t("field.related")}</span> {a.related_hint}
-        </p>
+        <div class="related">
+          <span class="label">{t("field.related")}</span>
+          <p data-testid="related-hint">{a.related_hint}</p>
+        </div>
       )}
     </>
   );

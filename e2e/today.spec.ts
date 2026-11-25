@@ -25,6 +25,8 @@ test("W2: status bar, analyses with four fields and three actions, lighter unana
   expect(await card.locator(".points li").count()).toBeLessThanOrEqual(3);
   await expect(card.locator(".state")).toContainText("值得深挖");
   await expect(card.locator(".related")).toContainText("关联提示");
+  // QA #52: the label and its text are two lines, never run together.
+  expect(await card.locator(".related").innerText()).toMatch(/^关联提示\n+\S/);
   await expect(card.locator(".actions button")).toHaveText(["深挖", "不感兴趣", "看过了"]);
   await expect(card.locator("a.corner")).toHaveText("原文");
   await expect(card.locator("a.corner")).toHaveAttribute("href", /^https?:\/\//);
