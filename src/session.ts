@@ -29,6 +29,9 @@ export const refresh = createStore(0);
 /** True right after the user deleted their account: the sign-in page says so, once. */
 export const accountDeleted = createStore(false);
 
+/** The account's email, which only the manage tier is told: the quiet line that leads to Account. */
+export const accountEmail = createStore<string | null>(null);
+
 export const credential = read;
 
 export function keepSession(cred: string, device: Device, user: User) {
@@ -43,6 +46,7 @@ export function dropSession() {
     /* storage unavailable */
   }
   digestUnread.set(false);
+  accountEmail.set(null);
   session.set({ signedIn: false, device: null, user: null });
 }
 

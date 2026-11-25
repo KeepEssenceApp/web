@@ -241,6 +241,11 @@ label > .label { margin-bottom: 6px; }
 .nav-glyph { display: inline-flex; }
 .nav-glyph svg { display: block; }
 .nav-dot { position: absolute; top: -3px; right: -5px; width: 8px; height: 8px; }
+/* The way in to Account: a quiet line at the foot of the rail, not an entry. */
+.account-link { color: var(--ke-text-3); font-size: var(--ke-size-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-link:hover, .account-link[aria-current="page"] { color: var(--ke-text); }
+.account-link-rail { margin-top: auto; padding: 9px 12px 0 14px; }
+.today-foot { display: none; }
 .main { min-width: 0; }
 .page { max-width: 860px; padding: 28px 36px 80px; display: flex; flex-direction: column; gap: 22px; }
 .page.reading { max-width: 720px; }
@@ -490,7 +495,9 @@ a.cal-day:hover { border-color: var(--ke-text); }
     border-top: 1px solid var(--ke-line);
     background: var(--ke-bg);
   }
-  .nav-logo { display: none; }
+  .nav-logo, .account-link-rail { display: none; }
+  .today-foot { display: flex; padding-top: 8px; }
+  .account-link-today { padding: 10px 0; max-width: 100%; }
   .nav-entry {
     flex: 1;
     min-width: 0;

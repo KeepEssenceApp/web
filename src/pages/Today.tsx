@@ -2,7 +2,7 @@ import { api } from "../api";
 import { AnalysisCard, WaitingRow, itemActions } from "../components/Cards";
 import { CalendarDots } from "../components/CalendarDots";
 import { Inbox } from "../components/Inbox";
-import { PageHead } from "../components/Shell";
+import { AccountLink, PageHead } from "../components/Shell";
 import { opens } from "../components/Split";
 import { Loading } from "../components/ui";
 import { t } from "../i18n";
@@ -107,6 +107,10 @@ export function Today({ selected }: { selected?: string }) {
           )}
         </>
       )}
+      {/* Phones have no rail: the way in to Account is here, below the lists (QA #28). */}
+      <p class="today-foot">
+        <AccountLink place="today" />
+      </p>
     </div>
   );
 }

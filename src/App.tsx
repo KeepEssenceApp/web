@@ -5,7 +5,8 @@ import { Shell } from "./components/Shell";
 import { Split } from "./components/Split";
 import { Loading, Said } from "./components/ui";
 import { lang as currentLang, langStore, setLang, t } from "./i18n";
-import { WIDE, errText, useMedia } from "./lib";
+import { WIDE, errText, say, useMedia } from "./lib";
+import { AccountPage } from "./pages/AccountPage";
 import { AssistantsPage, type Section } from "./pages/AssistantsPage";
 import { Approve } from "./pages/Approve";
 import { Authorize } from "./pages/Authorize";
@@ -18,10 +19,39 @@ import { SaveOnly, SharePage } from "./pages/SharePage";
 import { SignIn } from "./pages/SignIn";
 import { Today } from "./pages/Today";
 import { go, onLinkClick, useRoute } from "./router";
-import { digestUnread, dropSession, meta, refresh, session } from "./session";
+import { accountEmail, digestUnread, dropSession, meta, refresh, session } from "./session";
+import type { Tier } from "./types";
 import { useStore } from "./store";
 
 const SECTIONS: Section[] = ["assistants", "connect", "rules", "devices", "calendar", "notify", "account"];
+
+/** Addresses people type from memory that are a section of Assistants for the manage tier (QA #28). */
+const MANAGE_ALIAS: Record<string, string> = {
+  account: "/assistants/account",
+  settings: "/assistants/account",
+  devices: "/assistants/devices",
+  rules: "/assistants/rules",
+};
+
+/**
+ * Where an address that is not a page of its own leads, or null when it is one. Account's
+ * addresses lead to Account as this tier has it; anything unknown leads to Today, and says so.
+ */
+function elsewhere(seg: string[], tier: Tier | undefined): { to: string; unknown?: boolean } | null {
+  const page = seg[0] ?? "";
+  if (tier !== "read" && tier !== "manage") return null;
+  if (page === "share" || page === "approve" || page === "authorize") return null;
+  if (page === "" || page === "digest" || page === "notes" || page === "calendar") return null;
+  if (page === "item" && seg[1]) return null;
+  if (tier === "manage") {
+    if (page === "assistants") return null;
+    if (MANAGE_ALIAS[page]) return { to: MANAGE_ALIAS[page] };
+  } else {
+    if (page === "account") return null;
+    if (page === "settings" || (page === "assistants" && seg[1] === "account")) return { to: "/account" };
+  }
+  return { to: "/", unknown: true };
+}
 
 export function App() {
   const lang = useStore(langStore);
@@ -57,9 +87,28 @@ export function App() {
     if (reads) api.digests(1).then((d) => digestUnread.set(d.digests[0]?.read === false), () => undefined);
   }, [reads, tick, route.path]);
 
-  const seg = route.path.split("/").filter(Boolean);
+  // The account's email for the quiet line that leads to Account; only the manage tier is told it.
+  const manages = s.device?.tier === "manage";
+  useEffect(() => {
+    if (manages) api.settings().then((v) => accountEmail.set(v.email ?? null), () => undefined);
+  }, [manages]);
+
+  // An address that is not a page leads somewhere that is. The page is drawn for where it leads
+  // at once; the address bar follows, and an unknown address is told so in one sentence, once.
+  const asked = route.path.split("/").filter(Boolean);
+  const move = s.signedIn && s.device && m ? elsewhere(asked, s.device.tier) : null;
+  const moveTo = move?.to;
+  const moveUnknown = !!move?.unknown;
+  useEffect(() => {
+    if (!moveTo) return;
+    if (moveUnknown) say(t("route.unknown"));
+    go(moveTo, true);
+  }, [moveTo, moveUnknown, route.path]);
+
+  const path = moveTo ?? route.path;
+  const seg = path.split("/").filter(Boolean);
   const page = seg[0] ?? "";
-  const query = new URLSearchParams(route.search);
+  const query = new URLSearchParams(moveTo ? "" : route.search);
 
   let body;
   if (!s.signedIn) body = <SignIn returning={page === "approve" || page === "authorize"} />;
@@ -71,10 +120,11 @@ export function App() {
   else if (page === "calendar") body = <Shell current="notes"><CalendarPage month={seg[1]} wide={wide} day={query.get("day")} /></Shell>;
   else if (page === "assistants" && s.device.tier === "manage") {
     const section = (SECTIONS.includes(seg[1] as Section) ? seg[1] : "assistants") as Section;
-    body = <Shell current="assistants"><AssistantsPage section={section} wide={wide} /></Shell>;
-  } else if (wide) {
+    body = <Shell current="assistants" account={section === "account"}><AssistantsPage section={section} wide={wide} /></Shell>;
+  } else if (page === "account") body = <Shell current={null} account><AccountPage /></Shell>;
+  else if (wide) {
     // The same addresses as on a narrow screen; the opened thing sits beside its list.
-    const at = route.path + route.search;
+    const at = moveTo ?? route.path + route.search;
     if (page === "digest") {
       const day = seg[1] ?? "latest";
       const base = seg[1] ? `/digest/${seg[1]}` : "/digest";
@@ -105,7 +155,6 @@ export function App() {
       );
     } else {
       const item = page === "item" ? seg[1] : undefined;
-      if (page !== "" && !item) queueMicrotask(() => go("/", true));
       body = (
         <Shell current="today">
           <Split
@@ -122,10 +171,7 @@ export function App() {
   else if (page === "digest") body = <Shell current="digest"><DigestPage day={seg[1] ?? "latest"} /></Shell>;
   else if (page === "notes" && seg[1]) body = <Shell current="notes"><NotePage key={seg[1]} id={seg[1]} /></Shell>;
   else if (page === "notes") body = <Shell current="notes"><NotesPage /></Shell>;
-  else {
-    if (page !== "") queueMicrotask(() => go("/", true));
-    body = <Shell current="today"><Today /></Shell>;
-  }
+  else body = <Shell current="today"><Today /></Shell>;
 
   return (
     <div class="app" key={lang} onClick={onLinkClick}>

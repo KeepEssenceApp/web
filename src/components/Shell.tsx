@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { t, type Key } from "../i18n";
-import { canManage, digestUnread } from "../session";
+import { accountEmail, canManage, digestUnread, session } from "../session";
 import { useStore } from "../store";
 import { StatusBar } from "./StatusBar";
 import { Logo } from "./ui";
@@ -21,8 +21,36 @@ const ENTRIES: { id: Entry; href: string; label: Key }[] = [
 // strokes follow the entry's text colour (currentColor).
 const ICONS: Record<Entry, string> = { today: todayIcon, digest: digestIcon, notes: notesIcon, assistants: assistantsIcon };
 
-/** Four entries in a fixed order: a left rail on wide screens, a bottom bar on phones. */
-export function Shell({ current, children }: { current: Entry; children: ComponentChildren }) {
+/** Where Account is for this device: a section of Assistants with the manage tier, a small page of its own otherwise. */
+export const accountHref = () => (canManage() ? "/assistants/account" : "/account");
+
+/**
+ * The way in to Account, for every tier (QA #28): one quiet line, not an entry. It names the
+ * account by its email, which only the manage tier is told; other devices see their own name.
+ */
+export function AccountLink({ place, current = false }: { place: "rail" | "today"; current?: boolean }) {
+  const email = useStore(accountEmail);
+  const device = useStore(session).device;
+  const who = (canManage() ? email : device?.name) || null;
+  return (
+    <a
+      class={`account-link account-link-${place}`}
+      href={accountHref()}
+      data-testid={`${place}-account`}
+      aria-label={who ? `${t("set.account")} · ${who}` : undefined}
+      aria-current={current ? "page" : undefined}
+      title={who ?? undefined}
+    >
+      {who ?? t("set.account")}
+    </a>
+  );
+}
+
+/**
+ * Four entries in a fixed order: a left rail on wide screens, a bottom bar on phones.
+ * `current` is null on a page that belongs to none of them; `account` marks the Account page.
+ */
+export function Shell({ current, account = false, children }: { current: Entry | null; account?: boolean; children: ComponentChildren }) {
   const unread = useStore(digestUnread);
   // A device without the manage tier has no Assistants entry at all.
   const entries = ENTRIES.filter((e) => e.id !== "assistants" || canManage());
@@ -41,6 +69,7 @@ export function Shell({ current, children }: { current: Entry; children: Compone
             <span class="nav-text">{t(e.label)}</span>
           </a>
         ))}
+        <AccountLink place="rail" current={account} />
       </nav>
       <main class="main">{children}</main>
     </div>
