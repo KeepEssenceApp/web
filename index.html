@@ -17,6 +17,28 @@
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      // A page fetched just before a new version went out names script and style files that are
+      // gone by the time it asks for them, and nothing would be drawn (QA #77). Ask for the page
+      // again, once; if that does not help either, say so instead of staying blank.
+      addEventListener(
+        "error",
+        function (ev) {
+          var el = ev.target;
+          var src = el && (el.src || el.href);
+          if (!src || !/\/assets\//.test(src) || !/^(SCRIPT|LINK)$/.test(el.tagName)) return;
+          var tried = false;
+          try {
+            tried = sessionStorage.getItem("ke.reloaded") === src;
+            sessionStorage.setItem("ke.reloaded", src);
+          } catch (e) {}
+          if (!tried) return location.reload();
+          var app = document.getElementById("app");
+          if (app && !app.firstChild) app.textContent = "KeepEssence could not be loaded. Reload the page. / 页面没有载入，请刷新。";
+        },
+        true
+      );
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
