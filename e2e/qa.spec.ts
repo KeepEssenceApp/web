@@ -129,7 +129,7 @@ test("QA #9: Analysed by never offers None, and shows the current assistant from
   await expect(analysedBy(page).locator("option")).toHaveText(["内置助手", "阿读"]);
 });
 
-test("QA #10: handled analyses are listed under Today, collapsed, each restorable; a calendar day with a digest opens it", async ({ page }) => {
+test("QA #10: handled analyses are listed under Today, collapsed, each restorable; a calendar day with a digest opens it", async ({ page, isMobile }) => {
   await signIn(page);
   const handled = page.locator('[data-part="handled"]');
   // The seed has one item in the deep-dive queue.
@@ -156,11 +156,12 @@ test("QA #10: handled analyses are listed under Today, collapsed, each restorabl
   await expect(handled.locator("summary")).toHaveText("今天处理过的 · 2 条");
 
   // The calendar: a day that has a daily digest opens that day's digest.
+  // On a wide screen the digest opens beside the month (QA #24); on a narrow one as its own page.
   await page.goto("/calendar");
-  const day = page.locator(".cal-large a.cal-day").last();
+  const day = page.locator(".cal-large a.cal-day.mark-digest_unread, .cal-large a.cal-day.mark-digest_read").last();
   const date = await day.getAttribute("data-day");
   await day.click();
-  await expect(page).toHaveURL(new RegExp(`/digest/${date}$`));
+  await expect(page).toHaveURL(new RegExp(isMobile ? `/digest/${date}$` : `/calendar\\?day=${date}$`));
   await expect(page.locator("article[data-day]")).toHaveAttribute("data-day", date!);
 });
 
@@ -325,10 +326,11 @@ test("QA #15: the calendar pages by month with the month named, digest days open
   await expect(readout).toHaveText(new RegExp(`^${m}月1日: `));
   await expect(first).toHaveAttribute("title", new RegExp(`^${m}月1日: `));
 
-  // A day with a daily digest can be pressed, and its label carries the date.
-  const day = page.locator(".cal-large a.cal-day").last();
+  // A day with a daily digest can be pressed, and its label carries the date. On a wide screen
+  // (QA #24) every day can be chosen and shows beside the month, so the label is the day itself.
+  const day = page.locator(".cal-large a.cal-day.mark-digest_unread, .cal-large a.cal-day.mark-digest_read").last();
   const date = (await day.getAttribute("data-day"))!;
-  await expect(day).toHaveAttribute("aria-label", new RegExp(`${Number(date.slice(5, 7))}月${Number(date.slice(8))}日.*打开这天的每日摘要`));
+  await expect(day).toHaveAttribute("aria-label", new RegExp(`${Number(date.slice(5, 7))}月${Number(date.slice(8))}日${isMobile ? ".*打开这天的每日摘要" : ": 有每日摘要|: 每日摘要读了"}`));
 
   // By design the grid is dots only: seven to a row by date, no weekday columns, no printed numbers.
   await expect(page.locator(".cal-large")).toHaveText("");
@@ -344,7 +346,7 @@ test("QA #15: the calendar pages by month with the month named, digest days open
   await expect(page.locator("[data-month]")).toHaveAttribute("data-month", month);
 
   await day.click();
-  await expect(page).toHaveURL(new RegExp(`/digest/${date}$`));
+  await expect(page).toHaveURL(new RegExp(isMobile ? `/digest/${date}$` : `/calendar/${month}\\?day=${date}$`));
 });
 
 test("QA #16: with no daily digest the page says when one comes, what it needs, how today stands, and where to read meanwhile", async ({ page, request }) => {

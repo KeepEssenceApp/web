@@ -31,11 +31,12 @@ test.describe("QA #17 at 1440 × 900", () => {
     expect(await colour(list(page), "border-right-width")).toBe("1px");
     expect(await colour(list(page), "border-right-style")).toBe("solid");
 
-    // Nothing open: the month and today's counts.
+    // Nothing open: today's counts and the month (laid out across the panel since QA #24).
     const rest = panel(page).getByTestId("panel-rest");
-    await expect(rest.getByTestId("today-counts")).toHaveText("今天存入了 7 条 · 2 条在等");
+    await expect(rest.getByTestId("today-counts").locator('[data-stat="saved_today"]')).toHaveText("今天存入7");
+    await expect(rest.getByTestId("today-counts").locator('[data-stat="waiting"]')).toHaveText("在等解读2");
     await expect(rest.locator(".month-card .cal-day").first()).toBeVisible();
-    await expect(rest.locator(".month-card .cal-counts")).toContainText("存入了");
+    await expect(rest.locator(".month-card").getByTestId("month-counts").locator('[data-stat="saved"]')).toContainText("存入");
     await expect(list(page).locator("[aria-current]")).toHaveCount(0);
 
     // An analysis opens in the panel. The list stays; the address changes.
@@ -212,7 +213,7 @@ test.describe("QA #17 at 1440 × 900", () => {
   test("QA #17: Notes — the opened note or a queue entry's deep read shows beside the list; with nothing open, one sentence and the month card", async ({ page }) => {
     await signIn(page, "/notes");
     await expect(panel(page).getByTestId("panel-rest").locator(".sentence:not([aria-busy])")).toHaveText("打开一篇笔记或一份精读，在这里看。");
-    await expect(panel(page).locator(".month-card .cal-counts")).toContainText("留下");
+    await expect(panel(page).locator(".month-card").getByTestId("month-counts").locator(".stat-label")).toHaveText(["存入", "每日摘要", "读了的摘要", "笔记"]);
     // The month card is in the panel only.
     await expect(page.locator(".month-card")).toHaveCount(1);
     await expect(list(page).locator(".month-card")).toHaveCount(0);
@@ -287,16 +288,19 @@ test.describe("QA #17 at 1920 × 1080", () => {
   test.use({ viewport: { width: 1920, height: 1080 } });
   test.skip(({ isMobile }) => isMobile, "the panel is for wide screens");
 
-  test("QA #17: the panel fills the rest of a very wide screen and its text stays within 720 px", async ({ page }) => {
+  test("QA #17: on a very wide screen the panel takes what the list leaves of the app, and its text stays within 720 px", async ({ page }) => {
     await signIn(page, "/item/it_worth");
     const l = await box(list(page));
     const p = await box(panel(page));
+    // Since QA #24 the app itself stops at 1440 px and sits in the middle: one line on each side.
+    const shell = await box(page.locator(".shell"));
+    expect(Math.round(shell.width)).toBe(1440);
     expect(Math.round(l.width)).toBe(560);
-    expect(Math.round(p.x + p.width)).toBe(1920);
-    expect(Math.round(p.width)).toBe(1920 - 212 - 560);
+    expect(Math.round(p.x + p.width)).toBe(Math.round(shell.x + shell.width) - 1);
+    expect(Math.round(p.width)).toBe(1440 - 2 - 212 - 560);
     const article = await box(panel(page).locator("article"));
     expect(article.width).toBeLessThanOrEqual(720);
-    expect(article.width).toBeGreaterThan(640);
+    expect(article.width).toBeGreaterThan(560);
     await page.goto("/notes/n1");
     expect((await box(panel(page).locator("article.note"))).width).toBeLessThanOrEqual(720);
     // Nothing scrolls sideways.

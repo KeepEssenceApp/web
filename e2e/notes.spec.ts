@@ -115,9 +115,12 @@ test("W4: a note opens as a readable page with download and share", async ({ pag
   expect(isMobile).toBeDefined();
 });
 
-test("W4: the calendar card opens the large month; paging; a day opens its digest", async ({ page }) => {
+test("W4: the calendar card opens the large month; paging; a day opens its digest", async ({ page, isMobile }) => {
   await signIn(page, "/notes");
-  await expect(page.locator(".month-card .cal-counts")).toContainText(/存入了 \d+ 条 · 出了 \d+ 份每日摘要 · 读了 \d+ 份 · 留下 \d+ 篇笔记/);
+  // Under the notes the card says the month's numbers in one sentence; in the panel of a wide
+  // screen (QA #24) the same four numbers stand beside the dots.
+  if (isMobile) await expect(page.locator(".month-card .cal-counts")).toContainText(/存入了 \d+ 条 · 出了 \d+ 份每日摘要 · 读了 \d+ 份 · 留下 \d+ 篇笔记/);
+  else await expect(page.locator(".month-card").getByTestId("month-counts").locator(".stat-label")).toHaveText(["存入", "每日摘要", "读了的摘要", "笔记"]);
   await page.locator(".month-card").click();
   await expect(page).toHaveURL(/\/calendar$/);
   const month = await page.locator("[data-month]").getAttribute("data-month");
@@ -126,17 +129,20 @@ test("W4: the calendar card opens the large month; paging; a day opens its diges
   await expect(page.locator(".cal-large .cal-day")).toHaveCount(today);
   await expect(page.locator(".cal-large .is-today")).toHaveCount(1);
   expect(await page.locator(".cal-large .mark-note").count()).toBeGreaterThan(0);
-  // A day without a digest cannot be pressed.
-  expect(await page.locator(".cal-large span.cal-day").count()).toBeGreaterThan(0);
+  // A day without a digest cannot be pressed. (On a wide screen every day is chosen instead, QA #24.)
+  if (isMobile) expect(await page.locator(".cal-large span.cal-day").count()).toBeGreaterThan(0);
 
   await page.getByRole("link", { name: /上个月/ }).click();
   await expect(page.locator("[data-month]")).not.toHaveAttribute("data-month", month!);
   await page.getByRole("link", { name: /下个月/ }).click();
   await expect(page.locator("[data-month]")).toHaveAttribute("data-month", month!);
 
-  const day = page.locator(".cal-large a.cal-day").last();
+  // A day with a daily digest opens it: as its own page on a narrow screen, beside the month on a wide one.
+  const day = page.locator(isMobile ? ".cal-large a.cal-day" : ".cal-large a.cal-day.mark-digest_unread, .cal-large a.cal-day.mark-digest_read").last();
   const href = await day.getAttribute("href");
+  const date = (await day.getAttribute("data-day"))!;
   await day.click();
-  await expect(page).toHaveURL(new RegExp(`${href}$`));
-  await expect(page.locator("article[data-day]")).toHaveAttribute("data-day", href!.split("/").pop()!);
+  await expect(page).toHaveURL(new RegExp(`${href!.replace("?", "\\?")}$`));
+  expect(href).toBe(isMobile ? `/digest/${date}` : `/calendar/${month}?day=${date}`);
+  await expect(page.locator("article[data-day]")).toHaveAttribute("data-day", date);
 });
