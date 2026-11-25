@@ -64,5 +64,7 @@
 | 还剩 N 天 | N days left |
 | 删除 | Delete |
 | 原文 | Original |
+| 开始用 | Getting started |
+| 反馈 | Feedback |
 
 不用的词（中英都不用）：书签 bookmark、知识库 knowledge base、存档 archive、搜索 search、分类 category、文件夹 folder、主题 topic、喜欢 like、首页 home、设置 settings（作入口名）、token、API key，以及任何比喻。

@@ -467,7 +467,8 @@ test.describe("QA #25: the account's data and deleting the account", () => {
 
     // Invited again, the same email signs in to a new, empty account; the sentence is gone.
     await signIn(page, "/");
-    await expect(page.getByTestId("today-empty")).toBeVisible();
+    // A new, empty account: the guide stands where the list would be (QA #79).
+    await expect(page.getByTestId("start")).toBeVisible();
     await expect(page.getByTestId("account-deleted")).toHaveCount(0);
     expect((await credentialOf(page)).length).toBeGreaterThan(10);
     expect(await credentialOf(page)).not.toBe(cred);

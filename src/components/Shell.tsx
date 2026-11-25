@@ -46,6 +46,16 @@ export function AccountLink({ place, current = false }: { place: "rail" | "today
   );
 }
 
+/** Two quiet lines beside the way in to Account: how to use it, and where to say what is wrong. */
+export function HelpLinks({ place }: { place: "rail" | "today" }) {
+  return (
+    <span class={`help-links help-links-${place}`} data-testid={`${place}-help`}>
+      <a href="/start">{t("start.link")}</a>
+      <a href="/feedback">{t("feedback.title")}</a>
+    </span>
+  );
+}
+
 /**
  * Four entries in a fixed order: a left rail on wide screens, a bottom bar on phones.
  * `current` is null on a page that belongs to none of them; `account` marks the Account page.
@@ -70,6 +80,7 @@ export function Shell({ current, account = false, children }: { current: Entry |
           </a>
         ))}
         <AccountLink place="rail" current={account} />
+        <HelpLinks place="rail" />
       </nav>
       <main class="main">{children}</main>
     </div>

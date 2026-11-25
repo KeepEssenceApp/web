@@ -78,6 +78,7 @@ x-limits:
   notify_wait_seconds: 120
   notify_max_wait_seconds: 600
   text_max_chars: 200000
+  feedback_per_user_per_day: 20
 
 # One copy of the rules every client shares (served by GET /v1/meta).
 x-shared-rules:
@@ -1026,6 +1027,43 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Export" }
+
+  /v1/feedback:
+    post:
+      tags: [settings]
+      operationId: sendFeedback
+      summary: Tell the people who run this deployment what went wrong or what is missing.
+      description: >-
+        Feedback goes to the operator of the deployment, with the email of the account and the client it
+        was sent from, so that it can be answered. It is not an item: it is never analysed, never shown
+        to an assistant and never part of a daily digest or an export. The operator may pass it on to
+        the place where they track work. At most 20 a day per account.
+      x-tier: save
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [wrong]
+              properties:
+                where: { type: string, enum: [web, ios, android, extension, assistant, other], description: Where it happened. Defaults to the kind of the calling device. }
+                doing: { type: string, maxLength: 2000, description: What the user was doing. }
+                wrong: { type: string, minLength: 1, maxLength: 4000, description: What went wrong, or what is missing. }
+                wish: { type: string, maxLength: 2000, description: How the user would like it to be. }
+      responses:
+        "201":
+          description: Received
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
 
   /v1/account:
     delete:

@@ -13,6 +13,8 @@ import { Authorize } from "./pages/Authorize";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DigestPage } from "./pages/DigestPage";
 import { ItemPage } from "./pages/ItemPage";
+import { StartPage } from "./pages/StartPage";
+import { FeedbackPage } from "./pages/FeedbackPage";
 import { NotePage } from "./pages/NotePage";
 import { NotesPage } from "./pages/NotesPage";
 import { SaveOnly, SharePage } from "./pages/SharePage";
@@ -43,6 +45,7 @@ function elsewhere(seg: string[], tier: Tier | undefined): { to: string; unknown
   if (page === "share" || page === "approve" || page === "authorize") return null;
   if (page === "" || page === "digest" || page === "notes" || page === "calendar") return null;
   if (page === "item" && seg[1]) return null;
+  if (page === "start" || page === "feedback") return null;
   if (tier === "manage") {
     if (page === "assistants") return null;
     if (MANAGE_ALIAS[page]) return { to: MANAGE_ALIAS[page] };
@@ -122,6 +125,8 @@ export function App() {
     const section = (SECTIONS.includes(seg[1] as Section) ? seg[1] : "assistants") as Section;
     body = <Shell current="assistants" account={section === "account"}><AssistantsPage section={section} wide={wide} /></Shell>;
   } else if (page === "account") body = <Shell current={null} account><AccountPage /></Shell>;
+  else if (page === "start") body = <Shell current={null}><StartPage /></Shell>;
+  else if (page === "feedback") body = <Shell current={null}><FeedbackPage /></Shell>;
   else if (wide) {
     // The same addresses as on a narrow screen; the opened thing sits beside its list.
     const at = moveTo ?? route.path + route.search;

@@ -73,7 +73,9 @@ test("W2: the three actions, each said in one sentence and restorable", async ({
 test("W2: when everything is handled there is one sentence only", async ({ page, request }) => {
   await reset(request, { empty: true });
   await signIn(page);
-  await expect(page.getByTestId("today-empty")).toHaveText("今天还没有存入。");
+  // A new account with nothing saved is shown how a day goes (QA #79), in words only.
+  await expect(page.getByTestId("start")).toBeVisible();
+  await expect(page.getByTestId("today-empty")).toHaveCount(0);
   await expect(page.locator(".card.analysis")).toHaveCount(0);
   await expect(page.locator(".page img, .page svg.illustration")).toHaveCount(0);
 

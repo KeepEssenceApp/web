@@ -142,7 +142,8 @@ function seed(opts = {}) {
   S.devices.set("dev_ext", { id: "dev_ext", name: "Chrome 扩展 · Mac", category: "client", client: "extension", tier: "save", created_at: ago(9 * DAY), last_used_at: ago(3 * 3600e3), notifications: false });
   S.oauth.set("req_demo", { client_name: "Example Chat", client_uri: "https://chat.example.com", redirect_host: "chat.example.com", steps_requested: ["deep_dive"], state: "xyz" });
   S.oauth.set("req_agent", { client_name: "My Agent", client_uri: null, redirect_host: "agent.example.com", steps_requested: ["analysis", "digest", "deep_read", "deep_dive"], state: "xyz" });
-  if (opts.empty) return;
+  // An empty account is a new one: this is its first month, as the core would say.
+  if (opts.empty) { S.firstMonth = true; return; }
 
   const put = (it) => S.items.set(it.id, { kind: "link", site: null, url: null, stage: "analysed", content_unavailable: false, dispatch_to: { id: builtin.id, name: builtin.name }, expiry_days: 30, pinned: false, signal: null, analysis: null, body: null, asset_id: null, digest_day: null, source: "web", ...it });
   const H = 3600e3;
@@ -301,7 +302,7 @@ function calendarOut(month) {
   counts.notes = S.notes.filter((x) => dayOf(Date.parse(x.created_at)).startsWith(month)).length;
   const shift = (k) => new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 7);
   const floor = new Date(Date.now() + TZ_OFFSET_MS); floor.setUTCMonth(floor.getUTCMonth() - 12);
-  return { month, today: today(), days, counts, previous_month: shift(-1) >= floor.toISOString().slice(0, 7) ? shift(-1) : null, next_month: month < cur ? shift(1) : null };
+  return { month, today: today(), days, counts, previous_month: !S.firstMonth && shift(-1) >= floor.toISOString().slice(0, 7) ? shift(-1) : null, next_month: month < cur ? shift(1) : null };
 }
 function statusOut() {
   const waiting = [...S.items.values()].filter((i) => i.stage !== "analysed");
@@ -662,6 +663,13 @@ function exportOut(lang) {
 }
 on("GET", "/v1/export", "manage", (c) => [200, JSON.stringify(exportOut(c.lang), null, 1) + "\n", "application/json; charset=utf-8",
   { "content-disposition": `attachment; filename="export-${today()}.json"` }]);
+// Feedback to the operator: kept in memory so the tests can look at it.
+on("POST", "/v1/feedback", "save", (c) => {
+  onlyKeys(c.body, ["where", "doing", "wrong", "wish"]);
+  need(typeof c.body.wrong === "string" && c.body.wrong.trim().length > 0 && c.body.wrong.length <= 4000);
+  (S.feedback ??= []).push({ ...c.body, email: S.email, client: c.device.client });
+  return [201, { id: `fb_${S.feedback.length}` }];
+});
 // The user deletes their own account: the email must be the account's. Everything goes, every
 // credential stops working, and the same email can come back later as a new, empty account.
 on("DELETE", "/v1/account", "manage", (c) => {
@@ -755,7 +763,7 @@ on("POST", "/__test/device-code", null, (c) => newDeviceCode(c.body, c.origin));
 on("POST", "/__test/set-tier", "save", (c) => { need(TIERS.includes(c.body.tier)); c.device.tier = c.body.tier; return [200, deviceOut(c.device, c.device)]; });
 on("GET", "/__test/state", null, () => [200, {
   counts: { items: S.items.size, today: [...S.items.values()].filter((i) => !i.digest_day).length, notes: S.notes.length, queue: S.queue.size, devices: S.devices.size, assistants: S.assistants.length, digests: S.digests.size, assets: [...S.assets.values()].filter((a) => a.stored).length },
-  last_saved: S.lastSaved, pushes: S.pushes, decisions: S.decisions, settings: { ...S.settings, calendar_secret: undefined }, user: S.user, email: S.email,
+  feedback: S.feedback ?? [], last_saved: S.lastSaved, pushes: S.pushes, decisions: S.decisions, settings: { ...S.settings, calendar_secret: undefined }, user: S.user, email: S.email,
   deleted_account: DELETED,
 }]);
 on("GET", "/__test/oauth-done", null, (c) => [200, `<!doctype html><meta charset="utf-8"><title>oauth-done</title><p id="done">oauth-done allowed=${c.q.get("allowed") === "1" ? 1 : 0}</p>`, "text/html; charset=utf-8"]);

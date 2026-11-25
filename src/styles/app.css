@@ -249,6 +249,19 @@ label > .label { margin-bottom: 6px; }
 .account-link { color: var(--ke-text-3); font-size: var(--ke-size-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-link:hover, .account-link[aria-current="page"] { color: var(--ke-text); }
 .account-link-rail { margin-top: auto; padding: 9px 12px 0 14px; }
+.help-links { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--ke-size-secondary); }
+.help-links a { color: var(--ke-text-3); }
+.help-links a:hover { color: var(--ke-text); }
+.help-links-rail { padding: 6px 12px 0 14px; }
+.start-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; max-width: 640px; }
+.start-steps li { display: flex; gap: 14px; align-items: flex-start; }
+.start-steps h3 { font-size: var(--ke-size-item); font-weight: 600; margin: 0; }
+.start-steps p { margin: 0; }
+.start-n { flex: none; width: 26px; height: 26px; border: 1px solid var(--ke-line); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: var(--ke-size-secondary); color: var(--ke-text-2); }
+.start-ways { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; max-width: 760px; }
+.start-ways dt { font-weight: 600; margin-bottom: 4px; }
+.start-ways dd { margin: 0; }
+.feedback-page form, .feedback-page [role="status"] { max-width: 560px; }
 .today-foot { display: none; }
 .main { min-width: 0; }
 .page { max-width: 860px; padding: 28px 36px 80px; display: flex; flex-direction: column; gap: 22px; }
@@ -513,7 +526,7 @@ a.cal-day:hover { border-color: var(--ke-text); }
     border-top: 1px solid var(--ke-line);
     background: var(--ke-bg);
   }
-  .nav-logo, .account-link-rail { display: none; }
+  .nav-logo, .account-link-rail, .help-links-rail { display: none; }
   .today-foot { display: flex; padding-top: 8px; }
   .account-link-today { padding: 10px 0; max-width: 100%; }
   .nav-entry {

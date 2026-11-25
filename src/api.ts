@@ -134,6 +134,8 @@ export const api = {
     return new Blob([await res.arrayBuffer()], { type: a.content_type });
   },
 
+  sendFeedback: (body: { where?: string; doing?: string; wrong: string; wish?: string }) =>
+    json<{ id: string }>("/v1/feedback", { method: "POST", body }),
   status: () => json<T.Status>("/v1/status"),
   calendar: (month?: string) => json<T.Calendar>(`/v1/calendar${q({ month })}`),
   /** The last `days` days, today included, as numbers. */

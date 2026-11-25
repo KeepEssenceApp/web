@@ -2,7 +2,8 @@ import { api } from "../api";
 import { AnalysisCard, WaitingRow, itemActions } from "../components/Cards";
 import { CalendarDots } from "../components/CalendarDots";
 import { Inbox } from "../components/Inbox";
-import { AccountLink, PageHead } from "../components/Shell";
+import { AccountLink, HelpLinks, PageHead } from "../components/Shell";
+import { Start } from "./StartPage";
 import { opens } from "../components/Split";
 import { Loading } from "../components/ui";
 import { t } from "../i18n";
@@ -34,6 +35,7 @@ export function Today({ selected }: { selected?: string }) {
   // Once today's daily digest is written, what was saved today is in it and no longer listed
   // here. Say so instead of "nothing saved" (QA #44).
   const inDigest = !!cal.data?.days.find((d) => d.day === cal.data!.today)?.has_digest;
+  const fresh = !!items.data && !!cal.data && all.length === 0 && !inDigest && cal.data.counts.saved === 0 && !cal.data.previous_month;
   const count = (n: number) => ` · ${t("today.n", { n })}`;
   // While items wait, the list asks again quietly; an analysis that lands moves its item up
   // into the analyses without a reload (QA #26). The panel and the status bar are told.
@@ -57,7 +59,9 @@ export function Today({ selected }: { selected?: string }) {
         <Loading error={items.error} />
       ) : (
         <>
-          {analyses.length === 0 && waiting.length === 0 && (
+          {/* An account that has never saved anything is shown how a day goes, not one bare sentence. */}
+          {fresh && <Start inline />}
+          {!fresh && analyses.length === 0 && waiting.length === 0 && (
             <p class="sentence" data-testid="today-empty">
               {all.length ? t("today.all_done") : inDigest ? (
                 <>
@@ -117,6 +121,7 @@ export function Today({ selected }: { selected?: string }) {
       {/* Phones have no rail: the way in to Account is here, below the lists (QA #28). */}
       <p class="today-foot">
         <AccountLink place="today" />
+        <HelpLinks place="today" />
       </p>
     </div>
   );
