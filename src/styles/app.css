@@ -105,6 +105,8 @@ input[type="text"], input[type="email"], textarea, select {
 textarea { resize: vertical; line-height: 1.6; display: block; }
 select { width: auto; max-width: 100%; min-height: 40px; }
 input::placeholder, textarea::placeholder { color: var(--ke-text-3); opacity: 1; }
+/* A field that cannot be used right now looks it (QA #70). */
+:is(select, input, textarea):disabled { opacity: 0.45; cursor: default; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--ke-solid); width: 16px; height: 16px; margin: 0; flex: none; }
 label > .label { margin-bottom: 6px; }
 .check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--ke-size-secondary); }
