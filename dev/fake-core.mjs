@@ -206,7 +206,9 @@ function seed(opts = {}) {
   S.saved.set(today(), 7);
 
   if (opts.no_assistants) {
-    builtin.last_seen_at = ago(4 * DAY); adu.last_seen_at = ago(5 * DAY); ashen.last_seen_at = null;
+    // Every assistant has come before and none lately. One that has never come counts as
+    // expected soon, and the status bar is then not red.
+    builtin.last_seen_at = ago(4 * DAY); adu.last_seen_at = ago(5 * DAY); ashen.last_seen_at = ago(6 * DAY);
     for (const it of S.items.values()) if (!it.digest_day) { it.analysis = null; it.stage = it.stage === "saved" ? "saved" : "triaged"; it.content_unavailable = false; }
     S.items.get("it_unavail").created_at = ago(27 * DAY);
     S.queue.delete("it_queued");
