@@ -413,6 +413,12 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
     const options = expiryOptions(expiry);
     if (!options) return setBad(true);
     setBad(false);
+    const wanted = [...new Set(options)].sort((x, y) => x - y);
+    // Nothing differs from what is saved: say so, so the press is not met with silence (QA #47).
+    if (rules === settings.rules && wanted.join(",") === [...settings.expiry_options].sort((x, y) => x - y).join(",")) {
+      setExpiry(settings.expiry_options.join(", "));
+      return say(t("rules.unchanged"));
+    }
     void run("save", async () => {
       const s = await api.updateSettings({ rules, expiry_options: [...new Set(options)].sort((a, b) => a - b) });
       onSaved(s);
@@ -682,12 +688,22 @@ function Notify() {
           <Switch
             on={s.notify}
             label={t("notify.switch")}
-            onChange={(on) =>
-              api.updateSettings({ notify: on }).then((next) => {
-                settings.set(next);
-                say(t("common.saved"));
-              }, sayError)
-            }
+            onChange={(on) => {
+              // The sentence under the switch follows the switch at once, and goes back if the
+              // core refuses (QA #48).
+              const before = s;
+              settings.set({ ...s, notify: on });
+              return api.updateSettings({ notify: on }).then(
+                (next) => {
+                  settings.set(next);
+                  say(t(on ? "notify.turned_on" : "notify.turned_off"));
+                },
+                (err) => {
+                  settings.set(before);
+                  sayError(err);
+                },
+              );
+            }}
           />
         </div>
         {!s.notify && <p class="quiet small">{t("notify.off")}</p>}

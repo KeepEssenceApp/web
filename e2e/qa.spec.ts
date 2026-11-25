@@ -212,7 +212,7 @@ test("QA #12: a switch moves at once, shows it is waiting, and goes back with a 
   await expect(sw).toBeDisabled();
   await expect(sw).toHaveAttribute("aria-busy", "false");
   await expect(sw).toHaveAttribute("aria-checked", "false");
-  await expect(page.locator(".said")).toHaveText("已保存。");
+  await expect(page.locator(".said")).toHaveText("通知已关闭。");
 
   // Refused: it goes back to where it was and one sentence says why.
   await request.post("/__test/fail-next", { data: { method: "PATCH", path: "^/v1/settings$" } });

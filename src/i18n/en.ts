@@ -386,6 +386,9 @@ export const en: Record<keyof typeof zh, string> = {
   "notify.ios": "On iPhone, add this web app to the phone's main screen first.",
   "notify.me": "Notify me",
   "notify.off": "Notifications are off; nothing is sent to any device.",
+  "notify.turned_on": "Notifications are on.",
+  "notify.turned_off": "Notifications are off.",
+  "rules.unchanged": "Nothing changed. Your rules are saved as they are.",
   "notify.title": "KeepEssence",
 
   "account.language": "Language",

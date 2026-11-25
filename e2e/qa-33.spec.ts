@@ -41,6 +41,8 @@ test("QA #33: the expiry options' error goes when the value becomes valid, and s
 
 test("QA #33: a save the core refused is no longer said once anything in the rules form is edited", async ({ page, request }) => {
   await signIn(page, "/assistants/rules");
+  // Something has to differ from what is saved, or the save is not sent at all (QA #47).
+  await page.locator("textarea").fill("先改一处。");
   for (const edit of [() => page.locator("textarea").fill("短帖保留 7 天。"), () => page.locator('input[inputmode="numeric"]').fill("7, 30")]) {
     await request.post("/__test/fail-next", { data: { method: "PATCH", path: "^/v1/settings$" } });
     await page.getByRole("button", { name: "保存" }).click();
@@ -107,4 +109,30 @@ test("QA #33: deleting the account — the core's refusal goes when the email is
   await field.fill(EMAIL);
   await expect(zone.locator('[role="alert"]')).toHaveCount(0);
   await expect(zone.getByTestId("delete-confirm")).toBeEnabled();
+});
+
+test("QA #47: saving the rules with nothing changed says so, and sends nothing", async ({ page }) => {
+  await signIn(page, "/assistants/rules");
+  let sent = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PATCH" && new URL(r.url()).pathname === "/v1/settings") sent++;
+  });
+  await page.getByRole("button", { name: "保存" }).click();
+  await expect(page.locator(".said")).toHaveText("没有改动，规则还是原来保存的样子。");
+  expect(sent).toBe(0);
+});
+
+test("QA #48: the sentence under the notifications switch follows the switch at once", async ({ page, request }) => {
+  await signIn(page, "/assistants/notify");
+  const sw = page.getByRole("switch", { name: "通知" });
+  const off = page.getByText("通知关着，所有设备都不发。");
+  await expect(off).toHaveCount(0);
+  await request.post("/__test/delay", { data: { ms: 1500 } });
+  await sw.click();
+  await expect(off).toBeVisible({ timeout: 700 });
+  await expect(sw).toHaveAttribute("aria-busy", "false");
+  await request.post("/__test/delay", { data: { ms: 1500 } });
+  await sw.click();
+  await expect(off).toHaveCount(0, { timeout: 700 });
+  await expect(page.locator(".said")).toHaveText("通知已打开。");
 });

@@ -384,6 +384,9 @@ export const zh = {
   "notify.ios": "iPhone 上要先把网页加到主屏幕。",
   "notify.me": "通知我",
   "notify.off": "通知关着，所有设备都不发。",
+  "notify.turned_on": "通知已打开。",
+  "notify.turned_off": "通知已关闭。",
+  "rules.unchanged": "没有改动，规则还是原来保存的样子。",
   "notify.title": "KeepEssence",
 
   "account.language": "语言",
