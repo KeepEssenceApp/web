@@ -290,7 +290,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
 function BackLink({ to, panel }: { to: string; panel: boolean }) {
   return (
     <a class="link back" href={to} data-testid={panel ? "panel-close" : undefined}>
-      {panel ? t("common.close") : `‹ ${t(to.startsWith("/digest") ? "nav.digest" : "nav.today")}`}
+      {panel ? t("common.close") : `‹ ${t(to.startsWith("/digest") ? "nav.digest" : to.startsWith("/notes") ? "nav.notes" : "nav.today")}`}
     </a>
   );
 }

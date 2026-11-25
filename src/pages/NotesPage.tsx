@@ -1,10 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { DeepDive } from "../components/DeepDive";
-import { MonthCard, ReportBody } from "../components/Panels";
+import { MonthCard, QUEUE_DOT, ReportBody, queueHref, queueTitle } from "../components/Panels";
 import { opens } from "../components/Split";
 import { PageHead } from "../components/Shell";
-import { Loading, Sheet, State, type DotKind } from "../components/ui";
+import { Loading, Sheet, State } from "../components/ui";
 import { ago, shortDate, t } from "../i18n";
 import { errText, say, sayError, useBusy, useLoad } from "../lib";
 import { go } from "../router";
@@ -12,11 +12,9 @@ import { refresh, session } from "../session";
 import { useStore } from "../store";
 import type { QueueEntry } from "../types";
 
-const READ_DOT: Record<QueueEntry["deep_read"], DotKind> = { waiting: "ring", reading: "grey", ready: "solid", none: "small" };
-
 function Report({ entry, onClose }: { entry: QueueEntry; onClose: () => void }) {
   return (
-    <Sheet title={entry.title} onClose={onClose} wide>
+    <Sheet title={queueTitle(entry)} onClose={onClose} wide>
       <ReportBody report={entry.report!} />
     </Sheet>
   );
@@ -104,20 +102,40 @@ function QueueRow({ e, onChanged, beside, selected }: { e: QueueEntry; onChanged
           }, sayError),
       });
     });
+  // The whole row opens something (QA #34): the deep read when there is one, otherwise the
+  // item. Beside the list that is the panel; on a narrow screen the deep read is a dialog and
+  // the item its own page. The title is the row's link, so the keyboard reaches it too.
+  const title = queueTitle(e);
+  const itemHref = `/item/${e.item_id}`;
+  const openHere = () => (e.report ? setOpen("report") : go(itemHref));
+  const onRow = (ev: MouseEvent) => {
+    const target = ev.target as Element;
+    if (ev.defaultPrevented || ev.button !== 0 || open !== null || target.closest("a, button, input, textarea, select, label") || String(getSelection() ?? "") !== "") return;
+    openHere();
+  };
   return (
-    <li class="queue-row" data-item={e.item_id} {...opens(beside && e.report ? readHref(e.item_id) : null, selected)}>
+    <li class="queue-row" data-item={e.item_id} data-state={e.deep_read} {...opens(beside ? queueHref(e) : null, selected)} onClick={beside ? undefined : onRow}>
       <div class="stack tight">
-        <a class="queue-title title-clip" href={`/item/${e.item_id}`} title={e.title}>
-          {e.title}
+        <a
+          class="queue-title title-clip"
+          href={beside ? queueHref(e) : itemHref}
+          title={title}
+          onClick={(ev) => {
+            if (beside || !e.report || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+            ev.preventDefault();
+            setOpen("report");
+          }}
+        >
+          {title}
         </a>
         <p class="row wrap small">
-          <State dot={READ_DOT[e.deep_read]}>{t(`queue.${e.deep_read}`)}</State>
+          <State dot={QUEUE_DOT[e.deep_read]}>{t(`queue.${e.deep_read}`)}</State>
           {e.went_at && <span class="quiet">{t("queue.went", { when: ago(e.went_at) })}</span>}
         </p>
       </div>
       <div class="row wrap">
         {e.report && (
-          <button class="btn quiet small" type="button" aria-pressed={beside ? selected : undefined} onClick={() => (beside ? go(readHref(e.item_id)) : setOpen("report"))}>
+          <button class="btn quiet small" type="button" aria-pressed={beside ? selected : undefined} onClick={() => (beside ? go(queueHref(e)) : setOpen("report"))}>
             {t("queue.report")}
           </button>
         )}
@@ -151,8 +169,6 @@ function QueueRow({ e, onChanged, beside, selected }: { e: QueueEntry; onChanged
     </li>
   );
 }
-
-const readHref = (itemId: string) => `/notes?read=${encodeURIComponent(itemId)}`;
 
 /**
  * On a wide screen (`beside`) the opened note (`selected`) or the deep read of a queue entry

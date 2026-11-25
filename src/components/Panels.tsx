@@ -89,12 +89,15 @@ export function TodayRest() {
   );
 }
 
-const QUEUE_STATES: { id: QueueEntry["deep_read"]; dot: DotKind }[] = [
-  { id: "ready", dot: "solid" },
-  { id: "reading", dot: "grey" },
-  { id: "waiting", dot: "ring" },
-  { id: "none", dot: "small" },
-];
+/** The dot of a queue entry's state. */
+export const QUEUE_DOT: Record<QueueEntry["deep_read"], DotKind> = { waiting: "ring", reading: "grey", ready: "solid", none: "small" };
+/** A queue entry is never shown without a name (QA #34): the item's title, or a plain stand-in. */
+export const queueTitle = (e: QueueEntry) => (e.title ?? "").trim() || t("queue.untitled");
+/**
+ * What a queue entry opens beside Notes on a wide screen: its deep read when there is one,
+ * otherwise the item itself. Every entry opens something.
+ */
+export const queueHref = (e: QueueEntry) => `/notes?${e.report ? "read" : "item"}=${encodeURIComponent(e.item_id)}`;
 
 /** Notes with nothing open: one sentence, the deep-dive queue in short, and the month. */
 export function NotesRest() {
@@ -103,27 +106,25 @@ export function NotesRest() {
   const queue = useLoad(api.queue, [tick]);
   if (!cal.data || !queue.data) return <div class="page"><Loading error={cal.error ?? queue.error} /></div>;
   const entries = queue.data.entries;
-  const ready = entries.filter((e) => e.deep_read === "ready" && e.report);
   return (
     <div class="page panel-rest" data-testid="panel-rest">
       <p class="sentence">{t("notes.pick")}</p>
       <div class="panel-grid">
         <section aria-label={t("notes.queue")} data-testid="queue-summary">
-          <h2 class="label">{t("rest.queue_n", { n: entries.length })}</h2>
+          {/* The count is of the rows below, from the same answer; an empty queue has its sentence instead. */}
+          <h2 class="label">{entries.length === 0 ? t("notes.queue") : t("rest.queue_n", { n: entries.length })}</h2>
           {entries.length === 0 ? (
             <p class="quiet">{t("rest.queue_empty")}</p>
           ) : (
             <ul class="rows rest-rows">
-              {QUEUE_STATES.filter((q) => entries.some((e) => e.deep_read === q.id)).map((q) => (
-                <li key={q.id} class="row spread" data-state={q.id}>
-                  <State dot={q.dot}>{t(`queue.${q.id}`)}</State>
-                  <b>{entries.filter((e) => e.deep_read === q.id).length}</b>
-                </li>
-              ))}
-              {ready.map((e) => (
-                <li key={e.item_id}>
-                  <a class="link title-clip" href={`/notes?read=${encodeURIComponent(e.item_id)}`} title={e.title}>
-                    {t("queue.report")}: {e.title}
+              {/* One row an entry: its title first, its state under it. The whole row is the link. */}
+              {entries.map((e) => (
+                <li key={e.item_id} class="queue-line" data-item={e.item_id} data-state={e.deep_read}>
+                  <a class="stack tight" href={queueHref(e)}>
+                    <b class="title-clip" title={queueTitle(e)}>{queueTitle(e)}</b>
+                    <span class="small quiet">
+                      <State dot={QUEUE_DOT[e.deep_read]}>{t(`queue.${e.deep_read}`)}</State>
+                    </span>
                   </a>
                 </li>
               ))}

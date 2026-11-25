@@ -362,6 +362,8 @@ label > .label { margin-bottom: 6px; }
 .queue-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 0; border-top: 1px solid var(--ke-line); }
 .queue-row > .stack { flex: 1 1 240px; min-width: 0; }
 .queue-title { font-weight: 600; overflow-wrap: anywhere; }
+/* The whole row opens the entry. */
+.queue-row { cursor: pointer; }
 .note-row { display: block; padding: 14px 0; border-top: 1px solid var(--ke-line); }
 .note-row b { font-size: var(--ke-size-item); }
 .note-row:hover b { text-decoration: underline; text-underline-offset: 3px; }
@@ -605,6 +607,10 @@ button.btn[aria-busy="true"]::after, button.link[aria-busy="true"]::after { cont
   .rest-rows a { color: inherit; }
   .rest-rows a.row:hover .title-clip { text-decoration: underline; text-underline-offset: 3px; }
   .rest-rows .row { gap: 16px; }
+  /* A queue entry in the panel: the whole row is its link. */
+  .rest-rows > .queue-line { padding: 0; }
+  .rest-rows > .queue-line > a { display: flex; padding: 14px 0; text-decoration: none; }
+  .rest-rows > .queue-line > a:hover .title-clip { text-decoration: underline; text-underline-offset: 3px; }
 
   /* The calendar: the month is the list, the chosen day is in the panel. */
   /* The dots grow with the list column (cqw: hundredths of the page's width), 41 to 52 px a day. */

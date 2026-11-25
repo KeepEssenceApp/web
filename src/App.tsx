@@ -142,14 +142,16 @@ export function App() {
       );
     } else if (page === "notes") {
       const read = seg[1] ? null : query.get("read");
+      // A queue entry with no deep read yet opens as the item itself, still beside Notes.
+      const item = seg[1] || read ? null : query.get("item");
       body = (
         <Shell current="notes">
           <Split
             label={t("panel.note")}
             at={at}
             close="/notes"
-            list={<NotesPage beside selected={seg[1]} reading={read} />}
-            panel={seg[1] ? <NotePage key={seg[1]} id={seg[1]} panel /> : read ? <DeepReadPanel key={read} itemId={read} /> : <NotesRest />}
+            list={<NotesPage beside selected={seg[1]} reading={read ?? item} />}
+            panel={seg[1] ? <NotePage key={seg[1]} id={seg[1]} panel /> : read ? <DeepReadPanel key={read} itemId={read} /> : item ? <ItemPage key={item} id={item} back="/notes" panel /> : <NotesRest />}
           />
         </Shell>
       );
@@ -170,6 +172,8 @@ export function App() {
   } else if (page === "item" && seg[1]) body = <Shell current="today"><ItemPage key={seg[1]} id={seg[1]} /></Shell>;
   else if (page === "digest") body = <Shell current="digest"><DigestPage day={seg[1] ?? "latest"} /></Shell>;
   else if (page === "notes" && seg[1]) body = <Shell current="notes"><NotePage key={seg[1]} id={seg[1]} /></Shell>;
+  // The same address on a narrow screen: the item as its page, with Notes as the way back.
+  else if (page === "notes" && query.get("item")) body = <Shell current="notes"><ItemPage key={query.get("item")!} id={query.get("item")!} back="/notes" /></Shell>;
   else if (page === "notes") body = <Shell current="notes"><NotesPage /></Shell>;
   else body = <Shell current="today"><Today /></Shell>;
 
