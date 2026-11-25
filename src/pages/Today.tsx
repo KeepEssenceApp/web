@@ -102,7 +102,7 @@ export function Today({ selected }: { selected?: string }) {
                       <span class="rest-title">
                         <a class="title-clip" href={`/item/${i.id}`} title={i.title}>{i.title}</a>
                       </span>
-                      <span class="quiet small">{i.in_queue ? t("digest.in_queue") : i.signal === "not_interested" ? t("action.not_interested") : t("action.seen")}</span>
+                      <span class="quiet small">{i.in_queue ? t("digest.in_queue") : t("action.you_marked", { what: i.signal === "not_interested" ? t("action.not_interested") : t("action.seen") })}</span>
                       <button class="link" type="button" onClick={() => act.restore(i.id, { signal: i.signal, in_queue: i.in_queue })} title={i.in_queue ? undefined : t("action.restore_hint", { what: i.signal === "not_interested" ? t("action.not_interested") : t("action.seen") })}>
                         {i.in_queue ? t("queue.remove") : t("action.restore")}
                       </button>

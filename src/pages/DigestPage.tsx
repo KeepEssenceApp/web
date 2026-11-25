@@ -41,11 +41,13 @@ function WorthCard({ w, act, beside, selected }: { w: DigestWorth; act: ItemActi
 
 function RestLine({ r, onRestore, beside, selected }: { r: DigestRest; onRestore: () => void; beside?: string; selected: boolean }) {
   const why = r.available === false ? t("digest.item_deleted") : r.in_queue ? t("digest.in_queue") : r.signal === "not_interested" ? t("action.not_interested") : r.signal === "seen" ? t("action.seen") : null;
+  // What the user did with it, said as such: it is not the assistant's verdict (QA #68).
+  const shown = why && r.available !== false && !r.in_queue ? t("action.you_marked", { what: why }) : why;
   return (
     <li class="rest-line" data-item={r.item_id} {...opens(beside && r.available !== false ? itemHref(r.item_id, beside) : null, selected)}>
       {/* Beside the digest a line opens its item; on a narrow screen the line is only a line. */}
       <span class="rest-title">{beside && r.available !== false ? <a href={itemHref(r.item_id, beside)}>{r.title}</a> : r.title}</span>
-      {why && <span class="quiet small">{why}</span>}
+      {shown && <span class="quiet small" data-testid="rest-state">{shown}</span>}
       {r.can_restore && (
         <button class="link" type="button" onClick={onRestore} title={why ? t("action.restore_hint", { what: why }) : undefined}>
           {t("action.restore")}

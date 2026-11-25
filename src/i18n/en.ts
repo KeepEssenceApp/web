@@ -109,6 +109,7 @@ export const en: Record<keyof typeof zh, string> = {
   "action.not_interested": "Not interested",
   "action.seen": "Seen",
   "action.restore": "Restore",
+  "action.you_marked": "You marked it: {what}",
   "action.restore_hint": "Take back “{what}”. The item is not deleted; it goes back among those not dealt with.",
   "action.restored": "Restored.",
   "action.original": "Original",

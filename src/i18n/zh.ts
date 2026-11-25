@@ -107,6 +107,7 @@ export const zh = {
   "action.not_interested": "不感兴趣",
   "action.seen": "看过了",
   "action.restore": "挽回",
+  "action.you_marked": "你标的：{what}",
   "action.restore_hint": "收回「{what}」。这一条没有删除，会回到还没处理的里面。",
   "action.restored": "已挽回。",
   "action.original": "原文",
