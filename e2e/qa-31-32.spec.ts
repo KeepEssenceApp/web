@@ -198,7 +198,8 @@ test.describe("QA #32: how long an item is kept is decided when it is sorted, an
     const open = item(page, id);
     await expect(keptFor(page)).toBeEnabled();
     await expect(header(page)).not.toContainText("还剩");
-    await expect(header(page)).not.toContainText("30");
+    // "30 days", not the minutes of a time of day such as 20:30.
+    await expect(header(page)).not.toHaveText(/(^|[^:\d])30\s*天/);
     expect((await tags(page)).filter((x) => x.startsWith("expiry:"))).toEqual([]);
     // The control: a state as its current value, the user's days and "never" to choose from.
     await expect(keptFor(page)).toHaveValue("");

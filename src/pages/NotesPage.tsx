@@ -185,7 +185,10 @@ export function NotesPage({ beside = false, selected, reading }: { beside?: bool
   // Quick find looks through notes only. The queue and the month leave the list the moment
   // something is typed, not a quarter of a second later when the request goes out.
   const searching = find.trim() !== "";
-  const notes = useLoad(() => api.notes(query || undefined), [query, tick]);
+  // The answer carries the words it was asked with, so an empty list is never explained with the
+  // sentence of another question (QA #54).
+  const notes = useLoad(() => api.notes(query || undefined).then((r) => ({ ...r, asked: query })), [query, tick]);
+  const stale = notes.data ? notes.data.asked !== find.trim() : false;
   const queue = useLoad(api.queue, [tick]);
   const cal = useLoad(async () => (beside ? null : api.calendar()), [tick, beside]);
 
@@ -219,8 +222,12 @@ export function NotesPage({ beside = false, selected, reading }: { beside?: bool
         </h2>
         {!notes.data ? (
           <Loading error={notes.error} />
+        ) : notes.data.notes.length === 0 && stale && !searching ? (
+          // The search was just cleared and the full list is on its way: an empty search answer
+          // says nothing about whether there are notes.
+          <Loading error={null} />
         ) : notes.data.notes.length === 0 ? (
-          <p class="sentence" data-testid="notes-empty">{query ? t("notes.no_match") : t("notes.empty")}</p>
+          <p class="sentence" data-testid="notes-empty">{searching ? t("notes.no_match") : t("notes.empty")}</p>
         ) : (
           <ul class="note-list">
             {notes.data.notes.map((n) => (
