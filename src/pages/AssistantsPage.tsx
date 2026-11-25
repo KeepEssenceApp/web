@@ -371,9 +371,7 @@ function Connect() {
         </div>
         <div class="stack tight guide" role="tabpanel" data-product={product}>
           <p class="quiet small">
-            {t(p.kind === "chat" ? "assistant.chat" : "assistant.scheduled")}
-            {" · "}
-            {(p.kind === "chat" ? (["deep_dive"] as Step[]) : STEPS).map((s) => t(`step.${s}`)).join(" · ")}
+            {[t(p.kind === "chat" ? "assistant.chat" : "assistant.scheduled"), ...(p.kind === "chat" ? (["deep_dive"] as Step[]) : STEPS).map((s) => t(`step.${s}`))].join(" · ")}
           </p>
           <ol class="guide-steps">
             {Array.from({ length: p.steps }, (_, i) => (
