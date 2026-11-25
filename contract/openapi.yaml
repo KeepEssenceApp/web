@@ -1006,6 +1006,50 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Settings" }
 
+  /v1/export:
+    get:
+      tags: [settings]
+      operationId: exportData
+      summary: Everything of the account that lasts, as one JSON document.
+      description: >-
+        Settings, daily digests, notes with their sources and origin, and the items that still exist with their
+        analyses and tags. Items that are no longer shown are not included. File contents are not included: each
+        file is listed with its name, type and size, and is downloaded separately through `GET /v1/assets/{id}`.
+        The document is streamed.
+      x-tier: manage
+      responses:
+        "200":
+          description: The export
+          headers:
+            Content-Disposition: { schema: { type: string }, description: "`attachment`, with a file name that carries the day." }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Export" }
+
+  /v1/account:
+    delete:
+      tags: [settings]
+      operationId: deleteAccount
+      summary: Delete the account and everything it holds. Cannot be undone.
+      description: >-
+        The caller confirms with the account's email. The account, all its data and files, every device and
+        assistant, and its invitation are removed; every credential of the account stops working at once.
+        The same email can be invited again later, and then starts as a new account.
+      x-tier: manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirm_email]
+              properties:
+                confirm_email: { type: string, maxLength: 320, description: The email of the account. Compared without regard to case or surrounding spaces. }
+      responses:
+        "204": { description: Deleted }
+        "400": { $ref: "#/components/responses/Error" }
+
   /v1/assistants:
     get:
       tags: [settings]
@@ -1954,6 +1998,7 @@ components:
         notify: { type: boolean }
         timezone: { type: string }
         lang: { $ref: "#/components/schemas/Lang" }
+        email: { type: string, description: "The email of the account. Only for the manage tier." }
         roles:
           type: object
           description: Which assistant does each step when nothing else names one, as assistant ids. Null means nobody. Digest and deep-read work goes only to the assistant holding that role.
@@ -1968,6 +2013,100 @@ components:
           properties:
             enabled: { type: boolean }
             url: { type: [string, "null"], description: Only for the manage tier. Not a credential. }
+
+    Export:
+      type: object
+      required: [version, exported_at, contents, account, settings, digests, notes, items, files]
+      properties:
+        version: { type: integer, enum: [1] }
+        exported_at: { type: string, format: date-time }
+        contents:
+          type: object
+          description: "What is in the document and what is not, in words."
+          required: [included, not_included, files]
+          properties:
+            included: { type: array, items: { type: string } }
+            not_included: { type: array, items: { type: string } }
+            files: { type: string, description: How the listed files are downloaded. }
+        account:
+          type: object
+          required: [id, email, created_at]
+          properties:
+            id: { type: string }
+            email: { type: string }
+            created_at: { type: string, format: date-time }
+        settings:
+          type: object
+          required: [rules, expiry_options, notify, timezone, lang, roles, calendar_image_enabled]
+          properties:
+            rules: { type: string }
+            expiry_options: { type: array, items: { type: integer } }
+            notify: { type: boolean }
+            timezone: { type: string }
+            lang: { $ref: "#/components/schemas/Lang" }
+            roles:
+              type: object
+              description: "The assistant set for each step, or null."
+              additionalProperties: { oneOf: [{ $ref: "#/components/schemas/Signature" }, { type: "null" }] }
+            calendar_image_enabled: { type: boolean }
+        digests:
+          type: array
+          description: Oldest first.
+          items:
+            type: object
+            required: [day, read, summary, question, worth, entries, assistant]
+            properties:
+              day: { $ref: "#/components/schemas/Day" }
+              read: { type: boolean }
+              created_at: { type: [string, "null"], format: date-time }
+              covers: { type: array, items: { $ref: "#/components/schemas/Day" }, description: The days this digest covers. }
+              summary: { type: string }
+              question: { type: string }
+              worth:
+                type: array
+                items:
+                  type: object
+                  required: [item_id, line]
+                  properties:
+                    item_id: { type: string }
+                    line: { type: string }
+              entries:
+                type: array
+                description: "Every item the digest covered, by the title it had then."
+                items:
+                  type: object
+                  required: [item_id, title]
+                  properties:
+                    item_id: { type: string }
+                    title: { type: string }
+                    verdict: { oneOf: [{ $ref: "#/components/schemas/Verdict" }, { type: "null" }] }
+              assistant: { $ref: "#/components/schemas/Signature" }
+        notes:
+          type: array
+          description: Oldest first.
+          items: { $ref: "#/components/schemas/Note" }
+        items:
+          type: array
+          description: "The items that still exist, oldest first."
+          items:
+            allOf:
+              - $ref: "#/components/schemas/ItemDetail"
+              - type: object
+                properties:
+                  file: { oneOf: [{ $ref: "#/components/schemas/ExportFile" }, { type: "null" }] }
+        files:
+          type: array
+          description: Every stored file of the account. Contents are not included.
+          items: { $ref: "#/components/schemas/ExportFile" }
+
+    ExportFile:
+      type: object
+      required: [id, name, type, size]
+      properties:
+        id: { type: string, description: "The asset id, for `GET /v1/assets/{id}`." }
+        name: { type: string, description: "The title of the item the file was saved as, or the id with the extension of its type." }
+        type: { type: string, description: Media type. }
+        size: { type: integer, description: Bytes. }
 
     SettingsChange:
       type: object
