@@ -675,6 +675,9 @@ on("POST", "/__test/analyse", null, (c) => {
   const a = S.assistants[0];
   it.stage = "analysed"; it.dispatch_to ??= { id: a.id, name: a.name };
   it.analysis = analysis(a, "这是一份刚交回的解读，内容是编的。", "文章 · 约 1000 字", ["第一条要点。", "第二条要点。"], "good_to_know", null, 0);
+  // `unavailable`: the assistant could not read it and says so in one sentence (the built-in
+  // assistant after three failed attempts: "content could not be read").
+  if (c.body.unavailable) it.analysis = { unavailable: true, summary: String(c.body.unavailable), assistant: { id: a.id, name: a.name }, created_at: ago(0) };
   return [200, itemOut(it)];
 });
 // What the dispatch step does when it comes: it gives the item an assistant and a number of

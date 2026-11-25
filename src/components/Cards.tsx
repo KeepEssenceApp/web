@@ -174,7 +174,7 @@ export function AnalysisFields({ a }: { a: Analysis }) {
   return (
     <>
       {a.unavailable ? (
-        <p class="summary">{shared(rules?.content_unavailable)}</p>
+        <p class="summary">{a.summary || shared(rules?.content_unavailable)}</p>
       ) : (
         <dl class="fields">
           <div>
