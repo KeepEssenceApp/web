@@ -5,7 +5,7 @@ import { DeepDive } from "../components/DeepDive";
 import { PageHead } from "../components/Shell";
 import { Loading, Sheet, State, type DotKind } from "../components/ui";
 import { ago, monthName, shortDate, t } from "../i18n";
-import { errText, say, sayError, useLoad } from "../lib";
+import { errText, say, sayError, useBusy, useLoad } from "../lib";
 import { go } from "../router";
 import { refresh, session } from "../session";
 import { useStore } from "../store";
@@ -95,7 +95,7 @@ function PasteBack({ entry, onClose, onSaved }: { entry: QueueEntry; onClose: ()
         )}
         {fail && <p class="sentence bad" role="alert">{fail}</p>}
         <div class="row">
-          <button class="btn" type="submit" disabled={busy || !title.trim() || !body.trim()}>
+          <button class="btn" type="submit" disabled={busy || !title.trim() || !body.trim()} aria-busy={busy}>
             {t("paste.save")}
           </button>
         </div>
@@ -106,15 +106,31 @@ function PasteBack({ entry, onClose, onSaved }: { entry: QueueEntry; onClose: ()
 
 function QueueRow({ e, onChanged }: { e: QueueEntry; onChanged: () => void }) {
   const [open, setOpen] = useState<null | "report" | "dive" | "paste">(null);
+  const [busy, run] = useBusy();
+  // Lists and the status bar elsewhere follow at once.
+  const changed = () => {
+    onChanged();
+    refresh.set((n) => n + 1);
+  };
   const remove = () =>
-    api.dequeue(e.item_id).then(() => {
-      onChanged();
-      say(t("queue.removed"), { label: t("action.restore"), run: () => api.enqueue(e.item_id).then(onChanged, sayError) });
-    }, sayError);
+    run("remove", async () => {
+      await api.dequeue(e.item_id);
+      changed();
+      say(t("queue.removed"), {
+        label: t("action.restore"),
+        run: () =>
+          void api.enqueue(e.item_id).then(() => {
+            changed();
+            say(t("today.queued"));
+          }, sayError),
+      });
+    });
   return (
     <li class="queue-row" data-item={e.item_id}>
       <div class="stack tight">
-        <span class="queue-title">{e.title}</span>
+        <a class="queue-title" href={`/item/${e.item_id}`}>
+          {e.title}
+        </a>
         <p class="row wrap small">
           <State dot={READ_DOT[e.deep_read]}>{t(`queue.${e.deep_read}`)}</State>
           {e.went_at && <span class="quiet">{t("queue.went", { when: ago(e.went_at) })}</span>}
@@ -130,15 +146,14 @@ function QueueRow({ e, onChanged }: { e: QueueEntry; onChanged: () => void }) {
           {t("queue.start")}
         </button>
         {e.went_at && (
-          <>
-            <button class="link" type="button" onClick={() => setOpen("paste")}>
-              {t("queue.paste")}
-            </button>
-            <button class="link" type="button" onClick={remove}>
-              {t("queue.remove")}
-            </button>
-          </>
+          <button class="link" type="button" onClick={() => setOpen("paste")}>
+            {t("queue.paste")}
+          </button>
         )}
+        {/* Leaving the queue is the user's at any time, not only after going to an assistant. */}
+        <button class="link" type="button" disabled={busy !== null} aria-busy={busy !== null} onClick={remove}>
+          {t("queue.remove")}
+        </button>
       </div>
       {open === "report" && <Report entry={e} onClose={() => setOpen(null)} />}
       {open === "dive" && <DeepDive itemId={e.item_id} nowOnly onClose={() => setOpen(null)} onWent={onChanged} />}

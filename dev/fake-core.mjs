@@ -122,7 +122,8 @@ function seed(opts = {}) {
     },
     items: new Map(), digests: new Map(), queue: new Map(), notes: [], assets: new Map(),
     saved: new Map(), noteDays: new Set(), idem: new Map(), codes: new Map(), oauth: new Map(),
-    pushes: [], decisions: [], lastSaved: null, noDigestReason: undefined, overQuota: !!opts.over_quota,
+    pushes: [], decisions: [], lastSaved: null, noDigestReason: opts.no_digest_reason, overQuota: !!opts.over_quota,
+    delay: 0, failNext: null,
     pushKey: (() => { const e = crypto.createECDH("prime256v1"); e.generateKeys(); return e.getPublicKey().toString("base64url"); })(),
   };
   S.devices.set("dev_ext", { id: "dev_ext", name: "Chrome 扩展 · Mac", category: "client", client: "extension", tier: "save", created_at: ago(9 * DAY), last_used_at: ago(3 * 3600e3), notifications: false });
@@ -205,6 +206,12 @@ function seed(opts = {}) {
   for (let n = 6; n <= 75; n++) { const k = (n * 7) % 5; if (k) S.saved.set(dayN(n), k + 2); }
   S.saved.set(today(), 7);
 
+  if (opts.no_deep) {
+    // Nobody can deep read or deep dive: only the built-in assistant is left.
+    S.assistants = [builtin];
+    S.settings.roles = { ...S.settings.roles, deep_read: null, deep_dive: null };
+    for (const it of S.items.values()) if (it.dispatch_to?.id !== builtin.id) it.dispatch_to = { id: builtin.id, name: builtin.name };
+  }
   if (opts.no_assistants) {
     // Every assistant has come before and none lately. One that has never come counts as
     // expected soon, and the status bar is then not red.
@@ -219,19 +226,23 @@ function seed(opts = {}) {
 // ---------------------------------------------------------------- views
 const inQueue = (id) => S.queue.has(id);
 const assistantById = (id) => S.assistants.find((a) => a.id === id);
+// The term counts from when the item was saved, or from when a kept item got an end date again.
+const termStart = (it) => it.term_from ?? Date.parse(it.created_at);
 function daysLeft(it) {
   if (it.pinned) return null;
-  return Math.max(0, it.expiry_days - Math.floor((Date.now() - Date.parse(it.created_at)) / DAY));
+  return Math.max(0, it.expiry_days - Math.floor((Date.now() - termStart(it)) / DAY));
 }
 function itemOut(it, detail = false) {
   const o = { id: it.id, kind: it.kind, title: it.title, site: it.site, url: it.url, created_at: it.created_at, stage: it.stage, content_unavailable: it.content_unavailable,
-    dispatch_to: it.stage === "saved" ? null : it.dispatch_to, days_left: daysLeft(it), pinned: it.pinned, signal: it.signal, in_queue: inQueue(it.id), analysis: it.analysis };
+    dispatch_to: it.stage === "saved" && !it.user_assistant ? null : it.dispatch_to, days_left: daysLeft(it), pinned: it.pinned, signal: it.signal, in_queue: inQueue(it.id), analysis: it.analysis };
   if (!detail) return o;
   const tags = [];
-  if (it.stage !== "saved" && it.dispatch_to) tags.push(`assistant:${it.dispatch_to.name}`);
-  if (it.stage !== "saved") tags.push(`expiry:${it.expiry_days}`);
+  if ((it.stage !== "saved" || it.user_assistant) && it.dispatch_to) tags.push(`assistant:${it.dispatch_to.name}`);
+  // A kept item has no end date, so no expiry tag is listed for it.
+  if ((it.stage !== "saved" || it.user_set) && !it.pinned) tags.push(`expiry:${it.expiry_days}`);
   tags.push(`source:${it.source}`);
-  return { ...o, body: it.body, asset_id: it.asset_id, tags, expiry_days: it.pinned ? null : it.expiry_days };
+  return { ...o, body: it.body, asset_id: it.asset_id, tags, expiry_days: it.pinned ? null : it.expiry_days,
+    expires_at: it.pinned ? null : iso(termStart(it) + it.expiry_days * DAY) };
 }
 function deviceOut(d, me) {
   return { id: d.id, name: d.name, category: "client", client: d.client, tier: d.tier, created_at: d.created_at, last_used_at: d.last_used_at, notifications: !!d.notifications, this_device: d.id === me?.id };
@@ -452,8 +463,14 @@ on("GET", "/v1/items/search", "read", (c) => {
 on("GET", "/v1/items/:id", "read", (c) => [200, itemOut(getItem(c.p.id), true)]);
 on("PATCH", "/v1/items/:id", "manage", (c) => {
   const it = getItem(c.p.id); onlyKeys(c.body, ["expiry_days", "dispatch_to"]);
-  if (c.body.expiry_days !== undefined) { need(Number.isInteger(c.body.expiry_days) && c.body.expiry_days >= 1 && c.body.expiry_days <= 365); it.expiry_days = c.body.expiry_days; }
-  if (c.body.dispatch_to !== undefined) { const a = assistantById(c.body.dispatch_to); need(a && a.steps.includes("analysis")); it.dispatch_to = { id: a.id, name: a.name }; if (it.stage === "saved") it.stage = "triaged"; }
+  if (c.body.expiry_days !== undefined) {
+    need(Number.isInteger(c.body.expiry_days) && c.body.expiry_days >= 1 && c.body.expiry_days <= 365); it.expiry_days = c.body.expiry_days;
+    // Days chosen on a kept item give it an end date again, counted from now.
+    if (it.pinned) { it.pinned = false; it.term_from = Date.now(); }
+  }
+  if (c.body.dispatch_to !== undefined) { const a = assistantById(c.body.dispatch_to); need(a && a.steps.includes("analysis")); it.dispatch_to = { id: a.id, name: a.name }; it.user_assistant = true; }
+  // Any edit by the user protects the retention (and the assistant, when there is one) from triage.
+  if (Object.keys(c.body).length) { it.user_set = true; if (it.dispatch_to) it.user_assistant = true; }
   return [200, itemOut(it, true)];
 });
 on("DELETE", "/v1/items/:id", "manage", (c) => {
@@ -461,8 +478,8 @@ on("DELETE", "/v1/items/:id", "manage", (c) => {
   const d = it.digest_day && S.digests.get(it.digest_day); if (d) (d.gone ??= {})[it.id] = it.title;
   return [204];
 });
-on("PUT", "/v1/items/:id/pin", "read", (c) => { getItem(c.p.id).pinned = true; return [204]; });
-on("DELETE", "/v1/items/:id/pin", "read", (c) => { getItem(c.p.id).pinned = false; return [204]; });
+on("PUT", "/v1/items/:id/pin", "read", (c) => { const it = getItem(c.p.id); it.pinned = true; it.user_set = true; return [204]; });
+on("DELETE", "/v1/items/:id/pin", "read", (c) => { const it = getItem(c.p.id); if (it.pinned) { it.pinned = false; it.term_from = Date.now(); } it.user_set = true; return [204]; });
 on("PUT", "/v1/items/:id/signal", "read", (c) => { need(["not_interested", "seen"].includes(c.body.signal)); getItem(c.p.id).signal = c.body.signal; return [204]; });
 on("DELETE", "/v1/items/:id/signal", "read", (c) => { getItem(c.p.id).signal = null; return [204]; });
 
@@ -641,6 +658,21 @@ on("POST", "/__test/analyse", null, (c) => {
   it.analysis = analysis(a, "这是一份刚交回的解读，内容是编的。", "文章 · 约 1000 字", ["第一条要点。", "第二条要点。"], "good_to_know", null, 0);
   return [200, itemOut(it)];
 });
+// What the dispatch step does when it comes: it gives the item an assistant and a number of
+// days, except where the user has set them.
+on("POST", "/__test/triage", null, (c) => {
+  const it = getItem(c.body.item_id);
+  if (it.stage === "saved") {
+    const a = assistantById(c.body.assistant_id) ?? assistantById(S.settings.roles.analysis) ?? S.assistants[0];
+    if (!it.user_assistant) it.dispatch_to = { id: a.id, name: a.name };
+    if (!it.user_set) it.expiry_days = c.body.expiry_days ?? 30;
+    it.stage = "triaged";
+  }
+  return [200, itemOut(it, true)];
+});
+// A slow core (every /v1 answer waits `ms`), and one answer that fails, to see what the app shows meanwhile.
+on("POST", "/__test/delay", null, (c) => { S.delay = Number(c.body.ms) || 0; return [200, { ok: true }]; });
+on("POST", "/__test/fail-next", null, (c) => { S.failNext = { method: c.body.method, path: c.body.path }; return [200, { ok: true }]; });
 on("POST", "/__test/device-code", null, (c) => newDeviceCode(c.body, c.origin));
 on("POST", "/__test/set-tier", "save", (c) => { need(TIERS.includes(c.body.tier)); c.device.tier = c.body.tier; return [200, deviceOut(c.device, c.device)]; });
 on("GET", "/__test/state", null, () => [200, {
@@ -686,6 +718,11 @@ const server = http.createServer(async (req, res) => {
       return serveStatic(url.pathname, res);
     }
     const raw = await readBody(req);
+    if (url.pathname.startsWith("/v1/")) {
+      if (S.delay) await new Promise((r) => setTimeout(r, S.delay));
+      const f = S.failNext;
+      if (f && f.method === req.method && new RegExp(f.path).test(url.pathname)) { S.failNext = null; fail(500, "server_error"); }
+    }
     let body = {};
     if (raw.length && /json/.test(req.headers["content-type"] ?? "")) { try { body = JSON.parse(raw.toString("utf8")); } catch { fail(400, "bad_request"); } }
     const bearer = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "") || null;

@@ -53,7 +53,8 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
           <State dot={dot}>
             <b>{headline}</b>
           </State>
-          <span class="quiet">{counts.join(" · ")}</span>
+          {/* "Saved today" counts saves, not what is left: said on hover so nobody is surprised. */}
+          <span class="quiet" title={t("status.saved_today_hint")}>{counts.join(" · ")}</span>
         </div>
         {s.assistants.map((a) => (
           <div class="status-cell" key={a.id}>
@@ -91,7 +92,7 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
   }
   if (layout === "narrow") {
     const line = (
-      <div class={`status status-narrow${losing ? " losing" : ""}`} role="status" aria-label={t("status.label")} data-layout="narrow">
+      <div class={`status status-narrow${losing ? " losing" : ""}`} role="status" aria-label={t("status.label")} data-layout="narrow" title={t("status.saved_today_hint")}>
         <State dot={dot}>{[headline, ...counts].join(" · ")}</State>
       </div>
     );

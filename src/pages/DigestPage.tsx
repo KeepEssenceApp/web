@@ -5,10 +5,10 @@ import { DeepDive } from "../components/DeepDive";
 import { PageHead } from "../components/Shell";
 import { Loading, State } from "../components/ui";
 import { dayName, shared, t } from "../i18n";
-import { sayError, useLoad } from "../lib";
-import { digestUnread, meta, refresh } from "../session";
+import { useBusy, useLoad } from "../lib";
+import { canManage, digestUnread, meta, refresh, session } from "../session";
 import { useStore } from "../store";
-import type { Digest, DigestRest, DigestWorth } from "../types";
+import type { Digest, DigestRest, DigestWorth, Signal, Status } from "../types";
 
 function WorthCard({ w, act }: { w: DigestWorth; act: ItemActions }) {
   const [sheet, setSheet] = useState(false);
@@ -48,43 +48,81 @@ function RestLine({ r, onRestore }: { r: DigestRest; onRestore: () => void }) {
   );
 }
 
+/** The hour after which the day's digest is written, in the user's time zone (the product's rule). */
+const DIGEST_TIME = "21:00";
+
+/**
+ * No daily digest to show. Nothing can be made on demand, so this says exactly when one comes,
+ * what it needs, how today stands, and where today's analyses are until then.
+ */
+function NoDigest({ day, reason }: { day: string; reason: Status["no_digest_reason"] }) {
+  const tick = useStore(refresh);
+  // Today's analyses: what tonight's digest would be made from.
+  const analysed = useLoad(async () => (await api.today()).filter((i) => i.analysis).length, [tick]);
+  const earlier = useLoad(() => api.digests(1), [tick]);
+  const latest = earlier.data?.digests[0]?.day;
+  const zone = session.get().user?.timezone ?? "UTC";
+  const n = analysed.data;
+  return (
+    <div class="stack" data-reason={reason ?? undefined}>
+      <p class="sentence" data-testid="digest-none">{day === "latest" ? t("digest.none") : t("digest.none_day")}</p>
+      <p data-testid="digest-when">{t("digest.when", { time: DIGEST_TIME, zone })}</p>
+      {reason && n !== undefined && <p data-testid="digest-why">{t(`digest.why.${reason}`, { n, time: DIGEST_TIME })}</p>}
+      <p class="row wrap">
+        <a class="link" href="/">
+          {t("digest.meanwhile")}
+        </a>
+        {reason === "no_assistant" && canManage() && (
+          <a class="link" href="/assistants">
+            {t("status.open")}
+          </a>
+        )}
+      </p>
+      {latest && latest !== day && (
+        <nav class="row spread pager" aria-label={t("nav.digest")}>
+          <a class="link" href={`/digest/${latest}`} rel="prev">
+            ‹ {t("digest.latest", { day: dayName(latest) })}
+          </a>
+        </nav>
+      )}
+    </div>
+  );
+}
+
 /** One daily digest: four parts in a fixed order, then "Read. Good night". */
 export function DigestPage({ day }: { day: string }) {
   const tick = useStore(refresh);
   const digest = useLoad(() => api.digest(day), [day, tick]);
-  const status = useLoad(api.status, []);
-  const act = itemActions(digest.reload);
+  const status = useLoad(api.status, [tick]);
+  const [busy, run] = useBusy();
+  // An action shows at once: the card moves to the rest before the core has answered.
+  const act = itemActions(digest.reload, (id, change) => {
+    const now = digest.data;
+    const w = now?.worth.find((x) => x.item_id === id);
+    if (!now || !w || !(change.signal || change.in_queue)) return;
+    digest.set({
+      ...now,
+      worth: now.worth.filter((x) => x !== w),
+      rest: [...now.rest, { item_id: id, title: w.title ?? "", signal: change.signal ?? null, in_queue: !!change.in_queue, available: true, can_restore: true }],
+    });
+  });
   const d = digest.data;
 
-  async function restore(r: DigestRest) {
-    try {
-      if (r.signal) await api.clearSignal(r.item_id);
-      if (r.in_queue) await api.dequeue(r.item_id);
-      refresh.set((n) => n + 1);
-    } catch (err) {
-      sayError(err);
-    }
-  }
-  async function markRead(dg: Digest) {
-    try {
+  const restore = (r: DigestRest) => act.restore(r.item_id, { signal: (r.signal as Signal | null) ?? null, in_queue: r.in_queue });
+  const markRead = (dg: Digest) =>
+    run("read", async () => {
       await api.markRead(dg.day);
       digest.set({ ...dg, read: true });
       if (!dg.next_day) digestUnread.set(false);
       refresh.set((n) => n + 1);
-    } catch (err) {
-      sayError(err);
-    }
-  }
+    });
 
   return (
     <div class="page reading digest">
       <PageHead title={t("nav.digest")} />
       {!d ? (
         digest.status === 404 ? (
-          <div class="stack tight">
-            <p class="sentence" data-testid="digest-none">{t("digest.none")}</p>
-            {status.data?.no_digest_reason && <p class="quiet">{t(`status.no_digest.${status.data.no_digest_reason}`)}</p>}
-          </div>
+          <NoDigest day={day} reason={status.data?.no_digest_reason ?? null} />
         ) : (
           <Loading error={digest.error} />
         )
@@ -142,7 +180,7 @@ export function DigestPage({ day }: { day: string }) {
             {d.read ? (
               <State dot="solid">{t("digest.is_read")}</State>
             ) : (
-              <button class="btn" type="button" onClick={() => markRead(d)}>
+              <button class="btn" type="button" disabled={busy === "read"} aria-busy={busy === "read"} onClick={() => markRead(d)}>
                 {t("digest.read")}
               </button>
             )}

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "../store";
 import { said } from "../lib";
 import { meta } from "../session";
@@ -105,11 +105,25 @@ export function Loading({ error }: { error?: string | null }) {
   return error ? <p class="sentence bad" role="alert">{error}</p> : <p class="sentence quiet" aria-busy="true">{t("common.loading")}</p>;
 }
 
-export function Switch({ on, label, onChange, disabled }: { on: boolean; label: string; onChange: (next: boolean) => void; disabled?: boolean }) {
+/**
+ * A switch moves the moment it is pressed and shows that it is waiting; when the core refuses,
+ * it goes back to where it was (the caller says why).
+ */
+export function Switch({ on, label, onChange, disabled }: { on: boolean; label: string; onChange: (next: boolean) => unknown; disabled?: boolean }) {
+  const [waiting, setWaiting] = useState<boolean | null>(null);
+  const shown = waiting ?? on;
+  const press = () => {
+    const next = !on;
+    setWaiting(next);
+    Promise.resolve(onChange(next)).then(
+      () => setWaiting(null),
+      () => setWaiting(null),
+    );
+  };
   return (
-    <button class={`switch${on ? " on" : ""}`} type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)}>
+    <button class={`switch${shown ? " on" : ""}`} type="button" role="switch" aria-checked={shown} aria-label={label} aria-busy={waiting !== null} disabled={disabled || waiting !== null} onClick={press}>
       <span class="switch-knob" aria-hidden="true" />
-      <span>{on ? t("common.on") : t("common.off")}</span>
+      <span>{shown ? t("common.on") : t("common.off")}</span>
     </button>
   );
 }

@@ -70,6 +70,8 @@ export interface ItemDetail extends Item {
   asset_id?: string | null;
   tags?: string[];
   expiry_days?: number | null;
+  /** When the item is deleted as things stand; null when it is kept without expiry. */
+  expires_at?: string | null;
 }
 export interface SaveResult {
   status: "saved" | "duplicate";

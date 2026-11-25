@@ -79,3 +79,13 @@ export const shortDate = (iso: string, timeZone?: string) => {
     return new Intl.DateTimeFormat(locale(), { year: "numeric", month: "long", day: "numeric" }).format(new Date(iso));
   }
 };
+/** The day something ends, short: "23 Feb" / "2月23日"; with the year when it is not this year. */
+export const endDay = (iso: string, timeZone?: string) => {
+  const d = new Date(iso);
+  const year = d.getFullYear() !== new Date().getFullYear() ? ({ year: "numeric" } as const) : {};
+  try {
+    return new Intl.DateTimeFormat(locale(), { day: "numeric", month: "short", ...year, timeZone }).format(d);
+  } catch {
+    return new Intl.DateTimeFormat(locale(), { day: "numeric", month: "short", ...year }).format(d);
+  }
+};

@@ -122,24 +122,23 @@ test("deep dive: add to the queue, or go now with a choice of assistant", async 
   await expect(page.locator('.queue-row[data-item="it_worth"]')).toBeVisible();
 });
 
-test("opening an item: original, analysis, tags; manage can change who and how long, keep, delete", async ({ page, request }) => {
+test("opening an item: original, analysis, tags; manage can change who and how long, and delete", async ({ page, request }) => {
   await signIn(page);
   await page.locator('[data-item="it_triaged"] a').first().click();
   await expect(page).toHaveURL(/\/item\/it_triaged$/);
   await expect(page.locator(".tags code").first()).toContainText(":");
   await expect(page.locator("section", { hasText: "解读" }).last()).toContainText("还没解读");
 
+  // One control for how long it is kept: the days, and "never" as its last choice.
   const kept = page.locator("label", { hasText: "保留多久" }).locator("select");
   await expect(kept).toHaveValue("30");
   await kept.selectOption("90");
-  await expect(page.locator(".said")).toContainText("已保存。");
+  await expect(page.locator(".said")).toContainText("保留 90 天");
   await expect(page.locator("label", { hasText: "交给哪个助手" }).locator("select")).toBeVisible();
-
-  await page.getByRole("button", { name: "收藏", exact: true }).click();
-  await expect(page.getByRole("button", { name: "改回有期限" })).toBeVisible();
+  await kept.selectOption("never");
   await expect(page.locator("header .quiet")).toContainText("收藏了，不过期");
-  await page.getByRole("button", { name: "改回有期限" }).click();
-  await expect(page.getByRole("button", { name: "收藏", exact: true })).toBeVisible();
+  await kept.selectOption("30");
+  await expect(page.locator("header .quiet")).toContainText("还剩 30 天");
 
   const before = (await state(request)).counts.items;
   await page.getByRole("button", { name: "删除" }).click();

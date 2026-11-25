@@ -2,7 +2,8 @@ import { useState } from "preact/hooks";
 import { api } from "../api";
 import { t } from "../i18n";
 import { copyText, errText, useLoad } from "../lib";
-import { canManage } from "../session";
+import { canManage, meta } from "../session";
+import { useStore } from "../store";
 import type { DeepDiveEntry } from "../types";
 import { Loading, Sheet } from "./ui";
 
@@ -22,7 +23,9 @@ export function DeepDive({ itemId, nowOnly, onClose, onQueued, onWent }: {
   const { data, error } = useLoad(async () => {
     const [a, s] = await Promise.all([api.assistants(), api.settings()]);
     const able = a.assistants.filter((x) => x.steps.includes("deep_dive"));
-    return { able, preferred: s.roles.deep_dive ?? null };
+    // The deep read is done by the assistant chosen for it, and only while it still may.
+    const reader = a.assistants.some((x) => x.id === s.roles.deep_read && x.steps.includes("deep_read"));
+    return { able, reader, preferred: s.roles.deep_dive ?? null };
   }, []);
   const [picked, setPicked] = useState<string | null>(null);
   const [entry, setEntry] = useState<DeepDiveEntry | null>(null);
@@ -30,6 +33,18 @@ export function DeepDive({ itemId, nowOnly, onClose, onQueued, onWent }: {
   const [fail, setFail] = useState<string | null>(null);
 
   const able = data?.able ?? [];
+  const idleDays = Number(useStore(meta)?.limits.queue_idle_days ?? 7);
+  // What queueing does for this user's setup, said plainly.
+  const queueHint = data?.reader
+    ? t("dive.queue_hint")
+    : able.length > 0
+      ? t("dive.queue_no_reader", { days: idleDays })
+      : t("dive.queue_nobody", { days: idleDays });
+  const connect = canManage() && (
+    <a class="link" href="/assistants/connect">
+      {t("assistant.connect")}
+    </a>
+  );
   const chosen = picked ?? (able.some((a) => a.id === data?.preferred) ? data!.preferred! : able[0]?.id);
 
   async function queue() {
@@ -91,41 +106,40 @@ export function DeepDive({ itemId, nowOnly, onClose, onQueued, onWent }: {
         <div class="stack">
           {!nowOnly && (
             <div class="choice">
-              <button class="btn" type="button" disabled={busy} onClick={queue}>
+              <button class="btn" type="button" disabled={busy} aria-busy={busy} onClick={queue}>
                 {t("dive.queue")}
               </button>
-              <p class="quiet small">{t("dive.queue_hint")}</p>
+              <p class="quiet small" data-testid="queue-hint">{queueHint}</p>
+              {/* With nobody to read it or to go to, the way forward is to connect an assistant. */}
+              {!data.reader && able.length === 0 && connect}
             </div>
           )}
-          <div class="choice">
-            {able.length === 0 ? (
-              <>
-                <p class="sentence">{t("dive.no_assistant")}</p>
-                {canManage() && (
-                  <a class="link" href="/assistants/connect">
-                    {t("assistant.connect")}
-                  </a>
-                )}
-              </>
-            ) : (
-              <>
-                <fieldset class="options">
-                  <legend class="label">{t("dive.pick")}</legend>
-                  {able.map((a) => (
-                    <label class="option" key={a.id}>
-                      <input type="radio" name="dive-assistant" checked={a.id === chosen} onChange={() => setPicked(a.id)} />
-                      <span>{a.name}</span>
-                      <span class="quiet small">{t(a.kind === "chat" ? "assistant.chat" : "assistant.scheduled")}</span>
-                    </label>
-                  ))}
-                </fieldset>
-                <button class={nowOnly ? "btn" : "btn quiet"} type="button" disabled={busy} onClick={start}>
-                  {t("dive.now")}
-                </button>
-                <p class="quiet small">{t("dive.now_hint")}</p>
-              </>
-            )}
-          </div>
+          {/* "Go now" is only there when there is somewhere to go. */}
+          {able.length > 0 ? (
+            <div class="choice">
+              <fieldset class="options">
+                <legend class="label">{t("dive.pick")}</legend>
+                {able.map((a) => (
+                  <label class="option" key={a.id}>
+                    <input type="radio" name="dive-assistant" checked={a.id === chosen} onChange={() => setPicked(a.id)} />
+                    <span>{a.name}</span>
+                    <span class="quiet small">{t(a.kind === "chat" ? "assistant.chat" : "assistant.scheduled")}</span>
+                  </label>
+                ))}
+              </fieldset>
+              <button class={nowOnly ? "btn" : "btn quiet"} type="button" disabled={busy} aria-busy={busy} onClick={start}>
+                {t("dive.now")}
+              </button>
+              <p class="quiet small">{t("dive.now_hint")}</p>
+            </div>
+          ) : (
+            (nowOnly || data.reader) && (
+              <div class="choice">
+                <p class={nowOnly ? "sentence" : "quiet small"} data-testid="no-diver">{t("dive.no_assistant")}</p>
+                {connect}
+              </div>
+            )
+          )}
           {fail && <p class="sentence bad" role="alert">{fail}</p>}
         </div>
       )}

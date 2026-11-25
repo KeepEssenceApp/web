@@ -5,31 +5,84 @@ import { shared, t } from "../i18n";
 import { isTouch, say, sayError } from "../lib";
 import { meta, refresh } from "../session";
 import { useStore } from "../store";
-import type { Analysis, Item } from "../types";
+import type { Analysis, Item, Signal } from "../types";
 import { DeepDive } from "./DeepDive";
 import { KindIcon, VerdictMark } from "./ui";
 
-/** The user's actions on one analysis or one line of a daily digest. Each can be restored. */
-export function itemActions(after: () => void) {
-  const done = (sentence: string, undo: () => Promise<unknown>) => {
+/** What an action changes on an item, as the lists and the item page see it. */
+export interface Change {
+  signal?: Signal | null;
+  in_queue?: boolean;
+}
+/** Shows a change before the core has answered. The core's answer (a reload) is what stays. */
+export type Optimistic = (id: string, change: Change) => void;
+
+/**
+ * The user's actions on one analysis or one line of a daily digest. Each is shown and said in
+ * one sentence the moment it is pressed, then sent to the core; when the core refuses, what was
+ * shown is taken back and the reason is said. Each can be restored.
+ */
+export function itemActions(after: () => void, optimistic?: Optimistic) {
+  const settle = () => {
     after();
     refresh.set((n) => n + 1);
-    say(sentence, {
-      label: t("action.restore"),
-      run: () => {
-        undo().then(() => {
-          after();
-          refresh.set((n) => n + 1);
-        }, sayError);
-      },
-    });
   };
+  const step = (id: string, change: Change, call: () => Promise<unknown>, sentence: string, undo?: { change: Change; call: () => Promise<unknown>; sentence: string }) => {
+    optimistic?.(id, change);
+    const sent = call().then(
+      () => {
+        settle();
+        return true;
+      },
+      (err) => {
+        // Reloading puts back what the core really has.
+        settle();
+        sayError(err);
+        return false;
+      },
+    );
+    say(
+      sentence,
+      undo && {
+        label: t("action.restore"),
+        // A restore pressed before the core answered waits for that answer first.
+        run: () => void sent.then((ok) => ok && step(id, undo.change, undo.call, undo.sentence)),
+      },
+    );
+    return sent;
+  };
+  const leaveQueue = (id: string) => ({ change: { in_queue: false }, call: () => api.dequeue(id), sentence: t("queue.removed") });
+  const clear = (id: string) => ({ change: { signal: null }, call: () => api.clearSignal(id), sentence: t("action.restored") });
+  const mark = (id: string, signal: Signal, sentence: string, was?: Change) =>
+    step(
+      id,
+      { signal, in_queue: false },
+      async () => {
+        if (was?.in_queue) await api.dequeue(id);
+        await api.signal(id, signal);
+      },
+      sentence,
+      clear(id),
+    );
   return {
-    queue: (id: string) => api.enqueue(id).then(() => done(t("today.queued"), () => api.dequeue(id)), sayError),
-    queued: (id: string) => done(t("today.queued"), () => api.dequeue(id)),
-    notInterested: (id: string) =>
-      api.signal(id, "not_interested").then(() => done(t("today.not_interested_done"), () => api.clearSignal(id)), sayError),
-    seen: (id: string) => api.signal(id, "seen").then(() => done(t("today.seen_done"), () => api.clearSignal(id)), sayError),
+    /** Straight into the queue (the swipe). */
+    queue: (id: string) => step(id, { in_queue: true }, () => api.enqueue(id), t("today.queued"), leaveQueue(id)),
+    /** The dialog already added it to the queue; `was` is what the item was marked before. */
+    queued: (id: string, was?: Change) =>
+      step(id, { in_queue: true, signal: null }, async () => void (was?.signal && (await api.clearSignal(id))), t("today.queued"), leaveQueue(id)),
+    notInterested: (id: string, was?: Change) => mark(id, "not_interested", t("today.not_interested_done"), was),
+    seen: (id: string, was?: Change) => mark(id, "seen", t("today.seen_done"), was),
+    /** The way back from seen, not interested or the queue. */
+    restore: (id: string, was: Change) =>
+      step(
+        id,
+        { signal: null, in_queue: false },
+        async () => {
+          if (was.signal) await api.clearSignal(id);
+          if (was.in_queue) await api.dequeue(id);
+        },
+        was.in_queue ? t("queue.removed") : t("action.restored"),
+      ),
   };
 }
 export type ItemActions = ReturnType<typeof itemActions>;
@@ -89,18 +142,28 @@ export function Swipeable({ onRight, onLeft, children }: { onRight: () => void; 
   );
 }
 
-export function Actions({ itemId, act, onSheet }: { itemId: string; act: ItemActions; onSheet: () => void }) {
+/**
+ * The three actions. `was` is the item's current state on the item page: the action that led to
+ * it is left out there (the state itself is shown next to its way back), the others stay.
+ */
+export function Actions({ itemId, act, onSheet, was }: { itemId: string; act: ItemActions; onSheet: () => void; was?: Change }) {
   return (
     <div class="actions">
-      <button class="btn small" type="button" onClick={onSheet}>
-        {t("action.deep_dive")}
-      </button>
-      <button class="btn quiet small" type="button" onClick={() => act.notInterested(itemId)}>
-        {t("action.not_interested")}
-      </button>
-      <button class="btn quiet small" type="button" onClick={() => act.seen(itemId)}>
-        {t("action.seen")}
-      </button>
+      {!was?.in_queue && (
+        <button class="btn small" type="button" onClick={onSheet}>
+          {t("action.deep_dive")}
+        </button>
+      )}
+      {was?.signal !== "not_interested" && (
+        <button class="btn quiet small" type="button" onClick={() => act.notInterested(itemId, was)}>
+          {t("action.not_interested")}
+        </button>
+      )}
+      {was?.signal !== "seen" && (
+        <button class="btn quiet small" type="button" onClick={() => act.seen(itemId, was)}>
+          {t("action.seen")}
+        </button>
+      )}
     </div>
   );
 }

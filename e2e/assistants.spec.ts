@@ -50,17 +50,15 @@ test("W5: connect an assistant shows the address and the steps for each product"
   await page.locator(".connect").getByRole("button", { name: "复制" }).first().click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await address.innerText());
 
-  await expect(page.locator(".segments button")).toHaveText(["Claude", "ChatGPT", "Gemini", "自己部署的 agent", "Muse"]);
+  await expect(page.locator(".segments button")).toHaveText(["Claude", "ChatGPT", "Gemini", "自己部署的 agent"]);
   await expect(page.locator(".guide-steps li")).toHaveCount(4);
   await expect(page.locator(".guide")).toContainText("Add custom connector");
   await page.getByRole("tab", { name: "ChatGPT" }).click();
   await expect(page.locator(".guide")).toContainText("把结果贴回来");
   await page.getByRole("tab", { name: "自己部署的 agent" }).click();
   await expect(page.locator(".guide-steps li")).toHaveCount(3);
-  // Not verified: no made-up steps.
-  await page.getByRole("tab", { name: "Muse" }).click();
-  await expect(page.locator(".guide")).toContainText("待验证");
-  await expect(page.locator(".guide-steps")).toHaveCount(0);
+  // Not verified: no tab and no made-up steps, one line that names it.
+  await expect(page.getByTestId("not-verified")).toHaveText("待验证：Muse。");
 });
 
 test("W5: rules and expiry options", async ({ page, request }) => {

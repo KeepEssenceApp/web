@@ -25,7 +25,12 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, n]);
   const reload = useCallback(() => setN((x) => x + 1), []);
-  const set = useCallback((data: T) => setState({ data, error: null, status: 200 }), []);
+  // Setting the data by hand (an answer from the core, or an optimistic change) outdates any
+  // load still on its way: its older answer must not undo what is shown now.
+  const set = useCallback((data: T) => {
+    seq.current++;
+    setState({ data, error: null, status: 200 });
+  }, []);
   return { data: state.data, error: state.error, status: state.status, reload, set };
 }
 
@@ -36,6 +41,28 @@ export function errText(err: unknown): string {
     return err.message || t("common.failed", { reason: err.code });
   }
   return t("common.failed", { reason: String((err as Error)?.message ?? err) });
+}
+
+/**
+ * For a control that waits on the core: `busy` names what is waiting from the press until the
+ * answer, so the control can show it at once. A refusal is said in one sentence.
+ */
+export function useBusy(): [string | null, <R>(key: string, work: () => Promise<R>) => Promise<R | undefined>] {
+  const [busy, setBusy] = useState<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => () => void (alive.current = false), []);
+  const run = useCallback(async <R,>(key: string, work: () => Promise<R>): Promise<R | undefined> => {
+    setBusy(key);
+    try {
+      return await work();
+    } catch (err) {
+      sayError(err);
+      return undefined;
+    } finally {
+      if (alive.current) setBusy(null);
+    }
+  }, []);
+  return [busy, run];
 }
 
 export function useMedia(query: string): boolean {
