@@ -69,8 +69,8 @@ export function Today({ selected }: { selected?: string }) {
           {analyses.length > 0 && (
             <section aria-label={t("today.analyses")}>
               <h2 class="label">
-                {t("today.analyses")}
-                {count(analyses.length)}
+                {/* One run of text, so the space before the dot cannot be lost (QA #72). */}
+                {t("today.analyses") + count(analyses.length)}
               </h2>
               <div class="cards">
                 {analyses.map((i) => (
@@ -82,8 +82,8 @@ export function Today({ selected }: { selected?: string }) {
           {waiting.length > 0 && (
             <section aria-label={t("today.waiting")}>
               <h2 class="label">
-                {t("today.waiting")}
-                {count(waiting.length)}
+                {/* One run of text, so the space before the dot cannot be lost (QA #72). */}
+                {t("today.waiting") + count(waiting.length)}
               </h2>
               <ul class="waiting-list">
                 {waiting.map((i) => (

@@ -58,3 +58,10 @@ test("QA #57: today, opened by choice, offers no Close that would change nothing
   await expect(day).toHaveAttribute("data-day", today!);
   await expect(day.getByTestId("panel-close")).toHaveCount(0);
 });
+
+test("QA #72: the headings on Today keep a space on both sides of every dot", async ({ page }) => {
+  await signIn(page, "/");
+  const heads = await page.locator(".today h2.label").evaluateAll((els) => els.map((e) => e.textContent ?? ""));
+  expect(heads.length).toBeGreaterThan(0);
+  for (const h of heads) expect(h).not.toMatch(/\S·|·\S/);
+});
