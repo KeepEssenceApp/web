@@ -287,7 +287,7 @@ export const en: Record<keyof typeof zh, string> = {
   "connect.pick": "Choose the product it runs in",
   "connect.kinds": "Chat assistants only deep dive. Scheduled assistants can do the analysis, the daily digest, the deep read and the deep dive.",
   "connect.after": "On the allow page you name the assistant and tick the steps it may do. Once connected it is listed under Assistants and can be revoked at any time.",
-  "connect.not_verified": "Not verified yet: {names}.",
+  "connect.not_verified": "Other products are not listed because their steps are not verified yet: {names}.",
   "connect.self": "An agent you run yourself",
   "connect.claude.1": "Open Connectors in Claude and choose Add → Add custom connector.",
   "connect.claude.2": "Enter KeepEssence as the name, paste the connect address, and press Continue.",

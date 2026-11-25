@@ -58,7 +58,7 @@ test("W5: connect an assistant shows the address and the steps for each product"
   await page.getByRole("tab", { name: "自己部署的 agent" }).click();
   await expect(page.locator(".guide-steps li")).toHaveCount(3);
   // Not verified: no tab and no made-up steps, one line that names it.
-  await expect(page.getByTestId("not-verified")).toHaveText("待验证：Muse。");
+  await expect(page.getByTestId("not-verified")).toHaveText("另外这些产品还没验证过接入步骤，所以没有列出：Muse。");
 });
 
 test("W5: rules and expiry options", async ({ page, request }) => {

@@ -455,7 +455,8 @@ paths:
       summary: Save one thing.
       description: |
         The request carries no tags and no triage information. A link saved again while the first
-        item still exists is swallowed: the answer says `duplicate` and nothing is added.
+        item still exists is swallowed: the answer says `duplicate` and nothing is added. The same
+        holds for a text saved again with the same words (differences in spacing do not count).
         A client that cannot read an image's bytes may save its address as a `link` instead.
       x-tier: save
       parameters:

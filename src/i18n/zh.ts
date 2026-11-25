@@ -285,7 +285,7 @@ export const zh = {
   "connect.pick": "选它在哪个产品里",
   "connect.kinds": "对话型只做深挖。定时型能解读、出每日摘要、精读、深挖。",
   "connect.after": "允许页上给这个助手起个名字，勾选它能干的步骤。接好之后它出现在助手设置里，随时可以撤销。",
-  "connect.not_verified": "待验证：{names}。",
+  "connect.not_verified": "另外这些产品还没验证过接入步骤，所以没有列出：{names}。",
   "connect.self": "自己部署的 agent",
   "connect.claude.1": "打开 Claude 的 Connectors，点 Add → Add custom connector。",
   "connect.claude.2": "名字填 KeepEssence，地址粘贴接入地址，点 Continue。",

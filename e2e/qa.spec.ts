@@ -299,7 +299,7 @@ test("QA #14: a product that is not verified has no tab, only one line that name
   await signIn(page, "/assistants/connect");
   await expect(page.getByRole("tab")).toHaveText(["Claude", "ChatGPT", "Gemini", "自己部署的 agent"]);
   await expect(page.getByRole("tab", { name: "Muse" })).toHaveCount(0);
-  await expect(page.getByTestId("not-verified")).toHaveText("待验证：Muse。");
+  await expect(page.getByTestId("not-verified")).toHaveText("另外这些产品还没验证过接入步骤，所以没有列出：Muse。");
   // Every tab that is there has real steps.
   for (const name of ["Claude", "ChatGPT", "Gemini", "自己部署的 agent"]) {
     await page.getByRole("tab", { name }).click();

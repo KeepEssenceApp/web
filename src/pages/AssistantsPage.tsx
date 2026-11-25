@@ -369,11 +369,6 @@ function Connect() {
             </button>
           ))}
         </div>
-        {NOT_VERIFIED.length > 0 && (
-          <p class="quiet small" data-testid="not-verified">
-            {t("connect.not_verified", { names: NOT_VERIFIED.join(", ") })}
-          </p>
-        )}
         <div class="stack tight guide" role="tabpanel" data-product={product}>
           <p class="quiet small">
             {t(p.kind === "chat" ? "assistant.chat" : "assistant.scheduled")}
@@ -387,6 +382,11 @@ function Connect() {
           </ol>
           {product !== "self" && <p class="quiet small">{t(note)}</p>}
         </div>
+        {NOT_VERIFIED.length > 0 && (
+          <p class="quiet small" data-testid="not-verified">
+            {t("connect.not_verified", { names: NOT_VERIFIED.join(", ") })}
+          </p>
+        )}
         <p class="quiet small">{t("connect.kinds")}</p>
         <p class="quiet small">{t("connect.after")}</p>
       </section>
