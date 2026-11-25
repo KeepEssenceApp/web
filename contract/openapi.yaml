@@ -72,6 +72,7 @@ x-limits:
   queue_idle_days: 7
   analysis_summary_max_chars: 60
   analysis_points_max: 3
+  digest_hour: 21
   notify_wait_seconds: 120
   notify_max_wait_seconds: 600
   text_max_chars: 200000
@@ -540,6 +541,10 @@ paths:
       tags: [settings]
       operationId: updateItem
       summary: Change who analyses the item and how long it is kept. Nothing else can be changed.
+      description: |
+        `expiry_days` counts from the moment it is set, never past the one-year limit from
+        saving. On a pinned item it also unpins. Any change here marks both values as set by
+        the user: triage does not change them afterwards.
       x-tier: manage
       requestBody:
         required: true
@@ -1767,8 +1772,9 @@ components:
           properties:
             body: { type: [string, "null"] }
             asset_id: { type: [string, "null"] }
-            tags: { type: array, items: { type: string, description: "`kind:value`" } }
+            tags: { type: array, description: "No `expiry:` tag is listed while the item is pinned.", items: { type: string, description: "`kind:value`" } }
             expiry_days: { type: [integer, "null"] }
+            expires_at: { type: [string, "null"], format: date-time, description: When the item will be deleted. Null when pinned. }
 
     Digest:
       type: object
