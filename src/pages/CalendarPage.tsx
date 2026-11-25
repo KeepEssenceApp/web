@@ -46,6 +46,15 @@ export function CalendarPage({ month, wide = false, day }: { month?: string; wid
             {named ? dayLabel(named, c.today) : ""}
           </p>
           <CalendarCounts cal={c} />
+          {/* Every day has a dot; what kind of dot it is says what happened that day (QA #75). */}
+          <ul class="cal-legend quiet small" data-testid="cal-legend" aria-label={t("calendar.legend")}>
+            {(["empty", "saved", "digest_unread", "digest_read", "note"] as const).map((m) => (
+              <li key={m} class={`mark-${m}`}>
+                <span class="cal-day"><i class="cal-dot" aria-hidden="true" /></span>
+                {t(`calendar.mark.${m}`)}
+              </li>
+            ))}
+          </ul>
           <p class="quiet small">{wide ? t("calendar.hint_wide") : t("calendar.hint")}</p>
           <p class="quiet small">{t("calendar.rule")}</p>
         </div>

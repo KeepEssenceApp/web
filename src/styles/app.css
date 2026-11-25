@@ -396,6 +396,8 @@ label > .label { margin-bottom: 6px; }
 .mark-digest_unread .cal-dot { border: 1.5px solid var(--ke-text); }
 .mark-digest_read .cal-dot { background: var(--ke-text); }
 .mark-note .cal-dot { background: var(--ke-gold); }
+.cal-legend { --cell: 18px; --dot: 10px; --tiny: 4px; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.cal-legend li { display: flex; align-items: center; gap: 6px; }
 .cal-day.is-today { border-color: var(--ke-text-3); }
 a.cal-day:hover { border-color: var(--ke-text); }
 .cal-counts { font-size: var(--ke-size-secondary); }

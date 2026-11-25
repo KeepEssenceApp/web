@@ -237,6 +237,7 @@ export const en: Record<keyof typeof zh, string> = {
   "calendar.day_open": "{label}. Open that day's daily digest",
   "calendar.hint": "A day with a daily digest opens it. Point at a dot, or move to it with the keyboard, to see which day it is.",
   "calendar.rule": "The calendar records what happened on each day. Deleting an item later changes neither the dots nor the numbers.",
+  "calendar.legend": "What the dots mean",
   "calendar.mark.empty": "Nothing saved",
   "calendar.mark.saved": "Items saved, no daily digest yet",
   "calendar.mark.digest_unread": "Daily digest unread",

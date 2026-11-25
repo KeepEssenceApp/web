@@ -40,3 +40,11 @@ test("QA #73: a day pressed in the month card on Today opens the month with that
   await page.getByTestId("month-panel").locator(".label").click();
   await expect(page).toHaveURL(/\/calendar$/);
 });
+
+test("QA #75: the month says what each kind of dot means", async ({ page }) => {
+  await signIn(page, "/calendar");
+  const legend = page.getByTestId("cal-legend").locator("li");
+  await expect(legend).toHaveCount(5);
+  await expect(legend.first()).toContainText("什么都没存入");
+  for (const box of await legend.locator(".cal-dot").all()) expect((await box.boundingBox())!.width).toBeGreaterThan(2);
+});

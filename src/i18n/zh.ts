@@ -235,6 +235,7 @@ export const zh = {
   "calendar.day_open": "{label}。打开这天的每日摘要",
   "calendar.hint": "有每日摘要的那天可以点开。指着或选中一个圆点，下面显示它是哪一天。",
   "calendar.rule": "月历只记当天发生过什么：之后删除条目，圆点和数字都不变。",
+  "calendar.legend": "圆点的意思",
   "calendar.mark.empty": "什么都没存入",
   "calendar.mark.saved": "存入了条目，还没有每日摘要",
   "calendar.mark.digest_unread": "有每日摘要，还没读",
