@@ -1050,7 +1050,7 @@ paths:
               properties:
                 where: { type: string, enum: [web, ios, android, extension, assistant, other], description: Where it happened. Defaults to the kind of the calling device. }
                 doing: { type: string, maxLength: 2000, description: What the user was doing. }
-                wrong: { type: string, minLength: 1, maxLength: 4000, description: What went wrong, or what is missing. }
+                wrong: { type: string, minLength: 1, maxLength: 4000, description: "What went wrong, or what is missing." }
                 wish: { type: string, maxLength: 2000, description: How the user would like it to be. }
       responses:
         "201":
