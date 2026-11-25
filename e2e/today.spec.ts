@@ -93,7 +93,8 @@ test("W2: with no assistant working it shows, in red, what will be lost", async 
   await expect(status.locator(".dot.danger")).toHaveCount(1);
   if (!isMobile) {
     await expect(status.locator(".bad")).toContainText("删除");
-    await expect(status).toContainText("没有助手来汇总");
+    // The reason is about who is set to write the digest, never "no assistant came" (QA #29).
+    await expect(status).toContainText("没有指定出每日摘要的助手");
   }
 });
 
