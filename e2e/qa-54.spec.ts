@@ -48,3 +48,13 @@ test("QA #55: a box emptied without typing is still read, and the list goes back
   await page.locator(".find").blur();
   await expect(empty).toHaveText("还没有笔记。");
 });
+
+test("QA #57: today, opened by choice, offers no Close that would change nothing", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 900, "the day panel sits beside the month on wide screens only");
+  await signIn(page, "/calendar");
+  const day = page.getByTestId("day-panel");
+  const today = await day.getAttribute("data-day");
+  await page.goto(`/calendar?day=${today}`);
+  await expect(day).toHaveAttribute("data-day", today!);
+  await expect(day.getByTestId("panel-close")).toHaveCount(0);
+});

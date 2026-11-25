@@ -55,13 +55,16 @@ export function CalendarPage({ month, wide = false, day }: { month?: string; wid
   if (!wide) return page;
   // Nothing chosen: today when this is the current month, the month's numbers otherwise.
   const shown = chosen ?? todays?.day ?? null;
+  // "Close" goes back to what the panel shows with nothing chosen. When that is the very day
+  // that is open (today), pressing it would change nothing on screen, so it is not offered (QA #57).
+  const closable = !!chosen && chosen !== (todays?.day ?? null);
   return (
     <Split
       label={t("panel.day")}
       at={`${base}?${chosen ?? ""}`}
       close={base}
       list={page}
-      panel={!c ? null : shown ? <DayPanel key={shown} cal={c} day={shown} close={chosen ? base : null} /> : <MonthRest cal={c} />}
+      panel={!c ? null : shown ? <DayPanel key={shown} cal={c} day={shown} close={closable ? base : null} /> : <MonthRest cal={c} />}
     />
   );
 }

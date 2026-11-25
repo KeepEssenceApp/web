@@ -79,7 +79,7 @@ export const zh = {
   "today.n": "现有 {n} 条",
   "today.all_done": "今天的都处理完了。",
   "today.nothing": "今天还没有存入。",
-  "today.in_digest": "今天的每日摘要已经出了。今天存入的都在里面，没有删除。",
+  "today.in_digest": "今天的每日摘要已经出了。在它之前解读好的都在里面，没有删除。之后存入的，进明天的每日摘要。",
   "today.open_digest": "看每日摘要",
   "today.given_to": "等 {name} 解读",
   "today.days_left": "还剩 {n} 天",
@@ -152,7 +152,7 @@ export const zh = {
   "dive.queue_no_reader": "还没有精读助手，所以没有人会先替你精读。在队列里期间这一条不会删除，并排在笔记页最上面等你；{days} 天没有动静会自动移出。",
   "dive.queue_nobody": "还没有能精读或深挖的助手。现在加入队列只是把这一条留住：在队列里期间它不会删除，并排在笔记页最上面；{days} 天没有动静会自动移出。接入能精读的助手之前，没有人会读它。",
 
-  "digest.header": "存入了 {saved} 条。{worth} 条值得深挖。",
+  "digest.header": "这份每日摘要里有 {saved} 条。{worth} 条值得深挖。",
   "digest.summary": "总结",
   "digest.worth": "值得深挖的",
   "digest.rest": "其余的",

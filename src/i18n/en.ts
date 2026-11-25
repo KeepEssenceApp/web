@@ -81,7 +81,7 @@ export const en: Record<keyof typeof zh, string> = {
   "today.n": "{n} here now",
   "today.all_done": "Everything for today is handled.",
   "today.nothing": "Nothing saved today yet.",
-  "today.in_digest": "Today's daily digest is written. What you saved today is in it, nothing was deleted.",
+  "today.in_digest": "Today's daily digest is written. Everything analysed before it is in the digest, nothing was deleted. What you save from now on goes into tomorrow's.",
   "today.open_digest": "Open the daily digest",
   "today.given_to": "Waiting for {name}",
   "today.days_left": "{n} day{s:n} left",
@@ -154,7 +154,7 @@ export const en: Record<keyof typeof zh, string> = {
   "dive.queue_no_reader": "No assistant does the deep read yet, so nothing is read ahead of you. While it is in the queue the item is not deleted, and it waits for you at the top of Notes; after {days} day{s:days} with no activity it leaves the queue.",
   "dive.queue_nobody": "No assistant can deep read or deep dive yet. Adding it to the queue now only keeps the item: while it is in the queue it is not deleted, and it waits at the top of Notes; after {days} day{s:days} with no activity it leaves the queue. Nothing reads it until you connect an assistant that does deep reads.",
 
-  "digest.header": "{saved} saved. {worth} worth a deep dive.",
+  "digest.header": "{saved} in this daily digest. {worth} worth a deep dive.",
   "digest.summary": "Summary",
   "digest.worth": "Worth a deep dive",
   "digest.rest": "The rest",
