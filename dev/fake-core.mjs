@@ -111,6 +111,8 @@ const normCode = (c) => decodeURIComponent(c).toUpperCase().replace(/[^A-Z0-9]/g
 
 // ---------------------------------------------------------------- state and seed
 let S;
+// The account a user deleted themselves (DELETE /v1/account), for the tests to see. A reset forgets it.
+let DELETED = null;
 
 function analysis(a, summary, key_fact, points, verdict, related_hint = null, created = 30 * 60e3) {
   return { unavailable: false, summary, key_fact, points, verdict, related_hint, assistant: { id: a.id, name: a.name }, created_at: ago(created) };
@@ -121,7 +123,7 @@ function seed(opts = {}) {
   const adu = { id: "as_adu", name: "阿读", kind: "scheduled", steps: ["analysis", "digest", "deep_read", "deep_dive"], built_in: false, connected_at: ago(20 * DAY), last_seen_at: ago(50 * 60e3), runs_at: "agent.example.com" };
   const ashen = { id: "as_ashen", name: "阿深", kind: "chat", steps: ["deep_dive"], built_in: false, connected_at: ago(12 * DAY), last_seen_at: ago(3 * DAY), runs_at: "chat.example.com" };
   S = {
-    user: { id: "u_reader", timezone: "Asia/Shanghai", lang: "zh" },
+    user: { id: "u_reader", timezone: "Asia/Shanghai", lang: "zh" }, email: "reader@example.com",
     devices: new Map(), creds: new Map(), assistants: [builtin, adu, ashen],
     settings: {
       rules: "讲工程实践的长文交给阿读，保留 90 天。\n新闻和版本发布保留 7 天。",
@@ -261,7 +263,9 @@ function deviceOut(d, me) {
 const assistantDevice = (a) => ({ id: a.id, name: a.name, category: "assistant", steps: a.steps, created_at: a.connected_at ?? ago(0), last_used_at: a.last_seen_at, notifications: false, this_device: false });
 function settingsOut(origin, tier) {
   const s = S.settings;
-  return { rules: s.rules, preference: null, expiry_options: s.expiry_options, notify: s.notify, timezone: S.user.timezone, lang: S.user.lang, roles: s.roles,
+  return { rules: s.rules, preference: null, expiry_options: s.expiry_options, notify: s.notify, timezone: S.user.timezone, lang: S.user.lang,
+    // The account's email, for the manage tier only.
+    ...(tier === "manage" ? { email: S.email } : {}), roles: s.roles,
     calendar_image: { enabled: s.calendar_enabled, url: s.calendar_enabled && tier === "manage" ? `${origin}/c/${s.calendar_secret}.svg` : null } };
 }
 function digestOut(d) {
@@ -385,7 +389,7 @@ on("POST", "/v1/auth/sessions", null, (c) => {
   if (!/@example\.com$/i.test(b.email) || b.code !== LOGIN_CODE) fail(401, "unauthorized", c.lang === "zh" ? "验证码不对，或已经失效。" : "The code is wrong or has expired.");
   // As in the core: the first sign-in makes the account, in the language of the sign-in page
   // that asked for the code. Later sign-ins leave the account's language alone.
-  if (!S.signedInOnce) S.user.lang = S.codeLang ?? c.lang;
+  if (!S.signedInOnce) { S.user.lang = S.codeLang ?? c.lang; S.email = b.email.trim().toLowerCase(); }
   S.signedInOnce = true;
   const { d, credential } = createDevice(b.device_name, b.client, "manage");
   return [201, { credential, device: deviceOut(d, d), user: S.user }];
@@ -620,6 +624,43 @@ on("GET", "/c/:file", null, (c) => {
   return [200, calendarSvg(c.q.get("theme") ?? "light"), "image/svg+xml"];
 });
 
+// Everything of the account that lasts, as one document (the core streams it; the shape is the same).
+const EXT = { "image/webp": "webp", "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "application/pdf": "pdf", "text/plain": "txt", "text/markdown": "md" };
+function exportOut(lang) {
+  const sig = (id) => { const a = id && assistantById(id); return a ? { id: a.id, name: a.name } : null; };
+  const fileOf = (it) => { const a = it.asset_id && S.assets.get(it.asset_id); return a?.stored ? { id: a.id, name: it.title, type: a.content_type, size: a.bytes } : null; };
+  const items = [...S.items.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const s = S.settings;
+  return {
+    version: 1, exported_at: iso(Date.now()),
+    contents: lang === "zh"
+      ? { included: ["你的各项选择。", "每一份每日摘要。", "每一篇笔记，连同出处。", "每一条还在的条目，连同解读和标签。", "你的文件清单。"], not_included: ["已经删除的条目。", "文件本身的内容。"], files: "文件的内容不在这份文档里。每个文件单独下载。" }
+      : { included: ["Your rules and choices.", "Every daily digest.", "Every note, with its sources.", "Every item that still exists, with its analysis and tags.", "A list of your files."], not_included: ["Items that were deleted.", "The contents of files."], files: "File contents are not in this document. Each file is downloaded separately." },
+    account: { id: S.user.id, email: S.email, created_at: ago(80 * DAY) },
+    settings: { rules: s.rules, expiry_options: s.expiry_options, notify: s.notify, timezone: S.user.timezone, lang: S.user.lang,
+      roles: Object.fromEntries(Object.entries(s.roles).map(([k, id]) => [k, sig(id)])), calendar_image_enabled: s.calendar_enabled },
+    digests: [...S.digests.values()].sort((a, b) => a.day.localeCompare(b.day)).map((d) => ({ day: d.day, read: d.read, created_at: null, covers: [d.day], summary: d.summary, question: d.question,
+      worth: d.item_ids.map((id) => S.items.get(id)).filter((it) => it?.line).map((it) => ({ item_id: it.id, line: it.line })),
+      entries: d.item_ids.map((id) => ({ item_id: id, title: S.items.get(id)?.title ?? d.gone?.[id] ?? "", verdict: S.items.get(id)?.analysis?.verdict ?? null })), assistant: d.assistant })),
+    notes: [...S.notes].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    items: items.map((it) => ({ ...itemOut(it, true), file: fileOf(it) })),
+    files: items.map(fileOf).filter(Boolean),
+  };
+}
+on("GET", "/v1/export", "manage", (c) => [200, JSON.stringify(exportOut(c.lang), null, 1) + "\n", "application/json; charset=utf-8",
+  { "content-disposition": `attachment; filename="export-${today()}.json"` }]);
+// The user deletes their own account: the email must be the account's. Everything goes, every
+// credential stops working, and the same email can come back later as a new, empty account.
+on("DELETE", "/v1/account", "manage", (c) => {
+  onlyKeys(c.body, ["confirm_email"]);
+  const typed = typeof c.body.confirm_email === "string" ? c.body.confirm_email.trim().toLowerCase() : "";
+  if (typed !== S.email) fail(400, "bad_request", c.lang === "zh" ? "邮箱和这个账户的邮箱不一致，没有删除。" : "The email does not match the email of this account. Nothing was deleted.");
+  const gone = { user_id: S.user.id, email: S.email, at: iso(Date.now()), items: S.items.size, notes: S.notes.length, devices: S.devices.size };
+  seed({ empty: true });
+  DELETED = gone;
+  return [204];
+});
+
 on("GET", "/v1/assistants", "read", (c) => [200, { assistants: S.assistants, connect_url: `${c.origin}/mcp` }]);
 function removeAssistant(a) {
   S.assistants = S.assistants.filter((x) => x !== a);
@@ -669,7 +710,7 @@ on("POST", "/v1/oauth/requests/:id/decision", "manage", (c) => {
 });
 
 // ---------------------------------------------------------------- test hooks
-on("POST", "/__test/reset", null, (c) => { seed(c.body ?? {}); return [200, { ok: true }]; });
+on("POST", "/__test/reset", null, (c) => { seed(c.body ?? {}); DELETED = null; return [200, { ok: true }]; });
 on("POST", "/__test/analyse", null, (c) => {
   const it = c.body.item_id ? getItem(c.body.item_id) : [...S.items.values()].filter((i) => !i.digest_day && i.stage !== "analysed").sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? fail(404, "not_found");
   const a = S.assistants[0];
@@ -699,7 +740,8 @@ on("POST", "/__test/device-code", null, (c) => newDeviceCode(c.body, c.origin));
 on("POST", "/__test/set-tier", "save", (c) => { need(TIERS.includes(c.body.tier)); c.device.tier = c.body.tier; return [200, deviceOut(c.device, c.device)]; });
 on("GET", "/__test/state", null, () => [200, {
   counts: { items: S.items.size, today: [...S.items.values()].filter((i) => !i.digest_day).length, notes: S.notes.length, queue: S.queue.size, devices: S.devices.size, assistants: S.assistants.length, digests: S.digests.size, assets: [...S.assets.values()].filter((a) => a.stored).length },
-  last_saved: S.lastSaved, pushes: S.pushes, decisions: S.decisions, settings: { ...S.settings, calendar_secret: undefined }, user: S.user,
+  last_saved: S.lastSaved, pushes: S.pushes, decisions: S.decisions, settings: { ...S.settings, calendar_secret: undefined }, user: S.user, email: S.email,
+  deleted_account: DELETED,
 }]);
 on("GET", "/__test/oauth-done", null, (c) => [200, `<!doctype html><meta charset="utf-8"><title>oauth-done</title><p id="done">oauth-done allowed=${c.q.get("allowed") === "1" ? 1 : 0}</p>`, "text/html; charset=utf-8"]);
 on("POST", "/share", null, () => [303, null, null, { location: "/share" }]);

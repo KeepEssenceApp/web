@@ -176,6 +176,8 @@ export interface Settings {
   notify: boolean;
   timezone: string;
   lang: Lang;
+  /** The account's email. Only the manage tier gets it. */
+  email?: string;
   roles: Partial<Record<Role, string | null>>;
   calendar_image: { enabled: boolean; url?: string | null };
 }
@@ -195,4 +197,16 @@ export interface AuthorizationRequest {
   client_uri?: string | null;
   redirect_host: string;
   steps_requested: Step[];
+}
+
+/** One day of `GET /v1/stats`: what happened that day, as numbers. */
+export interface DayCounts { day: string; saved: number; analysed: number; digests: number; notes: number }
+
+/** `GET /v1/export`: everything of the account that lasts. Only what the web app reads is typed. */
+export interface ExportDoc {
+  version: number;
+  exported_at: string;
+  account: { id: string; email: string; created_at: string };
+  notes: Note[];
+  [more: string]: unknown;
 }

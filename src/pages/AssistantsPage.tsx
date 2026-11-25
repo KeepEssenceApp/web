@@ -4,10 +4,11 @@ import { PageHead } from "../components/Shell";
 import { Split, opens } from "../components/Split";
 import { Loading, State, Switch } from "../components/ui";
 import { ago, lang, setLang, t, type Key } from "../i18n";
-import { copyText, say, sayError, useBusy, useLoad } from "../lib";
+import { exportFileName, localDate, notesFileName, notesMarkdown } from "../export";
+import { copyText, downloadText, errText, say, sayError, useBusy, useLoad } from "../lib";
 import { go } from "../router";
-import { dropSession, refresh, session } from "../session";
-import type { Assistant, Device, Lang, Role, Settings, Step, Tier } from "../types";
+import { accountDeleted, dropSession, refresh, session } from "../session";
+import type { Assistant, Device, ExportDoc, Lang, Role, Settings, Step, Tier } from "../types";
 import { askAndSubscribe, pushSupport } from "../push";
 import { useStore } from "../store";
 
@@ -571,9 +572,12 @@ function Notify() {
   }
   return (
     <div class="stack loose">
-      <section class="stack tight">
+      <div class="stack tight">
         <h2>{t("set.notify")}</h2>
         <p class="quiet small">{t("notify.hint")}</p>
+      </div>
+      <div class="cols">
+      <section class="stack tight">
         <div class="row spread">
           <span>
             {t("notify.switch")} <span class="quiet small">{t("notify.all")}</span>
@@ -606,6 +610,7 @@ function Notify() {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }
@@ -639,56 +644,171 @@ function Account() {
     setFail(null);
     return run("out", () => api.signOut().then(dropSession, (err) => setFail((err as Error).message || String(err))));
   };
+  // Short sections sit side by side where the panel has room for two columns (QA #24).
   return (
-    <div class="stack loose">
-      <section class="stack">
-        <h2>{t("set.account")}</h2>
-        <div class="stack tight">
-          <label class="row spread wrap">
-            <span>{t("account.language")}</span>
-            <select value={s.lang ?? lang()} data-testid="language" disabled={busy !== null} aria-busy={busy === "lang"} onChange={(ev) => changeLang(ev.currentTarget.value as Lang)}>
-              <option value="zh">{t("account.lang_zh")}</option>
-              <option value="en">{t("account.lang_en")}</option>
+    <div class="stack loose account" data-testid="account">
+      <h2>{t("set.account")}</h2>
+      <div class="cols">
+        <section class="stack" data-part="prefs">
+          <div class="stack tight">
+            <label class="stack tight">
+              <span class="label">{t("account.language")}</span>
+              <select value={s.lang ?? lang()} data-testid="language" disabled={busy !== null} aria-busy={busy === "lang"} onChange={(ev) => changeLang(ev.currentTarget.value as Lang)}>
+                <option value="zh">{t("account.lang_zh")}</option>
+                <option value="en">{t("account.lang_en")}</option>
+              </select>
+            </label>
+            <p class="quiet small" data-testid="language-hint">{t("account.language_hint")}</p>
+          </div>
+          <label class="stack tight">
+            <span class="label">{t("account.timezone")}</span>
+            <select
+              value={s.timezone}
+              data-testid="timezone"
+              disabled={busy !== null}
+              aria-busy={busy === "zone"}
+              onChange={(ev) => {
+                const timezone = ev.currentTarget.value;
+                void run("zone", async () => {
+                  const next = await api.updateSettings({ timezone });
+                  settings.set(next);
+                  // The rest of the app shows days and times in this zone from now on.
+                  const now = session.get();
+                  if (now.user) session.set({ ...now, user: { ...now.user, timezone: next.timezone } });
+                  refresh.set((n) => n + 1);
+                  say(t("common.saved"));
+                });
+              }}
+            >
+              {zones.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
             </select>
           </label>
-          <p class="quiet small" data-testid="language-hint">{t("account.language_hint")}</p>
+        </section>
+        <div class="stack loose">
+          <section class="stack tight" data-part="session">
+            <h3 class="label">{t("account.session")}</h3>
+            <div class="row">
+              <button class="btn quiet" type="button" disabled={busy !== null} aria-busy={busy === "out"} onClick={signOut}>
+                {t("account.sign_out")}
+              </button>
+            </div>
+            <p class="quiet small">{t("account.sign_out_hint")}</p>
+            {fail && <p class="bad small" role="alert">{fail}</p>}
+          </section>
+          <YourData timeZone={s.timezone} />
         </div>
-        <label class="row spread wrap">
-          <span>{t("account.timezone")}</span>
-          <select
-            value={s.timezone}
-            disabled={busy !== null}
-            aria-busy={busy === "zone"}
-            onChange={(ev) => {
-              const timezone = ev.currentTarget.value;
-              void run("zone", async () => {
-                const next = await api.updateSettings({ timezone });
-                settings.set(next);
-                // The rest of the app shows days and times in this zone from now on.
-                const now = session.get();
-                if (now.user) session.set({ ...now, user: { ...now.user, timezone: next.timezone } });
-                refresh.set((n) => n + 1);
-                say(t("common.saved"));
-              });
-            }}
-          >
-            {zones.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-      <section class="stack tight">
-        <div class="row">
-          <button class="btn quiet" type="button" disabled={busy !== null} aria-busy={busy === "out"} onClick={signOut}>
-            {t("account.sign_out")}
-          </button>
-        </div>
-        <p class="quiet small">{t("account.sign_out_hint")}</p>
-        {fail && <p class="bad small" role="alert">{fail}</p>}
-      </section>
+      </div>
+      <DeleteAccount email={s.email} />
     </div>
+  );
+}
+
+/** The account's data as files: everything as JSON, and all notes as one Markdown file (QA #25). */
+function YourData({ timeZone }: { timeZone: string }) {
+  const [busy, run] = useBusy();
+  const [done, setDone] = useState<string | null>(null);
+  const saved = (name: string) => {
+    setDone(name);
+    say(t("account.downloaded", { name }));
+  };
+  const data = () =>
+    run("data", async () => {
+      const name = exportFileName(localDate(timeZone));
+      downloadText(name, await api.exportData(), "application/json");
+      saved(name);
+    });
+  // The notes file is made here, in the browser, from the same export.
+  const notes = () =>
+    run("notes", async () => {
+      const doc = JSON.parse(await api.exportData()) as ExportDoc;
+      if (!doc.notes?.length) return say(t("account.no_notes"));
+      const name = notesFileName(localDate(timeZone));
+      const labels = {
+        heading: t("nav.notes"),
+        date: t("export.date"),
+        assistant: t("export.assistant"),
+        byUser: t("notes.by_user"),
+        from: t("export.from"),
+        sources: t("notes.sources"),
+        digestOf: (day: string) => t("notes.from_digest", { day }),
+      };
+      downloadText(name, notesMarkdown(doc, labels, timeZone), "text/markdown");
+      saved(name);
+    });
+  return (
+    <section class="stack tight" data-part="data" data-testid="your-data">
+      <h3 class="label">{t("account.data")}</h3>
+      <p class="small" data-testid="data-in">{t("account.data_in")}</p>
+      <p class="quiet small" data-testid="data-out">{t("account.data_out")}</p>
+      <div class="row wrap">
+        <button class="btn quiet" type="button" data-testid="download-data" disabled={busy !== null} aria-busy={busy === "data"} onClick={data}>
+          {t("account.download_data")}
+        </button>
+        <button class="btn quiet" type="button" data-testid="download-notes" disabled={busy !== null} aria-busy={busy === "notes"} onClick={notes}>
+          {t("account.download_notes")}
+        </button>
+      </div>
+      <p class="quiet small">{t("account.notes_hint")}</p>
+      {done && (
+        <p class="small" role="status" data-testid="downloaded">
+          {t("account.downloaded", { name: done })}
+        </p>
+      )}
+    </section>
+  );
+}
+
+const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Deleting the account: red, because it loses data. The button works only once the account's
+ * email is typed. A core that does not say the email (an older one) is asked to compare instead.
+ */
+function DeleteAccount({ email }: { email?: string }) {
+  const [typed, setTyped] = useState("");
+  const [busy, run] = useBusy();
+  const [fail, setFail] = useState<string | null>(null);
+  const matches = email ? sameEmail(typed, email) : /^\S+@\S+\.\S+$/.test(typed.trim());
+  const remove = (ev: Event) => {
+    ev.preventDefault();
+    if (!matches) return;
+    setFail(null);
+    void run("delete", async () => {
+      try {
+        await api.deleteAccount(typed.trim());
+      } catch (err) {
+        setFail(errText(err));
+        return;
+      }
+      // Nothing of the session stays in this browser; the sign-in page says what happened.
+      accountDeleted.set(true);
+      dropSession();
+      go("/", true);
+    });
+  };
+  return (
+    <form class="stack danger-zone" data-part="delete" data-testid="delete-account" onSubmit={remove}>
+      <div class="stack tight">
+        <h3 class="bad">{t("account.delete")}</h3>
+        <p class="bad" data-testid="delete-what">{t("account.delete_what")}</p>
+        <p class="small">{t("account.delete_first")}</p>
+      </div>
+      <label class="stack tight">
+        <span class="label">{t("account.delete_email")}</span>
+        {/* A plain text field on purpose: the browser must not fill the address in for the user. */}
+        <input type="text" inputMode="email" name="confirm_email" autocomplete="off" autocapitalize="off" spellcheck={false} value={typed} onInput={(ev) => setTyped(ev.currentTarget.value)} />
+      </label>
+      {typed.trim() !== "" && !matches && <p class="quiet small" data-testid="delete-mismatch">{t("account.delete_mismatch")}</p>}
+      {fail && <p class="bad small" role="alert">{fail}</p>}
+      <div class="row">
+        <button class="btn danger" type="submit" data-testid="delete-confirm" disabled={!matches || busy !== null} aria-busy={busy === "delete"}>
+          {t("account.delete")}
+        </button>
+      </div>
+    </form>
   );
 }

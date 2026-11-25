@@ -127,10 +127,16 @@ export const api = {
 
   status: () => json<T.Status>("/v1/status"),
   calendar: (month?: string) => json<T.Calendar>(`/v1/calendar${q({ month })}`),
+  /** The last `days` days, today included, as numbers. */
+  stats: (days: number) => json<{ days: T.DayCounts[] }>(`/v1/stats${q({ days })}`),
 
   settings: () => json<T.Settings>("/v1/settings"),
   updateSettings: (body: T.SettingsChange) => json<T.Settings>("/v1/settings", { method: "PATCH", body }),
   rotateCalendarImage: () => json<T.Settings>("/v1/settings/calendar-image/rotate", { method: "POST" }),
+
+  /** The whole export, as the text the core sent: it is kept as a file exactly as it came. */
+  exportData: async () => (await call("/v1/export")).text(),
+  deleteAccount: (confirm_email: string) => json<void>("/v1/account", { method: "DELETE", body: { confirm_email } }),
 
   assistants: () => json<{ assistants: T.Assistant[]; connect_url: string }>("/v1/assistants"),
   updateAssistant: (id: string, body: { name?: string; steps?: T.Step[] }) =>

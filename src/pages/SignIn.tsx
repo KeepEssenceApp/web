@@ -2,7 +2,8 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { t } from "../i18n";
 import { errText } from "../lib";
-import { keepSession } from "../session";
+import { accountDeleted, keepSession } from "../session";
+import { useStore } from "../store";
 
 function deviceName(): string {
   const ua = navigator.userAgent;
@@ -20,6 +21,8 @@ export function SignIn({ returning }: { returning?: boolean }) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState<string | null>(null);
+  // Arriving here because the account was just deleted: one sentence says so.
+  const deleted = useStore(accountDeleted);
   // The front of the brand is dark whatever the system says.
   useEffect(() => {
     document.documentElement.dataset.theme = "dark";
@@ -53,6 +56,7 @@ export function SignIn({ returning }: { returning?: boolean }) {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       });
       // Kept in browser storage only. It is never shown.
+      accountDeleted.set(false);
       keepSession(grant.credential, grant.device, grant.user);
     } catch (err) {
       setFail(errText(err));
@@ -71,6 +75,11 @@ export function SignIn({ returning }: { returning?: boolean }) {
             <span class="front-name-zh" lang="zh">{t("brand.name_zh")}</span>
           </div>
         </div>
+        {deleted && (
+          <p class="front-said" role="status" data-testid="account-deleted">
+            {t("signin.deleted")}
+          </p>
+        )}
         <p class="front-tagline">{returning ? t("signin.first") : t("signin.tagline")}</p>
         {!sent ? (
           <form class="stack" key="email-step" onSubmit={send}>

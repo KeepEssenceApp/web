@@ -26,6 +26,9 @@ export const digestUnread = createStore(false);
 /** Bumped when something saved or handled elsewhere should make lists reload. */
 export const refresh = createStore(0);
 
+/** True right after the user deleted their account: the sign-in page says so, once. */
+export const accountDeleted = createStore(false);
+
 export const credential = read;
 
 export function keepSession(cred: string, device: Device, user: User) {

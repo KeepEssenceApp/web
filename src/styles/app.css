@@ -164,6 +164,21 @@ label > .label { margin-bottom: 6px; }
 
 .card { background: var(--ke-card); border: 1px solid var(--ke-line); border-radius: var(--ke-radius); padding: 18px 20px; }
 
+/* A few numbers, each over its name: a grid that fills the width it is given. */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 14px 24px; }
+/* In the markup the name comes first (a term, then its value); on the page the number stands above it. */
+.stats > div { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 2px; min-width: 0; }
+.stat-n { font-size: var(--ke-size-title); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: var(--ke-size-caption); color: var(--ke-text-3); }
+.nowrap { white-space: nowrap; }
+/* Short sections side by side where there is room for two columns, one under the other where not. */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 28px 36px; align-items: start; }
+/* What loses data is red, and set apart by one line. */
+.cols .label { line-height: 1.6; }
+.danger-zone { padding-top: 22px; border-top: 1px solid var(--ke-danger); }
+.danger-zone > * { max-width: 520px; }
+.danger-zone input { max-width: 360px; }
+
 /* ---------------------------------------------------------------- a state is a dot plus words */
 .state { display: inline-flex; align-items: center; gap: 7px; }
 .dot { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--ke-text); }
@@ -454,6 +469,7 @@ a.cal-day:hover { border-color: var(--ke-text); }
 .front-name-zh { font-size: var(--ke-size-body); font-weight: 700; letter-spacing: 0.04em; color: var(--ke-text-2); }
 .front-tagline { color: var(--ke-text-2); }
 .front-foot { color: var(--ke-text-3); }
+.front-said { padding-left: 12px; border-left: 2px solid var(--ke-white); color: var(--ke-white); }
 .front .code-input { max-width: none; }
 
 /* ---------------------------------------------------------------- phones: the bottom bar */
@@ -533,8 +549,11 @@ button.btn[aria-busy="true"]::after, button.link[aria-busy="true"]::after { cont
 /* ---------------------------------------------------------------- wide screens: a list, and beside it what is open
    From 1100 px: the rail, a list column of about 560 px, then a panel that takes the rest, its
    text no wider than 720 px. One line separates list and panel; each scrolls on its own.
+   Rail, list and panel together are at most 1440 px wide and sit in the middle of a wider
+   screen, so what is left over is an even margin on both sides (QA #24).
    Below 1100 px none of this applies: one column, and an item opens as its own page. */
 @media (min-width: 1100px) {
+  .shell { max-width: 1440px; margin-inline: auto; }
   .split { display: grid; grid-template-columns: clamp(440px, 52%, 560px) minmax(0, 1fr); height: 100vh; height: 100dvh; }
   .split-list, .split-panel { min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
   .split-list { border-right: 1px solid var(--ke-line); }
@@ -558,12 +577,29 @@ button.btn[aria-busy="true"]::after, button.link[aria-busy="true"]::after { cont
   .split-list .tabs a { margin: 0; padding: 12px 0; border-bottom: 0; border-top: 1px solid var(--ke-line); }
   .split-list .tabs a[aria-current="page"] { background: var(--ke-quiet); box-shadow: -10px 0 0 var(--ke-quiet), 10px 0 0 var(--ke-quiet); }
 
-  .panel-rest { gap: 26px; }
+  /* Nothing open: the panel's content starts at its top-left and is laid out across its width. */
+  .panel-rest { gap: 28px; }
   .panel-rest .sentence { padding: 0; }
-  .panel-rest .month-card { align-self: flex-start; min-width: 320px; }
-  .panel-counts { font-size: var(--ke-size-item); font-weight: 600; }
+  .panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 28px 32px; align-items: start; }
+  .month-wide { align-self: stretch; }
+  .month-body { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px 36px; width: 100%; }
+  .month-body .stats { flex: 1 1 200px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rest-rows a { color: inherit; }
+  .rest-rows a.row:hover .title-clip { text-decoration: underline; text-underline-offset: 3px; }
+  .rest-rows .row { gap: 16px; }
+
+  /* The calendar: the month is the list, the chosen day is in the panel. */
+  /* The dots grow with the list column (cqw: hundredths of the page's width), 41 to 52 px a day. */
+  .split-list > .calendar-page { container-type: inline-size; }
+  .split-list .cal-large { --cell: 10.4cqw; --gap: 3cqw; --dot: 4.6cqw; --tiny: 1.5cqw; }
+  .cal-large a.cal-day[aria-current="true"] { border-color: var(--ke-text); background: var(--ke-quiet); }
+  .day-panel .back { margin-bottom: 0; align-self: flex-start; }
   .digest-dates a { padding: 12px 0; }
   .digest-dates li { padding: 0; }
   .digest-dates a[aria-current="true"] { font-weight: 600; }
   .digest-dates a:hover span:first-child { text-decoration: underline; text-underline-offset: 3px; }
+}
+/* Wider than the app itself: one line on each side closes it off from the margins. */
+@media (min-width: 1441px) {
+  .shell { border-left: 1px solid var(--ke-line); border-right: 1px solid var(--ke-line); }
 }
