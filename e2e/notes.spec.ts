@@ -5,11 +5,18 @@ import { FAKE, reset, signIn, state } from "./helpers";
 test.skip(!FAKE, "these rely on the fake's seed");
 test.beforeEach(async ({ request }) => reset(request));
 
-test("W4: quick find, the deep-dive queue, notes newest first, the calendar card", async ({ page }) => {
+test("W4: quick find, the deep-dive queue, notes newest first, the calendar card", async ({ page, isMobile }) => {
   await signIn(page, "/notes");
   // Order on the page: quick find, queue, notes, calendar card.
-  const tops = await Promise.all([".find", ".queue", ".note-list", ".month-card"].map(async (s) => (await page.locator(s).boundingBox())!.y));
+  await expect(page.locator(".month-card")).toBeVisible();
+  const tops = await Promise.all([".find", ".queue", ".note-list"].map(async (s) => (await page.locator(s).boundingBox())!.y));
   expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+  // The calendar card is under the notes on a narrow screen; on a wide one (from 1100 px) it is
+  // in the panel beside the list (QA #17).
+  const list = (await page.locator(".note-list").boundingBox())!;
+  const card = (await page.locator(".month-card").boundingBox())!;
+  if (isMobile) expect(card.y).toBeGreaterThan(list.y);
+  else expect(card.x).toBeGreaterThanOrEqual(list.x + list.width);
 
   // Queue: the deep-read state as a dot plus words, and what can be done.
   const ready = page.locator('.queue-row[data-item="d2_q1"]');
