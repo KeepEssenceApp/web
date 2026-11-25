@@ -4,7 +4,7 @@ import { api } from "../api";
 import { shared, t } from "../i18n";
 import { isTouch, say, sayError } from "../lib";
 import { meta, refresh } from "../session";
-import { useStore } from "../store";
+import { createStore, useStore } from "../store";
 import type { Analysis, Item, Signal } from "../types";
 import { DeepDive } from "./DeepDive";
 import { opens } from "./Split";
@@ -15,6 +15,12 @@ export interface Change {
   signal?: Signal | null;
   in_queue?: boolean;
 }
+/**
+ * The last change the user made to an item, wherever it was pressed. A list that shows the same
+ * item elsewhere on the screen (the daily digest beside the item's panel) follows it at once,
+ * without waiting for the core (QA #74).
+ */
+export const lastChange = createStore<{ id: string; change: Change; n: number } | null>(null);
 /** Shows a change before the core has answered. The core's answer (a reload) is what stays. */
 export type Optimistic = (id: string, change: Change) => void;
 
@@ -30,6 +36,7 @@ export function itemActions(after: () => void, optimistic?: Optimistic) {
   };
   const step = (id: string, change: Change, call: () => Promise<unknown>, sentence: string, undo?: { change: Change; call: () => Promise<unknown>; sentence: string }) => {
     optimistic?.(id, change);
+    lastChange.set((p) => ({ id, change, n: (p?.n ?? 0) + 1 }));
     const sent = call().then(
       () => {
         settle();

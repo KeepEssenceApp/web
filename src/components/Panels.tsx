@@ -10,6 +10,19 @@ import type { Calendar, QueueEntry } from "../types";
 import { CalendarCounts, CalendarDots } from "./CalendarDots";
 import { Loading, State, Stats, type DotKind } from "./ui";
 
+/**
+ * The card opens the month. Pressed on one of its days, it opens the month with that day
+ * chosen (QA #73); a narrow screen has no day panel and shows the month.
+ */
+const openDay = (ev: MouseEvent) => {
+  if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+  const day = (ev.target as HTMLElement | null)?.closest<HTMLElement>("[data-day]")?.dataset.day;
+  if (!day) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  go(`/calendar?day=${day}`);
+};
+
 /** The month as a card: one dot a day and the month's numbers. Pressing it opens the month. */
 export function MonthCard({ cal }: { cal: Calendar }) {
   return (
@@ -33,7 +46,7 @@ const monthCells = (cal: Calendar) => [
 /** The month in a panel: the dots, and beside them the month's numbers as a grid. It opens the month. */
 export function MonthPanel({ cal }: { cal: Calendar }) {
   return (
-    <a class="card month-card month-wide" href="/calendar" aria-label={t("calendar.open")} data-testid="month-panel">
+    <a class="card month-card month-wide" href="/calendar" aria-label={t("calendar.open")} data-testid="month-panel" onClick={openDay}>
       <span class="label">
         {t("calendar.title")} · {monthName(cal.month)}
       </span>

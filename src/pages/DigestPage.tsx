@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
-import { Actions, Swipeable, itemActions, type ItemActions } from "../components/Cards";
+import { Actions, Swipeable, itemActions, lastChange, type ItemActions } from "../components/Cards";
 import { DeepDive } from "../components/DeepDive";
 import { PageHead } from "../components/Shell";
 import { opens } from "../components/Split";
@@ -135,6 +135,25 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
       rest: [...now.rest, { item_id: id, title: w.title ?? "", signal: change.signal ?? null, in_queue: !!change.in_queue, available: true, can_restore: true }],
     });
   });
+  // A line of the rest that was marked (or taken back) in the item's panel shows it at once (QA #74).
+  const elsewhere = useStore(lastChange);
+  const applied = useRef(elsewhere?.n ?? 0);
+  useEffect(() => {
+    const now = digest.data;
+    if (!elsewhere || elsewhere.n === applied.current || !now) return;
+    applied.current = elsewhere.n;
+    const { id, change } = elsewhere;
+    if (!now.rest.some((r) => r.item_id === id && r.available !== false)) return;
+    digest.set({
+      ...now,
+      rest: now.rest.map((r) => {
+        if (r.item_id !== id) return r;
+        const signal = change.signal !== undefined ? change.signal : (r.signal ?? null);
+        const in_queue = change.in_queue !== undefined ? change.in_queue : !!r.in_queue;
+        return { ...r, signal, in_queue, can_restore: !!signal || in_queue };
+      }),
+    });
+  }, [elsewhere, digest.data]);
   const d = digest.data;
   // The line that is open in the panel is shown: the rest unfolds for it (and is never folded for the user).
   const restRef = useRef<HTMLDetailsElement>(null);

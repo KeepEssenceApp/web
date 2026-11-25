@@ -61,7 +61,7 @@ export function CalendarDots({
             class={cls}
             role={size === "faint" ? undefined : "listitem"}
             key={d.day}
-            data-day={size === "large" ? d.day : undefined}
+            data-day={size === "faint" ? undefined : d.day}
             tabIndex={size === "large" ? 0 : undefined}
             aria-label={size === "faint" ? undefined : label}
             title={size === "faint" ? undefined : label}
