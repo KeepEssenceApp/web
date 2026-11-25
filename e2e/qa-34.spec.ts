@@ -232,3 +232,19 @@ test("QA #34: in English no state reads as an empty queue", async ({ browser, ba
   await expect(page.getByText("No deep read", { exact: true })).toHaveCount(0);
   await ctx.close();
 });
+
+test("QA #41: while something is typed in quick find the queue is not in the list, whatever the word", async ({ page }) => {
+  await signIn(page, "/notes");
+  const queue = page.locator(".page.notes section ul.queue");
+  await expect(queue).toHaveCount(1);
+  const find = page.locator(".page.notes input.find");
+  for (const word of ["milk", "test", "q"]) {
+    await find.fill(word);
+    // Checked at once, before the request for the notes goes out.
+    await expect(queue).toHaveCount(0, { timeout: 150 });
+    await page.waitForTimeout(400);
+    await expect(queue).toHaveCount(0);
+    await find.fill("");
+    await expect(queue).toHaveCount(1);
+  }
+});

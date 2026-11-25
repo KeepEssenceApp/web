@@ -182,6 +182,9 @@ export function NotesPage({ beside = false, selected, reading }: { beside?: bool
     const id = setTimeout(() => setQuery(find.trim()), 250);
     return () => clearTimeout(id);
   }, [find]);
+  // Quick find looks through notes only. The queue and the month leave the list the moment
+  // something is typed, not a quarter of a second later when the request goes out.
+  const searching = find.trim() !== "";
   const notes = useLoad(() => api.notes(query || undefined), [query, tick]);
   const queue = useLoad(api.queue, [tick]);
   const cal = useLoad(async () => (beside ? null : api.calendar()), [tick, beside]);
@@ -199,7 +202,7 @@ export function NotesPage({ beside = false, selected, reading }: { beside?: bool
         onInput={(ev) => setFind(ev.currentTarget.value)}
       />
 
-      {!query && queue.data && queue.data.entries.length > 0 && (
+      {!searching && queue.data && queue.data.entries.length > 0 && (
         <section aria-label={t("notes.queue")}>
           <h2 class="label">{t("notes.queue")}</h2>
           <ul class="queue">
@@ -235,7 +238,7 @@ export function NotesPage({ beside = false, selected, reading }: { beside?: bool
         )}
       </section>
 
-      {!beside && !query && cal.data && <MonthCard cal={cal.data} />}
+      {!beside && !searching && cal.data && <MonthCard cal={cal.data} />}
     </div>
   );
 }
