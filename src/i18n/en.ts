@@ -322,7 +322,7 @@ export const en: Record<keyof typeof zh, string> = {
   "devices.tier": "Permission",
   "devices.revoke_confirm": "Revoke {name}? It takes effect at once.",
   "devices.approve": "Allow a new device",
-  "devices.approve_hint": "The new device shows a short code. Enter it here, compare, then press Allow.",
+  "devices.approve_hint": "The new device shows a short code. Enter it here and press Continue. On the next page, check who is asking and that the code matches, then press Allow.",
   "devices.code": "Short code",
   "tier.save": "Save only",
   "tier.read": "Read",

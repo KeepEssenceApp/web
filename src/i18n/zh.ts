@@ -320,7 +320,7 @@ export const zh = {
   "devices.tier": "权限",
   "devices.revoke_confirm": "撤销 {name}？马上生效。",
   "devices.approve": "允许一台新设备",
-  "devices.approve_hint": "新设备会显示一个短码。在这里填上它，核对后点允许。",
+  "devices.approve_hint": "新设备上会显示一个短码。在这里输入，点「继续」。下一页核对是谁想接入、短码是否一致，再点「允许」。",
   "devices.code": "短码",
   "tier.save": "只存入",
   "tier.read": "读",
