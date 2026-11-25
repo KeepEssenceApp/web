@@ -276,7 +276,7 @@ test("QA #13: with no assistant for deep reads or deep dives, the dialog says wh
   await sheet.getByRole("button", { name: "加入深挖队列" }).click();
   await expect(page.locator(".said")).toContainText("已加入深挖队列。");
   await page.goto("/notes");
-  await expect(page.locator('.queue-row[data-item="it_worth"] .state')).toHaveText("没做精读");
+  await expect(page.locator('.queue-row[data-item="it_worth"] .state')).toHaveText("在队列里。还没有助手做精读");
 
   // A device without the manage tier is not sent to a page it cannot open.
   await setTier(page, request, "read");

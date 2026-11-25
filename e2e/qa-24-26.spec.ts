@@ -117,14 +117,15 @@ for (const [width, height] of [
       const queue = rest.getByTestId("queue-summary");
       await expect(queue.locator("h2")).toHaveText("深挖队列 · 3 条");
       await expectFrame(page, width);
-      await expect(queue.locator("[data-state]")).toHaveText(["精读好了1", "精读中1", "等精读1"]);
-      await expect(queue.locator("a")).toHaveText("看精读: 认领过期之后：重放安全的三种做法");
+      // One row an entry (QA #34): its title, then its state.
+      await expect(queue.locator("[data-state] .state")).toHaveText(["在队列里。等精读", "在队列里。精读中", "精读好了"]);
+      await expect(queue.locator('[data-item="d2_q1"] b')).toHaveText("认领过期之后：重放安全的三种做法");
       // Two columns: the queue on the left, the month card beside it, both starting at the same height.
       await expectInARow(rest.locator(".panel-grid > *"), 2);
       await expect(rest.getByTestId("month-panel").getByTestId("month-counts").locator(".stat-n")).toHaveCount(4);
       await expectFilled(page, ".panel-grid > *");
       // The summary's line opens that deep read in the panel.
-      await queue.locator("a").click();
+      await queue.locator('[data-item="d2_q1"] a').click();
       await expect(page).toHaveURL(/\/notes\?read=d2_q1$/);
       await expect(panel(page).getByRole("dialog")).toContainText("作者的结论是按内容去重最省事");
       // A note open: the frame is the same, the text within 720 px.

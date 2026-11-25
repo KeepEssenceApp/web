@@ -23,7 +23,7 @@ test("W7: on a phone an analysis swipes right into the deep-dive queue, left to 
   await page.goto("/notes");
   await expect(page.locator('.queue-row[data-item="it_know"]')).toBeVisible();
   // No assistant was chosen and nothing was opened: it waits for the deep read.
-  await expect(page.locator('.queue-row[data-item="it_know"] .state')).toHaveText("等精读");
+  await expect(page.locator('.queue-row[data-item="it_know"] .state')).toHaveText("在队列里。等精读");
 });
 
 test("W7: a daily digest card swipes the same way", async ({ page, isMobile }) => {

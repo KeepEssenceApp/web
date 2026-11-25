@@ -27,9 +27,9 @@ test("W4: quick find, the deep-dive queue, notes newest first, the calendar card
   await expect(ready.getByRole("button", { name: "把结果贴回来" })).toBeVisible();
   await expect(ready.getByRole("button", { name: "移出队列" })).toBeVisible();
   const waiting = page.locator('.queue-row[data-item="it_queued"]');
-  await expect(waiting.locator(".state")).toHaveText("等精读");
+  await expect(waiting.locator(".state")).toHaveText("在队列里。等精读");
   await expect(waiting.getByRole("button", { name: "把结果贴回来" })).toHaveCount(0);
-  await expect(page.locator('.queue-row[data-item="d3_q1"] .state')).toHaveText("精读中");
+  await expect(page.locator('.queue-row[data-item="d3_q1"] .state')).toHaveText("在队列里。精读中");
 
   await ready.getByRole("button", { name: "看精读" }).click();
   await expect(page.getByRole("dialog").locator(".label")).toHaveText(["读出来的", "另外查到的", "可以接着问的"]);
