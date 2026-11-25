@@ -10,17 +10,36 @@ export interface Loaded<T> {
   status: number;
   reload: () => void;
   set: (next: T) => void;
+  /**
+   * Asks again without showing it: what is on the page stays until the answer differs, and a
+   * failed attempt changes nothing. `changed` hears the new answer and the one before it.
+   */
+  poll: (changed?: (next: T, prev: T | undefined) => void) => void;
 }
 
 export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
   const [state, setState] = useState<{ data?: T; error: string | null; status: number }>({ error: null, status: 0 });
   const [n, setN] = useState(0);
   const seq = useRef(0);
+  // What is shown now, and the latest `fn`, for a quiet re-fetch (which is not tied to a render).
+  const shown = useRef<T | undefined>(undefined);
+  const ask = useRef(fn);
+  ask.current = fn;
+  const alive = useRef(true);
+  useEffect(() => () => void (alive.current = false), []);
+  const put = useCallback((data: T) => {
+    shown.current = data;
+    setState({ data, error: null, status: 200 });
+  }, []);
   useEffect(() => {
     const mine = ++seq.current;
     fn().then(
-      (data) => mine === seq.current && setState({ data, error: null, status: 200 }),
-      (err) => mine === seq.current && setState({ error: errText(err), status: err instanceof ApiError ? err.status : 0 }),
+      (data) => mine === seq.current && put(data),
+      (err) => {
+        if (mine !== seq.current) return;
+        shown.current = undefined;
+        setState({ error: errText(err), status: err instanceof ApiError ? err.status : 0 });
+      },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, n]);
@@ -29,9 +48,53 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
   // load still on its way: its older answer must not undo what is shown now.
   const set = useCallback((data: T) => {
     seq.current++;
-    setState({ data, error: null, status: 200 });
+    put(data);
   }, []);
-  return { data: state.data, error: state.error, status: state.status, reload, set };
+  const poll = useCallback((changed?: (next: T, prev: T | undefined) => void) => {
+    const at = seq.current;
+    ask.current().then(
+      (data) => {
+        // Something newer happened meanwhile (a load, or a change made by hand): this answer is old.
+        if (!alive.current || at !== seq.current) return;
+        const prev = shown.current;
+        if (prev !== undefined && JSON.stringify(prev) === JSON.stringify(data)) return;
+        put(data);
+        changed?.(data, prev);
+      },
+      () => undefined,
+    );
+  }, []);
+  return { data: state.data, error: state.error, status: state.status, reload, set, poll };
+}
+
+/** How often a page that waits for an analysis asks again, and for how long it keeps asking. */
+export const WATCH_EVERY_MS = 15000;
+export const WATCH_FOR_MS = 20 * 60000;
+
+/**
+ * While `on`: calls `ask` about every 15 seconds as long as the page is visible, for at most
+ * 20 minutes, and once whenever the browser tab becomes visible again. Nothing runs once `on`
+ * is false (the thing waited for has arrived).
+ */
+export function useWatch(on: boolean, ask: () => void) {
+  const latest = useRef(ask);
+  latest.current = ask;
+  useEffect(() => {
+    if (!on) return;
+    const began = Date.now();
+    const timer = window.setInterval(() => {
+      if (Date.now() - began > WATCH_FOR_MS) return window.clearInterval(timer);
+      if (document.visibilityState === "visible") latest.current();
+    }, WATCH_EVERY_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") latest.current();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [on]);
 }
 
 /** What to tell the user when a call failed: the core's own sentence when it gave one. */

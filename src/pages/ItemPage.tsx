@@ -1,10 +1,10 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { Actions, AnalysisFields, itemActions } from "../components/Cards";
 import { DeepDive } from "../components/DeepDive";
 import { KindIcon, Loading, State } from "../components/ui";
 import { dateTime, endDay, shared, t } from "../i18n";
-import { say, useBusy, useLoad } from "../lib";
+import { say, useBusy, useLoad, useWatch } from "../lib";
 import { go } from "../router";
 import { canManage, meta, refresh, session } from "../session";
 import { useStore } from "../store";
@@ -30,6 +30,20 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   const tick = useStore(refresh);
   // Beside a list, what is done in the list shows here too.
   const item = useLoad(() => api.item(id), panel ? [id, tick] : [id]);
+  // Not analysed yet: the page asks again quietly until the analysis is there (QA #26), and it
+  // appears in place. The lists and the status bar are told, so they follow.
+  const landed = (next: ItemDetail, prev: ItemDetail | undefined) => {
+    if (prev && !prev.analysis && next.analysis) refresh.set((n) => n + 1);
+  };
+  useWatch(!!item.data && !item.data.analysis, () => item.poll(landed));
+  // A notification that arrived while the page is open says "refresh". Beside a list the load
+  // above follows it already; the item's own page asks again quietly.
+  const seenTick = useRef(tick);
+  useEffect(() => {
+    if (seenTick.current === tick) return;
+    seenTick.current = tick;
+    if (!panel) item.poll();
+  }, [tick]);
   const manage = canManage();
   const extra = useLoad(async () => (manage ? Promise.all([api.assistants(), api.settings()]) : null), [manage]);
   const asset = useLoad(async () => (item.data?.asset_id ? api.asset(item.data.asset_id) : null), [item.data?.asset_id]);

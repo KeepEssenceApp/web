@@ -6,8 +6,9 @@ import { PageHead } from "../components/Shell";
 import { opens } from "../components/Split";
 import { Loading } from "../components/ui";
 import { t } from "../i18n";
-import { useLoad } from "../lib";
+import { useLoad, useWatch } from "../lib";
 import { refresh } from "../session";
+import type { Item } from "../types";
 import { useStore } from "../store";
 
 const newest = (a: { created_at: string }, b: { created_at: string }) => (a.created_at < b.created_at ? 1 : -1);
@@ -31,6 +32,13 @@ export function Today({ selected }: { selected?: string }) {
   // What was handled is still here, one line each, until the daily digest takes it into its rest.
   const handled = all.filter((i) => i.analysis && (i.signal || i.in_queue));
   const count = (n: number) => ` · ${t("today.n", { n })}`;
+  // While items wait, the list asks again quietly; an analysis that lands moves its item up
+  // into the analyses without a reload (QA #26). The panel and the status bar are told.
+  const landed = (next: Item[], prev: Item[] | undefined) => {
+    const was = new Set((prev ?? []).filter((i) => !i.analysis).map((i) => i.id));
+    if (next.some((i) => i.analysis && was.has(i.id))) refresh.set((n) => n + 1);
+  };
+  useWatch(waiting.length > 0, () => items.poll(landed));
 
   return (
     <div class="page today">
