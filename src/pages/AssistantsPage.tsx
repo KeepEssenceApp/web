@@ -734,6 +734,7 @@ function Account() {
   useStore(session);
   const [fail, setFail] = useState<string | null>(null);
   const [busy, run] = useBusy();
+  const [asked, setAsked] = useState<Lang | null>(null);
   const s = settings.data;
   if (!s) return <Loading error={settings.error} />;
   let zones: string[] = [];
@@ -745,14 +746,18 @@ function Account() {
   if (!zones.includes(s.timezone)) zones = [s.timezone, ...zones];
   // The language belongs to the account: analyses and daily digests are written in it. It is
   // sent to the core first; the interface follows only once the core has it (QA #18).
-  const changeLang = (next: Lang) =>
-    run("lang", async () => {
+  // While the core is asked, the control keeps the choice and one sentence says it is on its way
+  // (QA #51): the page never looks finished in the old language.
+  const changeLang = (next: Lang) => {
+    setAsked(next);
+    return run("lang", async () => {
       const saved = await api.updateSettings({ lang: next });
       settings.set(saved);
       const now = session.get();
       if (now.user) session.set({ ...now, user: { ...now.user, lang: saved.lang } });
       setLang(saved.lang);
-    });
+    }).finally(() => setAsked(null));
+  };
   const signOut = () => {
     setFail(null);
     return run("out", () => api.signOut().then(dropSession, (err) => setFail((err as Error).message || String(err))));
@@ -766,12 +771,12 @@ function Account() {
           <div class="stack tight">
             <label class="stack tight">
               <span class="label">{t("account.language")}</span>
-              <select value={s.lang ?? lang()} data-testid="language" disabled={busy !== null} aria-busy={busy === "lang"} onChange={(ev) => changeLang(ev.currentTarget.value as Lang)}>
+              <select value={asked ?? s.lang ?? lang()} data-testid="language" disabled={busy !== null} aria-busy={busy === "lang"} onChange={(ev) => changeLang(ev.currentTarget.value as Lang)}>
                 <option value="zh">{t("account.lang_zh")}</option>
                 <option value="en">{t("account.lang_en")}</option>
               </select>
             </label>
-            <p class="quiet small" data-testid="language-hint">{t("account.language_hint")}</p>
+            <p class="quiet small" data-testid="language-hint" role="status">{asked ? t("account.language_changing") : t("account.language_hint")}</p>
           </div>
           <label class="stack tight">
             <span class="label">{t("account.timezone")}</span>

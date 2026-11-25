@@ -2,6 +2,7 @@ import { createStore } from "../store";
 import type { Lang, LangText } from "../types";
 import { zh } from "./zh";
 import { en } from "./en";
+import { fill } from "./fill";
 
 export type Key = keyof typeof zh;
 const dict: Record<Lang, Record<Key, string>> = { zh, en };
@@ -31,8 +32,6 @@ export function setLang(next: Lang) {
 }
 document.documentElement.lang = lang() === "zh" ? "zh-Hans" : "en";
 
-const fill = (s: string, vars?: Record<string, string | number>) =>
-  vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
 
 export const t = (key: Key, vars?: Record<string, string | number>) => fill(dict[lang()][key], vars);
 /** A sentence the core defines in both languages (shared rules). */
