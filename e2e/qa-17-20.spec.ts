@@ -211,7 +211,7 @@ test.describe("QA #17 at 1440 × 900", () => {
 
   test("QA #17: Notes — the opened note or a queue entry's deep read shows beside the list; with nothing open, one sentence and the month card", async ({ page }) => {
     await signIn(page, "/notes");
-    await expect(panel(page).getByTestId("panel-rest").locator(".sentence")).toHaveText("打开一篇笔记或一份精读，在这里看。");
+    await expect(panel(page).getByTestId("panel-rest").locator(".sentence:not([aria-busy])")).toHaveText("打开一篇笔记或一份精读，在这里看。");
     await expect(panel(page).locator(".month-card .cal-counts")).toContainText("留下");
     // The month card is in the panel only.
     await expect(page.locator(".month-card")).toHaveCount(1);
