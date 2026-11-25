@@ -16,6 +16,24 @@ function lastCame(a: Status["assistants"][number]) {
 }
 
 /**
+ * The assistant that holds the daily digest role, while today's digest is due and not written
+ * yet (QA #29): the sentences name it instead of speaking of "an assistant". Asked only then.
+ */
+export function useDigestWriter(s: Status | undefined): Status["assistants"][number] | null {
+  const due = s?.no_digest_reason === "waiting_for_assistant";
+  const settings = useLoad(() => (due ? api.settings() : Promise.resolve(null)), [due]);
+  const id = due ? settings.data?.roles.digest : null;
+  return (id && s?.assistants.find((a) => a.id === id)) || null;
+}
+
+/** Why there is no daily digest today, in one line that never says no assistant has come. */
+function noDigest(s: Status, writer: Status["assistants"][number] | null) {
+  if (!s.no_digest_reason) return null;
+  if (s.no_digest_reason === "waiting_for_assistant" && writer) return t("status.no_digest.waiting_for", { name: writer.name });
+  return t(`status.no_digest.${s.no_digest_reason}`);
+}
+
+/**
  * Always there on every main page. Three layouts:
  * wide (Today on wide screens), narrow (one line), narrowest (a count and a dot that opens the wide one).
  */
@@ -24,6 +42,7 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
   const phone = useMedia(PHONE);
   const { data: s, reload } = useLoad(api.status, [tick]);
   const [open, setOpen] = useState(false);
+  const writer = useDigestWriter(s);
   useEffect(() => {
     const id = setInterval(reload, 60000);
     return () => clearInterval(id);
@@ -32,7 +51,8 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
 
   const active = s.assistants.filter((a) => a.state === "working" || a.state === "recent").length;
   // An assistant that was just connected and has not made its first visit is expected soon.
-  const expected = s.assistants.some((a) => a.state === "never");
+  const first = s.assistants.find((a) => a.state === "never");
+  const expected = !!first;
   // Red only when something will be lost: items are waiting and nobody is coming for them.
   const losing = s.waiting > 0 && active === 0 && !expected;
   const dot: DotKind = losing ? "danger" : active > 0 ? "solid" : "ring";
@@ -40,7 +60,7 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
     active > 0
       ? t(active === 1 ? "status.working_one" : "status.working", { n: active })
       : expected
-        ? t("status.not_come_yet")
+        ? t("status.not_come_yet", { name: first!.name })
         : t("status.none_working");
   const counts = [t("status.saved_today", { n: s.saved_today }), t("status.waiting", { n: s.waiting })];
   const manage = canManage();
@@ -70,7 +90,7 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
           {s.waiting > 0 && s.oldest_waiting_deleted_on && (
             <span class={losing ? "bad" : "quiet"}>{t("status.oldest", { date: shortDay(s.oldest_waiting_deleted_on) })}</span>
           )}
-          {s.no_digest_reason && <span class="quiet">{t(`status.no_digest.${s.no_digest_reason}`)}</span>}
+          {s.no_digest_reason && <span class="quiet" data-testid="status-no-digest">{noDigest(s, writer)}</span>}
         </p>
       ) : null}
       {manage && layout !== "wide" && (

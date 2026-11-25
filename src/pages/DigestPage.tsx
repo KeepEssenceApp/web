@@ -5,7 +5,8 @@ import { DeepDive } from "../components/DeepDive";
 import { PageHead } from "../components/Shell";
 import { opens } from "../components/Split";
 import { Loading, State } from "../components/ui";
-import { dayName, shared, t } from "../i18n";
+import { ago, dayName, shared, t } from "../i18n";
+import { useDigestWriter } from "../components/StatusBar";
 import { useBusy, useLoad } from "../lib";
 import { canManage, digestUnread, meta, refresh, session } from "../session";
 import { useStore } from "../store";
@@ -61,7 +62,10 @@ const DIGEST_TIME = "21:00";
  * No daily digest to show. Nothing can be made on demand, so this says exactly when one comes,
  * what it needs, how today stands, and where today's analyses are until then.
  */
-function NoDigest({ day, reason }: { day: string; reason: Status["no_digest_reason"] }) {
+function NoDigest({ day, status }: { day: string; status: Status | undefined }) {
+  const reason = status?.no_digest_reason ?? null;
+  // Who writes it, by name, while it is due: never "no assistant has come" (QA #29).
+  const writer = useDigestWriter(status);
   const tick = useStore(refresh);
   // Today's analyses: what tonight's digest would be made from.
   const analysed = useLoad(async () => (await api.today()).filter((i) => i.analysis).length, [tick]);
@@ -73,7 +77,18 @@ function NoDigest({ day, reason }: { day: string; reason: Status["no_digest_reas
     <div class="stack" data-reason={reason ?? undefined}>
       <p class="sentence" data-testid="digest-none">{day === "latest" ? t("digest.none") : t("digest.none_day")}</p>
       <p data-testid="digest-when">{t("digest.when", { time: DIGEST_TIME, zone })}</p>
-      {reason && n !== undefined && <p data-testid="digest-why">{t(`digest.why.${reason}`, { n, time: DIGEST_TIME })}</p>}
+      {reason && n !== undefined && (
+        <p data-testid="digest-why">
+          {reason === "waiting_for_assistant" && writer
+            ? t("digest.why.waiting_for", { n, time: DIGEST_TIME, name: writer.name })
+            : t(`digest.why.${reason}`, { n, time: DIGEST_TIME })}
+        </p>
+      )}
+      {reason === "waiting_for_assistant" && writer && (writer.state === "working" || writer.last_seen_at) && (
+        <p class="quiet small" data-testid="digest-writer">
+          {writer.state === "working" ? t("digest.writer_working", { name: writer.name }) : t("digest.writer_came", { name: writer.name, when: ago(writer.last_seen_at) })}
+        </p>
+      )}
       <p class="row wrap">
         <a class="link" href="/">
           {t("digest.meanwhile")}
@@ -143,7 +158,7 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
           embedded ? (
             <p class="quiet">{t("digest.none_day")}</p>
           ) : (
-            <NoDigest day={day} reason={status.data?.no_digest_reason ?? null} />
+            <NoDigest day={day} status={status.data} />
           )
         ) : (
           <Loading error={digest.error} />
