@@ -256,8 +256,11 @@ export function AnalysisCard({ item, act, selected = false }: { item: Item; act:
 export function WaitingRow({ item, selected = false }: { item: Item; selected?: boolean }) {
   const rules = useStore(meta)?.shared_rules;
   const facts: string[] = [];
-  if (item.stage === "saved") facts.push(t("today.just_saved"));
-  else {
+  // Not sorted yet: how long it is kept is not decided, so no number of days is shown (QA #32).
+  if (item.stage === "saved") {
+    facts.push(t("today.just_saved"));
+    if (item.pinned) facts.push(t("today.kept"));
+  } else {
     if (item.dispatch_to) facts.push(t("today.given_to", { name: item.dispatch_to.name }));
     if (item.pinned) facts.push(t("today.kept"));
     else if (typeof item.days_left === "number") facts.push(t("today.days_left", { n: item.days_left }));

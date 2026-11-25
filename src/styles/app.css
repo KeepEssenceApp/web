@@ -114,6 +114,8 @@ label > .label { margin-bottom: 6px; }
 .code-input { font-size: var(--ke-size-subtitle); letter-spacing: 0.18em; text-align: center; max-width: 260px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 .form-grid select { width: 100%; }
+/* Who set the value, under its control. */
+.form-grid label > .small { display: block; margin-top: 6px; }
 
 .switch {
   display: inline-flex;

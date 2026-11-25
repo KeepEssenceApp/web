@@ -27,14 +27,15 @@ export function retentionSentence(it: ItemDetail, timeZone?: string): string {
  * and `back` is that list.
  */
 export function ItemPage({ id, back = "/", panel = false }: { id: string; back?: string; panel?: boolean }) {
-  const rules = useStore(meta)?.shared_rules;
+  const about = useStore(meta);
+  const rules = about?.shared_rules;
   const tick = useStore(refresh);
   // Beside a list, what is done in the list shows here too.
   const item = useLoad(() => api.item(id), panel ? [id, tick] : [id]);
   // Not analysed yet: the page asks again quietly until the analysis is there (QA #26), and it
   // appears in place. The lists and the status bar are told, so they follow.
   const landed = (next: ItemDetail, prev: ItemDetail | undefined) => {
-    if (prev && !prev.analysis && next.analysis) refresh.set((n) => n + 1);
+    if (prev && ((!prev.analysis && next.analysis) || prev.stage !== next.stage)) refresh.set((n) => n + 1);
   };
   useWatch(!!item.data && !item.data.analysis, () => item.poll(landed));
   // A notification that arrived while the page is open says "refresh". Beside a list the load
@@ -45,6 +46,21 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
     seenTick.current = tick;
     if (!panel) item.poll();
   }, [tick]);
+  // Sorted while the page is open (QA #32): the days appear where there were none, so one
+  // sentence says what happened. However the answer came (asked again, or reloaded beside a list).
+  const seen = useRef<{ id: string; stage: ItemDetail["stage"] } | null>(null);
+  useEffect(() => {
+    const now = item.data;
+    if (!now) return;
+    const before = seen.current;
+    seen.current = { id: now.id, stage: now.stage };
+    if (before?.id !== now.id || before.stage !== "saved" || now.stage === "saved") return;
+    say(now.pinned ? t("item.sorted_now_kept") : t("item.sorted_now", { n: now.expiry_days ?? now.days_left ?? 0 }));
+  }, [item.data]);
+  // What this page itself has chosen for this item, since it was opened. The core does not say
+  // who set a value, so this is all the page knows for certain about an item that is sorted.
+  const mine = useRef({ id, retention: false, assistant: false });
+  if (mine.current.id !== id) mine.current = { id, retention: false, assistant: false };
   const manage = canManage();
   const extra = useLoad(async () => (manage ? Promise.all([api.assistants(), api.settings()]) : null), [manage]);
   const asset = useLoad(async () => (item.data?.asset_id ? api.asset(item.data.asset_id) : null), [item.data?.asset_id]);
@@ -68,6 +84,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   const setAssistant = (assistant: string) =>
     run("assistant", async () => {
       const next = await api.updateItem(id, { dispatch_to: assistant });
+      mine.current.assistant = true;
       changed(next, `${t("item.now_assistant", { name: next.dispatch_to?.name ?? "" })} ${retentionSentence(next, zone)}`);
     });
   /** The one retention control: a number of days, or never. Days on a kept item give it an end date again. */
@@ -75,6 +92,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
     run("retention", async () => {
       if (value === "never") await api.pin(id, true);
       const next = value === "never" ? await api.item(id) : await api.updateItem(id, { expiry_days: Number(value) });
+      mine.current.retention = true;
       changed(next, retentionSentence(next, zone));
     });
   /** Without the manage tier there are no days to choose from: keeping without expiry, and the way back. */
@@ -82,6 +100,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
     run("retention", async () => {
       await api.pin(id, on);
       const next = await api.item(id);
+      mine.current.retention = true;
       changed(next, retentionSentence(next, zone));
     });
   const remove = () =>
@@ -95,11 +114,23 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   // Everyone who can analyse, and whoever has the item now even if they no longer can.
   const analysers = (extra.data?.[0].assistants ?? []).filter((a) => a.kind !== "chat" && a.steps.includes("analysis")).map((a) => ({ id: a.id, name: a.name }));
   if (it.dispatch_to && !analysers.some((a) => a.id === it.dispatch_to!.id)) analysers.unshift(it.dispatch_to);
-  const days = it.pinned ? null : (it.expiry_days ?? null);
+  // Until the item is sorted the core only holds a placeholder for how long it is kept: the
+  // dispatch step decides that when it sorts the item (QA #32). The placeholder is not shown as
+  // a decision. A value the user chose is one: before sorting, the core lists an `expiry:` tag
+  // (and names an assistant) only when the user set it.
+  const sorted = it.stage !== "saved";
+  if (!sorted && (it.tags ?? []).some((tag) => tag.startsWith("expiry:"))) mine.current.retention = true;
+  if (!sorted && it.dispatch_to) mine.current.assistant = true;
+  const decided = sorted || !!it.pinned || mine.current.retention;
+  const days = it.pinned || !decided ? null : (it.expiry_days ?? null);
   const options = [...new Set([...(extra.data?.[1].expiry_options ?? []), ...(days === null ? [] : [days])])].sort((a, b) => a - b);
-  const life = it.pinned ? t("today.kept") : typeof it.days_left === "number" ? t("today.days_left", { n: it.days_left }) : null;
+  const life = it.pinned ? t("today.kept") : decided && typeof it.days_left === "number" ? t("today.days_left", { n: it.days_left }) : null;
+  // After sorting, a value the user has not chosen says who set it.
+  const retentionBySorting = sorted && !it.pinned && !mine.current.retention;
+  const assistantBySorting = sorted && !!it.dispatch_to && !mine.current.assistant;
+  const defaultDays = Number(about?.limits?.item_expiry_default_days) || 30;
   // A kept item has no end date: an expiry tag from before does not apply and is not shown.
-  const tags = (it.tags ?? []).filter((tag) => !(it.pinned && tag.startsWith("expiry:")));
+  const tags = (it.tags ?? []).filter((tag) => !((it.pinned || !decided) && tag.startsWith("expiry:")));
   const state = it.in_queue ? t("digest.in_queue") : it.signal === "not_interested" ? t("action.not_interested") : it.signal === "seen" ? t("action.seen") : null;
   const was = { signal: it.signal ?? null, in_queue: !!it.in_queue };
 
@@ -192,6 +223,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
                       </option>
                     ))}
                   </select>
+                  {assistantBySorting && <span class="quiet small" data-testid="assistant-note">{t("item.set_by_sorting")}</span>}
                 </label>
                 <label>
                   <span class="label">{t("item.kept_for")}</span>
@@ -202,6 +234,12 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
                     aria-busy={busy === "retention"}
                     onChange={(ev) => setRetention(ev.currentTarget.value)}
                   >
+                    {/* Not sorted yet and not chosen: nothing is decided. That is a state, not something to choose. */}
+                    {!decided && (
+                      <option value="" disabled>
+                        {t("item.decided_when_sorted")}
+                      </option>
+                    )}
                     {options.map((d) => (
                       <option key={d} value={String(d)}>
                         {t("item.days", { n: d })}
@@ -209,8 +247,10 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
                     ))}
                     <option value="never">{t("item.keep")}</option>
                   </select>
+                  {retentionBySorting && <span class="quiet small" data-testid="retention-note">{t("item.set_by_sorting")}</span>}
                 </label>
               </div>
+              {!decided && <p class="quiet small" data-testid="retention-undecided">{t("item.undecided_hint", { n: defaultDays })}</p>}
               <p class="quiet small">{t("item.yours_hint")}</p>
             </>
           )}
