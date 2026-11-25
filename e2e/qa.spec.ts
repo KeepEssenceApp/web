@@ -16,8 +16,9 @@ test("QA #7: one retention control; what the user set survives triage; header, c
   await signIn(page);
   await page.goto("/item/it_saved");
   // One control: the user's days, then "never" as the last choice. No separate button to mistake for "save".
-  await expect(keptFor(page)).toHaveValue("30");
-  await expect(keptFor(page).locator("option")).toHaveText(["7 天", "30 天", "90 天", "365 天", "收藏（不过期）"]);
+  // Not sorted yet: nothing is decided (QA #32), and the choices are the user's days and "never".
+  await expect(keptFor(page)).toHaveValue("");
+  await expect(keptFor(page).locator("option")).toHaveText(["初筛时定", "7 天", "30 天", "90 天", "365 天", "收藏（不过期）"]);
   await expect(page.getByRole("button", { name: /收藏|Keep/ })).toHaveCount(0);
 
   // The user sets only who analyses it, before triage has run. One sentence says both values.
