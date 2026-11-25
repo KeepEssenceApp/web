@@ -5,7 +5,7 @@ import { Split, opens } from "../components/Split";
 import { Loading, State, Switch } from "../components/ui";
 import { ago, lang, setLang, t, type Key } from "../i18n";
 import { exportFileName, localDate, notesFileName, notesMarkdown } from "../export";
-import { copyText, downloadText, errText, say, sayError, useBusy, useLoad } from "../lib";
+import { copyText, downloadText, errText, say, sayError, unsayError, useBusy, useLoad } from "../lib";
 import { go } from "../router";
 import { accountDeleted, dropSession, refresh, session } from "../session";
 import type { Assistant, AssistantUsage, Device, ExportDoc, Lang, Role, Settings, Step, Tier } from "../types";
@@ -72,7 +72,8 @@ export function AssistantsPage({ section, wide = false }: { section: Section; wi
 }
 
 // ---------------------------------------------------------------- inline rename
-function Rename({ name, max, onSave }: { name: string; max: number; onSave: (next: string) => Promise<unknown> }) {
+/** `onEdit`: the name is being typed, so whatever was refused before is being corrected (QA #33). */
+function Rename({ name, max, onSave, onEdit }: { name: string; max: number; onSave: (next: string) => Promise<unknown>; onEdit?: () => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   const [busy, run] = useBusy();
@@ -103,7 +104,14 @@ function Rename({ name, max, onSave }: { name: string; max: number; onSave: (nex
         });
       }}
     >
-      <input type="text" value={value} maxLength={max} aria-label={t("assistant.name")} autoFocus onInput={(ev) => setValue(ev.currentTarget.value)} />
+      <input type="text" value={value} maxLength={max} aria-label={t("assistant.name")}
+        autoFocus
+        onInput={(ev) => {
+          setValue(ev.currentTarget.value);
+          unsayError();
+          onEdit?.();
+        }}
+      />
       <button class="btn small" type="submit" disabled={busy !== null} aria-busy={busy !== null}>
         {t("common.save")}
       </button>
@@ -392,6 +400,11 @@ function Rules() {
   if (!settings.data) return <Loading error={settings.error} />;
   return <RulesForm settings={settings.data} onSaved={settings.set} />;
 }
+/** The expiry options as typed: 1 to 6 whole numbers of days, each 1 to 365. Null when they are not that. */
+function expiryOptions(text: string): number[] | null {
+  const options = text.split(/[,，\s]+/).filter(Boolean).map(Number);
+  return !options.length || options.length > 6 || options.some((n) => !Number.isInteger(n) || n < 1 || n > 365) ? null : options;
+}
 function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Settings) => void }) {
   const [rules, setRules] = useState(settings.rules);
   const [expiry, setExpiry] = useState(settings.expiry_options.join(", "));
@@ -399,8 +412,8 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
   const [busy, run] = useBusy();
   const save = (ev: Event) => {
     ev.preventDefault();
-    const options = expiry.split(/[,，\s]+/).filter(Boolean).map(Number);
-    if (!options.length || options.length > 6 || options.some((n) => !Number.isInteger(n) || n < 1 || n > 365)) return setBad(true);
+    const options = expiryOptions(expiry);
+    if (!options) return setBad(true);
     setBad(false);
     void run("save", async () => {
       const s = await api.updateSettings({ rules, expiry_options: [...new Set(options)].sort((a, b) => a - b) });
@@ -414,13 +427,31 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
       <section class="stack tight">
         <h2>{t("set.rules")}</h2>
         <p class="quiet small">{t("rules.hint")}</p>
-        <textarea rows={8} maxLength={4000} value={rules} aria-label={t("set.rules")} onInput={(ev) => setRules(ev.currentTarget.value)} />
+        <textarea rows={8} maxLength={4000} value={rules} aria-label={t("set.rules")}
+          onInput={(ev) => {
+            setRules(ev.currentTarget.value);
+            unsayError();
+          }}
+        />
         <p class="quiet small">{t("rules.fallback")}</p>
       </section>
       <section class="stack tight">
         <label>
           <span class="label">{t("rules.expiry")}</span>
-          <input type="text" inputMode="numeric" value={expiry} onInput={(ev) => setExpiry(ev.currentTarget.value)} />
+          <input
+            type="text"
+            inputMode="numeric"
+            value={expiry}
+            aria-invalid={bad}
+            onInput={(ev) => {
+              const value = ev.currentTarget.value;
+              setExpiry(value);
+              // The error goes as soon as the value is right, not at the next save (QA #33); a
+              // value that is still wrong keeps it.
+              if (bad && expiryOptions(value)) setBad(false);
+              unsayError();
+            }}
+          />
         </label>
         <p class={bad ? "bad small" : "quiet small"} role={bad ? "alert" : undefined}>
           {bad ? t("rules.expiry_invalid") : t("rules.expiry_hint")}
@@ -445,6 +476,7 @@ function Devices() {
   // The core says why when the last device with the manage tier would be lowered or revoked.
   const guard = (id: string, p: Promise<unknown>) => {
     setWaiting(id);
+    setFail(null);
     return p.then(
       () => {
         setWaiting(null);
@@ -493,7 +525,7 @@ function Devices() {
                 </label>
               )}
               <div class="row wrap">
-                <Rename name={d.name} max={60} onSave={(name) => api.updateDevice(d.id, { name }).then(list.reload)} />
+                <Rename name={d.name} max={60} onSave={(name) => api.updateDevice(d.id, { name }).then(list.reload)} onEdit={() => fail?.id === d.id && setFail(null)} />
                 <Revoke
                   question={t("devices.revoke_confirm", { name: d.name })}
                   onRevoke={() =>
@@ -867,7 +899,13 @@ function DeleteAccount({ email }: { email?: string }) {
       <label class="stack tight">
         <span class="label">{t("account.delete_email")}</span>
         {/* A plain text field on purpose: the browser must not fill the address in for the user. */}
-        <input type="text" inputMode="email" name="confirm_email" autocomplete="off" autocapitalize="off" spellcheck={false} value={typed} onInput={(ev) => setTyped(ev.currentTarget.value)} />
+        <input type="text" inputMode="email" name="confirm_email" autocomplete="off" autocapitalize="off" spellcheck={false} value={typed}
+          onInput={(ev) => {
+            setTyped(ev.currentTarget.value);
+            // What the core refused was about the address as it was typed then (QA #33).
+            setFail(null);
+          }}
+        />
       </label>
       {typed.trim() !== "" && !matches && <p class="quiet small" data-testid="delete-mismatch">{t("account.delete_mismatch")}</p>}
       {fail && <p class="bad small" role="alert">{fail}</p>}
