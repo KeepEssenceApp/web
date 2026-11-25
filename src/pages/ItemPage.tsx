@@ -126,8 +126,10 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   const options = [...new Set([...(extra.data?.[1].expiry_options ?? []), ...(days === null ? [] : [days])])].sort((a, b) => a - b);
   const life = it.pinned ? t("today.kept") : decided && typeof it.days_left === "number" ? t("today.days_left", { n: it.days_left }) : null;
   // After sorting, a value the user has not chosen says who set it.
-  const retentionBySorting = sorted && !it.pinned && !mine.current.retention;
-  const assistantBySorting = sorted && !!it.dispatch_to && !mine.current.assistant;
+  // The core says who decided each value; an older core does not, and then the note shows unless
+  // this page changed the value itself.
+  const retentionBySorting = sorted && !it.pinned && !mine.current.retention && (it.retention_set_by ?? "triage") !== "user";
+  const assistantBySorting = sorted && !!it.dispatch_to && !mine.current.assistant && (it.assistant_set_by ?? "triage") !== "user";
   const defaultDays = Number(about?.limits?.item_expiry_default_days) || 30;
   // A kept item has no end date: an expiry tag from before does not apply and is not shown.
   const tags = (it.tags ?? []).filter((tag) => !((it.pinned || !decided) && tag.startsWith("expiry:")));

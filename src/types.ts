@@ -72,6 +72,8 @@ export interface ItemDetail extends Item {
   expiry_days?: number | null;
   /** When the item is deleted as things stand; null when it is kept without expiry. */
   expires_at?: string | null;
+  retention_set_by?: "user" | "triage" | "default";
+  assistant_set_by?: "user" | "triage" | "default";
 }
 export interface SaveResult {
   status: "saved" | "duplicate";

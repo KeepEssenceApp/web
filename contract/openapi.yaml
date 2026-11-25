@@ -1821,6 +1821,8 @@ components:
             tags: { type: array, description: "No `expiry:` tag is listed while the item is pinned.", items: { type: string, description: "`kind:value`" } }
             expiry_days: { type: [integer, "null"] }
             expires_at: { type: [string, "null"], format: date-time, description: When the item will be deleted. Null when pinned. }
+            retention_set_by: { type: string, enum: [user, triage, default], description: "Who decided how long the item is kept: the user, the sorting step, or nobody yet." }
+            assistant_set_by: { type: string, enum: [user, triage, default], description: "Who decided which assistant analyses the item." }
 
     Digest:
       type: object
