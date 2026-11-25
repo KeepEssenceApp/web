@@ -70,7 +70,9 @@ x-limits:
   triage_default_after_minutes: 10
   page_fetch_timeout_seconds: 8
   queue_idle_days: 7
-  analysis_summary_max_chars: 60
+  analysis_summary_max_chars: 160
+  analysis_key_fact_max_chars: 200
+  analysis_point_max_chars: 300
   analysis_points_max: 3
   digest_hour: 21
   notify_wait_seconds: 120
@@ -2119,11 +2121,11 @@ components:
         kind: { const: analysis }
         item_id: { type: string }
         unavailable: { type: boolean, description: "True when the content could not be fetched or could not be read. Then no points and no verdict; `summary` may say which." }
-        summary: { type: string, maxLength: 60, description: One sentence. }
-        key_fact: { type: string, maxLength: 120, description: One line that depends on the kind of content. }
-        points: { type: array, maxItems: 3, items: { type: string, maxLength: 120 } }
+        summary: { type: string, maxLength: 160, description: "One sentence. Aim for 60 Chinese characters or 25 English words; the limit is the hard stop." }
+        key_fact: { type: string, maxLength: 200, description: One line that depends on the kind of content. }
+        points: { type: array, maxItems: 3, items: { type: string, maxLength: 300, description: One sentence each. } }
         verdict: { $ref: "#/components/schemas/Verdict" }
-        related_hint: { type: string, maxLength: 120 }
+        related_hint: { type: string, maxLength: 200 }
 
     DigestResult:
       type: object
