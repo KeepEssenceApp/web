@@ -136,3 +136,20 @@ test("QA #48: the sentence under the notifications switch follows the switch at 
   await expect(off).toHaveCount(0, { timeout: 700 });
   await expect(page.locator(".said")).toHaveText("通知已打开。");
 });
+
+test("QA #53: a rules save that changed something stays confirmed beside the button", async ({ page }) => {
+  await signIn(page, "/assistants/rules");
+  const outcome = page.getByTestId("rules-outcome");
+  const days = page.locator('input[inputmode="numeric"]');
+  await days.fill("7, 30, 90");
+  await page.getByRole("button", { name: "保存" }).click();
+  await expect(page.locator(".said")).toHaveText("已保存。");
+  await expect(outcome).toHaveText("已保存。");
+  // Still there after the passing sentence has gone.
+  await expect(page.locator(".said")).toHaveCount(0, { timeout: 8000 });
+  await expect(outcome).toHaveText("已保存。");
+  await expect(page.getByRole("button", { name: "保存" })).toBeEnabled();
+  // It goes as soon as something is edited: it spoke of what was saved, not of what is typed now.
+  await days.fill("7, 30");
+  await expect(outcome).toHaveText("");
+});

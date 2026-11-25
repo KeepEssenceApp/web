@@ -407,9 +407,13 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
   const [rules, setRules] = useState(settings.rules);
   const [expiry, setExpiry] = useState(settings.expiry_options.join(", "));
   const [bad, setBad] = useState(false);
+  // What the last press came to. It stays beside the button until something is edited, so the
+  // answer is still there for someone who looks a little later than the passing sentence (QA #53).
+  const [outcome, setOutcome] = useState<string | null>(null);
   const [busy, run] = useBusy();
   const save = (ev: Event) => {
     ev.preventDefault();
+    setOutcome(null);
     const options = expiryOptions(expiry);
     if (!options) return setBad(true);
     setBad(false);
@@ -417,12 +421,14 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
     // Nothing differs from what is saved: say so, so the press is not met with silence (QA #47).
     if (rules === settings.rules && wanted.join(",") === [...settings.expiry_options].sort((x, y) => x - y).join(",")) {
       setExpiry(settings.expiry_options.join(", "));
+      setOutcome(t("rules.unchanged"));
       return say(t("rules.unchanged"));
     }
     void run("save", async () => {
       const s = await api.updateSettings({ rules, expiry_options: [...new Set(options)].sort((a, b) => a - b) });
       onSaved(s);
       setExpiry(s.expiry_options.join(", "));
+      setOutcome(t("common.saved"));
       say(t("common.saved"));
     });
   };
@@ -434,6 +440,7 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
         <textarea rows={8} maxLength={4000} value={rules} aria-label={t("set.rules")}
           onInput={(ev) => {
             setRules(ev.currentTarget.value);
+            setOutcome(null);
             unsayError();
           }}
         />
@@ -450,6 +457,7 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
             onInput={(ev) => {
               const value = ev.currentTarget.value;
               setExpiry(value);
+              setOutcome(null);
               // The error goes as soon as the value is right, not at the next save (QA #33); a
               // value that is still wrong keeps it.
               if (bad && expiryOptions(value)) setBad(false);
@@ -465,6 +473,7 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
         <button class="btn" type="submit" disabled={busy !== null} aria-busy={busy !== null}>
           {t("common.save")}
         </button>
+        <span class="quiet small" role="status" data-testid="rules-outcome">{busy === null ? outcome : null}</span>
       </div>
     </form>
   );
