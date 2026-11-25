@@ -31,6 +31,9 @@ export function Today({ selected }: { selected?: string }) {
   const waiting = all.filter((i) => !i.analysis).sort(newest);
   // What was handled is still here, one line each, until the daily digest takes it into its rest.
   const handled = all.filter((i) => i.analysis && (i.signal || i.in_queue));
+  // Once today's daily digest is written, what was saved today is in it and no longer listed
+  // here. Say so instead of "nothing saved" (QA #44).
+  const inDigest = !!cal.data?.days.find((d) => d.day === cal.data!.today)?.has_digest;
   const count = (n: number) => ` · ${t("today.n", { n })}`;
   // While items wait, the list asks again quietly; an analysis that lands moves its item up
   // into the analyses without a reload (QA #26). The panel and the status bar are told.
@@ -56,7 +59,11 @@ export function Today({ selected }: { selected?: string }) {
         <>
           {analyses.length === 0 && waiting.length === 0 && (
             <p class="sentence" data-testid="today-empty">
-              {all.length ? t("today.all_done") : t("today.nothing")}
+              {all.length ? t("today.all_done") : inDigest ? (
+                <>
+                  {t("today.in_digest")} <a href="/digest">{t("today.open_digest")}</a>
+                </>
+              ) : t("today.nothing")}
             </p>
           )}
           {analyses.length > 0 && (

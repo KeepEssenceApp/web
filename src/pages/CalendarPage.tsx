@@ -131,7 +131,8 @@ function DayPanel({ cal, day, close }: { cal: Calendar; day: string; close: stri
       </section>
       {d.has_digest && <DigestPage day={day} embedded />}
       {/* Nothing chosen: under today, the month in numbers, so the panel is not one short block. */}
-      {!close && <MonthCounts cal={cal} />}
+      {/* The month's numbers stay under whichever day is shown (QA #45). */}
+      <MonthCounts cal={cal} />
     </div>
   );
 }

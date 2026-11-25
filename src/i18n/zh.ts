@@ -79,6 +79,8 @@ export const zh = {
   "today.n": "现有 {n} 条",
   "today.all_done": "今天的都处理完了。",
   "today.nothing": "今天还没有存入。",
+  "today.in_digest": "今天的每日摘要已经出了。今天存入的都在里面，没有删除。",
+  "today.open_digest": "看每日摘要",
   "today.given_to": "等 {name} 解读",
   "today.days_left": "还剩 {n} 天",
   "today.kept": "收藏了，不过期",

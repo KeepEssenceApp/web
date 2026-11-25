@@ -81,6 +81,8 @@ export const en: Record<keyof typeof zh, string> = {
   "today.n": "{n} here now",
   "today.all_done": "Everything for today is handled.",
   "today.nothing": "Nothing saved today yet.",
+  "today.in_digest": "Today's daily digest is written. What you saved today is in it, nothing was deleted.",
+  "today.open_digest": "Open the daily digest",
   "today.given_to": "Waiting for {name}",
   "today.days_left": "{n} days left",
   "today.kept": "Kept, never deleted",

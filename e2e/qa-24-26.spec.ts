@@ -184,7 +184,8 @@ for (const [width, height] of [
       await expect(day.locator("h1")).toContainText(`${Number(yesterday.slice(5, 7))}月${Number(yesterday.slice(8))}日`);
       await expect(day.getByTestId("day-mark")).toHaveText("留下了笔记");
       await expect(day.getByTestId("day-counts").locator(".stat-n")).toHaveText(["8", "7", "1", /^\d+$/]);
-      await expect(day.getByTestId("month-counts")).toHaveCount(0);
+      // The month's numbers stay under a chosen day too (QA #45).
+      await expect(day.getByTestId("month-counts").locator(".stat-n")).toHaveCount(4);
       const digest = day.locator("article[data-day]");
       await expect(digest).toHaveAttribute("data-day", yesterday);
       await expect(digest.getByTestId("digest-header")).toHaveText("存入了 8 条。2 条值得深挖。");
