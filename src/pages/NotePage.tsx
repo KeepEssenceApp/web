@@ -1,4 +1,5 @@
 import { api } from "../api";
+import { SavedFile } from "../components/SavedFile";
 import { Loading, State } from "../components/ui";
 import { Markdown } from "../markdown";
 import { dayName, shortDate, t } from "../i18n";
@@ -19,7 +20,7 @@ const fileName = (title: string) => `${title.replace(/[\\/:*?"<>|\n\r]+/g, " ").
 
 export function NotePage({ id, panel = false }: { id: string; panel?: boolean }) {
   const note = useLoad(() => api.note(id), [id]);
-  const assets = useLoad(async () => Promise.all((note.data?.asset_ids ?? []).map((a) => api.asset(a))), [note.data?.id]);
+  const assets = useLoad(async () => Promise.all((note.data?.asset_ids ?? []).map(async (a) => ({ id: a, ...(await api.asset(a)) }))), [note.data?.id]);
   const n = note.data;
   if (!n)
     return (
@@ -95,9 +96,7 @@ export function NotePage({ id, panel = false }: { id: string; panel?: boolean })
             <ul class="sources">
               {assets.data.map((a, i) => (
                 <li key={i}>
-                  <a class="link" href={a.download_url} target="_blank" rel="noopener noreferrer">
-                    {t("notes.attachment_n", { n: i + 1 })}
-                  </a>
+                  <SavedFile assetId={a.id} type={a.content_type} name={t("notes.attachment_n", { n: i + 1 })} label={t("notes.attachment_n", { n: i + 1 })} />
                 </li>
               ))}
             </ul>

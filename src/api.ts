@@ -124,6 +124,15 @@ export const api = {
     json<{ asset_id: string; status: "stored" | "upload" | "over_quota"; upload_url?: string }>("/v1/assets", { method: "POST", body }),
   completeUpload: (id: string) => json<void>(`/v1/assets/${e(id)}/complete`, { method: "POST" }),
   asset: (id: string) => json<{ download_url: string; content_type: string; bytes: number }>(`/v1/assets/${e(id)}`),
+  /**
+   * The bytes of a stored file. The signed address lasts five minutes, so it is asked for at the
+   * moment the file is wanted, never kept from when the page was loaded (QA #31).
+   */
+  async file(id: string): Promise<Blob> {
+    const a = await api.asset(id);
+    const res = await call(a.download_url, { anonymous: true, accept: a.content_type });
+    return new Blob([await res.arrayBuffer()], { type: a.content_type });
+  },
 
   status: () => json<T.Status>("/v1/status"),
   calendar: (month?: string) => json<T.Calendar>(`/v1/calendar${q({ month })}`),

@@ -161,6 +161,10 @@ export function say(text: string, action?: Said["action"], bad = false) {
   sayTimer = window.setTimeout(() => said.get()?.id === id && said.set(null), action ? 8000 : 5000);
 }
 export const sayError = (err: unknown) => say(errText(err), undefined, true);
+/** The user is correcting what was refused: the sentence that said so goes (QA #33). Other sentences stay. */
+export const unsayError = () => {
+  if (said.get()?.bad) said.set(null);
+};
 
 export async function copyTextQuiet(text: string) {
   try {
@@ -211,7 +215,12 @@ export async function toWebp(file: Blob, edge: number, maxBytes: number): Promis
 }
 
 export function downloadText(filename: string, text: string, type = "text/markdown") {
-  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));
+  downloadBlob(filename, new Blob([text], { type: `${type};charset=utf-8` }));
+}
+
+/** Hands the bytes to the browser as a download with this name. */
+export function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;

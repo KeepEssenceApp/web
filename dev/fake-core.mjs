@@ -465,7 +465,8 @@ on("POST", "/v1/items", "save", (c) => {
     const skipped = !!asset?.over_quota;
     const title = b.title || (b.kind === "link" ? hostOf(b.url) : b.kind === "text" ? shorten(b.text.trim().split("\n")[0], 80) : b.kind === "image" ? (c.lang === "zh" ? "图片" : "Image") : (c.lang === "zh" ? "文件" : "File"));
     const it = { id: rid("it", 6), kind: b.kind, title, site: b.url ? hostOf(b.url) : null, url: b.url ?? null, created_at: ago(0), stage: "saved", content_unavailable: false, dispatch_to: null, expiry_days: 30, pinned: false, signal: null, analysis: null,
-      body: b.text ?? null, asset_id: asset && !skipped ? b.asset_id : null, digest_day: null, source: c.device.client };
+      // The core reads a text file itself: its text is the item's body.
+      body: b.text ?? (asset && !skipped && /^text\/(plain|markdown)$/.test(asset.content_type) ? asset.data.toString("utf8") : null), asset_id: asset && !skipped ? b.asset_id : null, digest_day: null, source: c.device.client };
     S.items.set(it.id, it); S.saved.set(today(), (S.saved.get(today()) ?? 0) + 1);
     const key = skipped ? "saved_image_skipped_quota" : "saved";
     return [201, { status: "saved", item_id: it.id, message_key: key, message: msg(key), ...(asset ? { image_stored: !skipped } : {}) }];
@@ -584,10 +585,22 @@ on("POST", "/v1/assets/:id/complete", "save", (c) => {
   if (!a.data || a.data.length !== a.bytes || crypto.createHash("sha256").update(a.data).digest("hex") !== a.sha256) fail(409, "conflict");
   a.stored = true; return [204];
 });
-on("GET", "/v1/assets/:id/download", null, (c) => { const a = signedAsset(c); if (!a.stored) fail(404, "not_found"); return [200, a.data, a.content_type]; });
+// The signed download address, as the core serves it: valid for 5 minutes, an image shown in
+// place and every other file handed over as a download, never run as a page.
+const DOWNLOAD_MS = 5 * 60e3;
+on("GET", "/v1/assets/:id/download", null, (c) => {
+  const a = signedAsset(c); if (!a.stored) fail(404, "not_found");
+  const exp = Number(c.q.get("exp"));
+  if (!(exp > Date.now()) || exp - DOWNLOAD_MS < (S.downloadsNotBefore ?? 0)) fail(401, "unauthorized");
+  return [200, a.data, a.content_type, {
+    "cache-control": "private, max-age=300", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox",
+    "content-disposition": a.content_type.startsWith("image/") ? "inline" : "attachment",
+  }];
+});
 on("GET", "/v1/assets/:id", "read", (c) => {
   const a = S.assets.get(c.p.id); if (!a?.stored) fail(404, "not_found");
-  return [200, { download_url: `${c.origin}/v1/assets/${a.id}/download?sig=${a.sig}`, expires_at: iso(Date.now() + 5 * 60e3), content_type: a.content_type, bytes: a.bytes }];
+  const exp = Date.now() + DOWNLOAD_MS;
+  return [200, { download_url: `${c.origin}/v1/assets/${a.id}/download?exp=${exp}&sig=${a.sig}`, expires_at: iso(exp), content_type: a.content_type, bytes: a.bytes }];
 });
 
 on("GET", "/v1/status", "read", () => [200, statusOut()]);
@@ -734,6 +747,8 @@ on("POST", "/__test/triage", null, (c) => {
   return [200, itemOut(it, true)];
 });
 // A slow core (every /v1 answer waits `ms`), and one answer that fails, to see what the app shows meanwhile.
+// Time passes: every download address handed out so far is past its five minutes.
+on("POST", "/__test/expire-downloads", null, () => { S.downloadsNotBefore = Date.now() + 1; return [200, { ok: true }]; });
 on("POST", "/__test/delay", null, (c) => { S.delay = Number(c.body.ms) || 0; return [200, { ok: true }]; });
 on("POST", "/__test/fail-next", null, (c) => { S.failNext = { method: c.body.method, path: c.body.path }; return [200, { ok: true }]; });
 on("POST", "/__test/device-code", null, (c) => newDeviceCode(c.body, c.origin));

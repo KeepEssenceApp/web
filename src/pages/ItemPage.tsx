@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { Actions, AnalysisFields, itemActions } from "../components/Cards";
 import { DeepDive } from "../components/DeepDive";
+import { SavedFile } from "../components/SavedFile";
 import { KindIcon, Loading, State } from "../components/ui";
 import { dateTime, endDay, shared, t } from "../i18n";
 import { say, useBusy, useLoad, useWatch } from "../lib";
@@ -123,15 +124,14 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
             </a>
           )}
           {it.content_unavailable && <p class="sentence">{shared(rules?.content_unavailable)}</p>}
-          {asset.data &&
-            (asset.data.content_type.startsWith("image/") ? (
-              <img class="original-image" src={asset.data.download_url} alt={it.title} />
-            ) : (
-              <a class="link" href={asset.data.download_url} target="_blank" rel="noopener noreferrer">
-                {t("item.attachment")}
-              </a>
-            ))}
+          {asset.data?.content_type.startsWith("image/") && <img class="original-image" src={asset.data.download_url} alt={it.title} />}
           {it.body && <div class="original-body">{it.body}</div>}
+          {/* The file itself: an image or a PDF opens in a tab; a text file, whose text is above, is downloaded (QA #31). */}
+          {asset.data && it.asset_id && (
+            <p>
+              <SavedFile assetId={it.asset_id} type={asset.data.content_type} name={it.title} />
+            </p>
+          )}
         </section>
 
         <section class="stack tight" aria-label={t("item.analysis")}>
