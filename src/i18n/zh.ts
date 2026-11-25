@@ -79,7 +79,7 @@ export const zh = {
   "today.n": "现有 {n} 条",
   "today.all_done": "今天的都处理完了。",
   "today.nothing": "今天还没有存入。",
-  "today.given_to": "交给 {name}",
+  "today.given_to": "等 {name} 解读",
   "today.days_left": "还剩 {n} 天",
   "today.kept": "收藏了，不过期",
   "today.just_saved": "刚存入，等分派",

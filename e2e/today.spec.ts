@@ -41,7 +41,7 @@ test("W2: status bar, analyses with four fields and three actions, lighter unana
   expect(order.indexOf("it_worth")).toBeLessThan(order.indexOf("it_triaged"));
   expect(order).not.toContain("it_queued");
   const waiting = page.locator('.waiting[data-item="it_triaged"]');
-  await expect(waiting).toContainText("交给 阿读");
+  await expect(waiting).toContainText("等 阿读 解读");
   await expect(waiting).toContainText("还剩 30 天");
   await expect(page.locator('.waiting[data-item="it_saved"]')).toBeVisible();
   expect(await waiting.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");

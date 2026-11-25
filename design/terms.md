@@ -59,7 +59,7 @@
 | 通知我 | Notify me |
 | 账户 | Account |
 | 退出 | Sign out |
-| 交给哪个助手 | Analysed by |
+| 交给哪个助手 | Given to |
 | 保留多久 | Kept for |
 | 还剩 N 天 | N days left |
 | 删除 | Delete |
