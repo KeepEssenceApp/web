@@ -483,7 +483,7 @@ test.describe("QA #25: the account's data and deleting the account", () => {
     await expect(page.getByTestId("delete-confirm")).toBeEnabled();
   });
 
-  test("QA #25: a device without the manage tier has no Account page, and the core refuses both calls with 403", async ({ page, request }) => {
+  test("QA #25: a device without the manage tier has no export and no deletion on its account page, and the core refuses both calls with 403", async ({ page, request }) => {
     await signIn(page, "/assistants/account");
     const cred = await credentialOf(page);
     const headers = { Authorization: `Bearer ${cred}` };
@@ -493,7 +493,11 @@ test.describe("QA #25: the account's data and deleting the account", () => {
     expect((await request.get("/v1/settings", { headers })).ok()).toBe(true);
     expect((await (await request.get("/v1/settings", { headers })).json()).email).toBeUndefined();
     await page.goto("/assistants/account");
-    await expect(page.locator('[data-entry="today"]')).toHaveAttribute("aria-current", "page");
+    // Since QA #28 this address leads to the device's own small account page, not to Today.
+    await expect(page).toHaveURL(/\/account$/);
+    await expect(page.getByTestId("device-account")).toBeVisible();
+    await expect(page.getByTestId("account")).toHaveCount(0);
+    await expect(page.locator('[data-part="data"]')).toHaveCount(0);
     await expect(page.getByTestId("delete-account")).toHaveCount(0);
     await expect(page.locator('[data-entry="assistants"]')).toHaveCount(0);
     expect((await state(request)).deleted_account).toBeNull();
