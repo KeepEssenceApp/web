@@ -43,6 +43,9 @@ img { max-width: 100%; }
 .break { overflow-wrap: anywhere; }
 .pre { white-space: pre-wrap; }
 .clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* A title in a list: at most two lines, the cut marked with an ellipsis; the element's `title`
+   holds all of it, and the opened item shows all of it. */
+.title-clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; }
 .link {
   background: none;
   border: 0;

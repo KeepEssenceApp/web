@@ -98,6 +98,15 @@ const dayN = (n) => dayOf(Date.now() - n * DAY); // n days ago
 const rid = (p, n = 8) => `${p}_${crypto.randomBytes(n).toString("hex")}`;
 const rank = (t) => TIERS.indexOf(t);
 const hostOf = (u) => { try { return new URL(u).host.replace(/^www\./, ""); } catch { return null; } };
+// As the core does for a title made from the first sentence: cut at a word or clause, end with "…".
+function shorten(text, max) {
+  const chars = [...text];
+  if (chars.length <= max) return text;
+  const head = chars.slice(0, max - 1);
+  let cut = head.length;
+  for (let i = head.length - 1; i >= Math.floor(head.length * 0.6); i--) if (/[\s,;:，；：、。.!?！？]/.test(head[i])) { cut = i; break; }
+  return head.slice(0, cut).join("").replace(/[\s,;:，；：、]+$/, "") + "…";
+}
 const normCode = (c) => decodeURIComponent(c).toUpperCase().replace(/[^A-Z0-9]/g, "");
 
 // ---------------------------------------------------------------- state and seed
@@ -450,7 +459,7 @@ on("POST", "/v1/items", "save", (c) => {
     S.lastSaved = { kind: b.kind, url: b.url ?? null, text: b.text ?? null, title: b.title ?? null, entry: b.entry ?? null, asset_bytes: asset?.data?.length ?? null, asset_content_type: asset?.content_type ?? null };
     if (b.url) { const dup = [...S.items.values()].find((i) => i.url === b.url); if (dup) return [200, { status: "duplicate", item_id: dup.id, message_key: "duplicate", message: msg("duplicate") }]; }
     const skipped = !!asset?.over_quota;
-    const title = b.title || (b.kind === "link" ? hostOf(b.url) : b.kind === "text" ? b.text.trim().split("\n")[0].slice(0, 80) : b.kind === "image" ? (c.lang === "zh" ? "图片" : "Image") : (c.lang === "zh" ? "文件" : "File"));
+    const title = b.title || (b.kind === "link" ? hostOf(b.url) : b.kind === "text" ? shorten(b.text.trim().split("\n")[0], 80) : b.kind === "image" ? (c.lang === "zh" ? "图片" : "Image") : (c.lang === "zh" ? "文件" : "File"));
     const it = { id: rid("it", 6), kind: b.kind, title, site: b.url ? hostOf(b.url) : null, url: b.url ?? null, created_at: ago(0), stage: "saved", content_unavailable: false, dispatch_to: null, expiry_days: 30, pinned: false, signal: null, analysis: null,
       body: b.text ?? null, asset_id: asset && !skipped ? b.asset_id : null, digest_day: null, source: c.device.client };
     S.items.set(it.id, it); S.saved.set(today(), (S.saved.get(today()) ?? 0) + 1);

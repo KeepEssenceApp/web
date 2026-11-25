@@ -128,7 +128,7 @@ function QueueRow({ e, onChanged }: { e: QueueEntry; onChanged: () => void }) {
   return (
     <li class="queue-row" data-item={e.item_id}>
       <div class="stack tight">
-        <a class="queue-title" href={`/item/${e.item_id}`}>
+        <a class="queue-title title-clip" href={`/item/${e.item_id}`} title={e.title}>
           {e.title}
         </a>
         <p class="row wrap small">
@@ -223,7 +223,7 @@ export function NotesPage() {
               <li key={n.id}>
                 <a class="note-row" href={`/notes/${n.id}`}>
                   <span class="stack tight">
-                    <b>{n.title}</b>
+                    <b class="title-clip" title={n.title}>{n.title}</b>
                     {n.excerpt && <span class="quiet small clamp">{n.excerpt}</span>}
                     <span class="quiet small">{shortDate(n.created_at, session.get().user?.timezone)}</span>
                   </span>

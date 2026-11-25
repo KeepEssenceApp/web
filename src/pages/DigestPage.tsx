@@ -16,7 +16,7 @@ function WorthCard({ w, act }: { w: DigestWorth; act: ItemActions }) {
   const gone = w.available === false;
   const card = (
     <article class="card worth" data-item={w.item_id}>
-      {w.title && <h3>{gone ? w.title : <a href={`/item/${w.item_id}`}>{w.title}</a>}</h3>}
+      {w.title && <h3>{gone ? w.title : <a class="title-clip" href={`/item/${w.item_id}`} title={w.title}>{w.title}</a>}</h3>}
       <p class="summary">{w.line}</p>
       <p class="quiet small">{shared(rules?.verdicts[w.verdict ?? "worth_deep_dive"])}</p>
       {gone ? <p class="quiet small">{t("digest.item_deleted")}</p> : <Actions itemId={w.item_id} act={act} onSheet={() => setSheet(true)} />}

@@ -83,7 +83,7 @@ export function Today() {
                   {handled.map((i) => (
                     <li class="rest-line" key={i.id} data-handled={i.id}>
                       <span class="rest-title">
-                        <a href={`/item/${i.id}`}>{i.title}</a>
+                        <a class="title-clip" href={`/item/${i.id}`} title={i.title}>{i.title}</a>
                       </span>
                       <span class="quiet small">{i.in_queue ? t("digest.in_queue") : i.signal === "not_interested" ? t("action.not_interested") : t("action.seen")}</span>
                       <button class="link" type="button" onClick={() => act.restore(i.id, { signal: i.signal, in_queue: i.in_queue })}>

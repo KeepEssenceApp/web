@@ -229,7 +229,7 @@ export function AnalysisCard({ item, act }: { item: Item; act: ItemActions }) {
         <header class="card-head">
           <KindIcon kind={item.kind} />
           <h3>
-            <a href={`/item/${item.id}`}>{item.title}</a>
+            <a class="title-clip" href={`/item/${item.id}`} title={item.title}>{item.title}</a>
           </h3>
           {item.url && (
             <a class="corner link" href={item.url} target="_blank" rel="noopener noreferrer">
@@ -264,7 +264,7 @@ export function WaitingRow({ item }: { item: Item }) {
     <li class="waiting" data-item={item.id}>
       <KindIcon kind={item.kind} />
       <div>
-        <a href={`/item/${item.id}`}>{item.title}</a>
+        <a class="title-clip" href={`/item/${item.id}`} title={item.title}>{item.title}</a>
         <p class="quiet small">
           {[item.site, item.content_unavailable ? shared(rules?.content_unavailable) : null, ...facts].filter(Boolean).join(" · ")}
         </p>
