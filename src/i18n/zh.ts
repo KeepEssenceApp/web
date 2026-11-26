@@ -100,6 +100,7 @@ export const zh = {
   "field.summary": "内容概述",
   "field.key_fact": "关键事实",
   "field.points": "要点",
+  "field.points_none": "解读里没有列出要点。",
   "field.verdict": "判定",
   "field.related": "关联提示",
 

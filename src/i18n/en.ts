@@ -102,6 +102,7 @@ export const en: Record<keyof typeof zh, string> = {
   "field.summary": "Summary",
   "field.key_fact": "Key fact",
   "field.points": "Key points",
+  "field.points_none": "The analysis lists none.",
   "field.verdict": "Verdict",
   "field.related": "Related",
 

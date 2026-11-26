@@ -195,18 +195,23 @@ export function AnalysisFields({ a }: { a: Analysis }) {
               <dd>{a.key_fact}</dd>
             </div>
           )}
-          {!!a.points?.length && (
-            <div>
-              <dt>{t("field.points")}</dt>
-              <dd>
+          {/* The field is always there (A11: four fixed fields). An analysis that came back without a key point says so; none is made up (QA #69). */}
+          <div>
+            <dt>{t("field.points")}</dt>
+            <dd>
+              {a.points?.length ? (
                 <ul class="points">
                   {a.points.slice(0, 3).map((p, i) => (
                     <li key={i}>{p}</li>
                   ))}
                 </ul>
-              </dd>
-            </div>
-          )}
+              ) : (
+                <span class="quiet" data-testid="points-none">
+                  {t("field.points_none")}
+                </span>
+              )}
+            </dd>
+          </div>
           {a.verdict && (
             <div>
               <dt>{t("field.verdict")}</dt>
