@@ -75,6 +75,8 @@ export const en: Record<keyof typeof zh, string> = {
   "inbox.dont_save": "Don't save",
   "inbox.too_large": "The file is larger than {mb} MB",
   "inbox.bad_type": "This kind of file cannot be saved",
+  "inbox.image_note": "Images are compressed before saving ({px} px on the long edge at most). The original isn't uploaded; it stays on your device.",
+  "inbox.gif_one_frame": "Only one frame of the animation was kept.",
   "inbox.remove": "Remove",
   "inbox.drop": "Drop to add",
 
