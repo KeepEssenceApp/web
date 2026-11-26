@@ -10,7 +10,7 @@ test("QA #51: the language follows one choice, both ways, every time", async ({ 
   await signIn(page, "/assistants/account");
   const pick = page.getByTestId("language");
   const hint = page.getByTestId("language-hint");
-  const EN = "New analyses and digests are written in this language.";
+  const EN = "Analyses and daily digests that already exist are not translated.";
   for (const [value, en] of [["en", true], ["zh", false], ["en", true], ["zh", false], ["en", true]] as const) {
     await pick.selectOption(value);
     await expect(pick).toHaveAttribute("aria-busy", "false");
@@ -33,7 +33,7 @@ test("QA #51: while the core is asked, the control keeps the choice and says it 
   await pick.selectOption("en");
   await expect(pick).toHaveValue("en");
   await expect(hint).toHaveText("正在换语言…", { timeout: 700 });
-  await expect(hint).toHaveText("New analyses and digests are written in this language.");
+  await expect(hint).toHaveText("Analyses and daily digests that already exist are not translated.");
   await request.post("/__test/delay", { data: { ms: 1500 } });
   await pick.selectOption("zh");
   await expect(pick).toHaveValue("zh");

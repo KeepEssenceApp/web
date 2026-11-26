@@ -67,6 +67,14 @@ describe("words", () => {
     expect(hits).toEqual([]);
   });
 
+  // The word table calls the step 初筛, in English triage (QA #98): not "the dispatch step", not "first sort".
+  it("calls triage triage in English", () => {
+    const hits: string[] = [];
+    for (const [key, value] of Object.entries(en)) if (/dispatch step|first sort/i.test(value)) hits.push(key);
+    expect(hits).toEqual([]);
+    expect(en["step.triage"]).toBe("Triage");
+  });
+
   it("names the four entries exactly as the term table does", () => {
     expect([zh["nav.today"], zh["nav.digest"], zh["nav.notes"], zh["nav.assistants"]]).toEqual(["今天", "每日摘要", "笔记", "助手设置"]);
     expect([en["nav.today"], en["nav.digest"], en["nav.notes"], en["nav.assistants"]]).toEqual(["Today", "Daily digest", "Notes", "Assistants"]);

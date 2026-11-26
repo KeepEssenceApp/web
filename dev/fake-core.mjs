@@ -142,6 +142,8 @@ function seed(opts = {}) {
   S.devices.set("dev_ext", { id: "dev_ext", name: "Chrome 扩展 · Mac", category: "client", client: "extension", tier: "save", created_at: ago(9 * DAY), last_used_at: ago(3 * 3600e3), notifications: false });
   S.oauth.set("req_demo", { client_name: "Example Chat", client_uri: "https://chat.example.com", redirect_host: "chat.example.com", steps_requested: ["deep_dive"], state: "xyz" });
   S.oauth.set("req_agent", { client_name: "My Agent", client_uri: null, redirect_host: "agent.example.com", steps_requested: ["analysis", "digest", "deep_read", "deep_dive"], state: "xyz" });
+  // A new service: no assistant has come yet (what a real new account shows).
+  if (opts.never_came) for (const a of [builtin, adu, ashen]) a.last_seen_at = null;
   // An empty account is a new one: this is its first month, as the core would say.
   if (opts.empty) { S.firstMonth = true; return; }
 
