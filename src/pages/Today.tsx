@@ -9,6 +9,7 @@ import { opens } from "../components/Split";
 import { Loading } from "../components/ui";
 import { t } from "../i18n";
 import { useLoad, useWatch } from "../lib";
+import { emptyToday, type CalendarState } from "../today-empty";
 import { refresh } from "../session";
 import type { Item } from "../types";
 import { useStore } from "../store";
@@ -19,7 +20,11 @@ const newest = (a: { created_at: string }, b: { created_at: string }) => (a.crea
 export function Today({ selected }: { selected?: string }) {
   const tick = useStore(refresh);
   const items = useLoad(api.today, [tick]);
-  const cal = useLoad(() => api.calendar(), [tick]);
+  // The calendar answers for the load it was asked in (`tick`): what an older load found is shown, but it does not
+  // decide what the empty list means (QA #44).
+  const calLoad = useLoad(async () => ({ tick, calendar: await api.calendar() }), [tick]);
+  const cal = { data: calLoad.data?.calendar, reload: calLoad.reload };
+  const calendar: CalendarState = calLoad.data?.tick === tick ? "ready" : calLoad.error ? "failed" : "pending";
   // An action shows at once: the card leaves the list before the core has answered.
   const act = itemActions(items.reload, (id, change) => {
     if (items.data) items.set(items.data.map((i) => (i.id === id ? { ...i, ...change } : i)));
@@ -34,9 +39,10 @@ export function Today({ selected }: { selected?: string }) {
   // What was handled is still here, one line each, until the daily digest takes it into its rest.
   const handled = all.filter((i) => i.analysis && (i.signal || i.in_queue));
   // Once today's daily digest is written, what was saved today is in it and no longer listed
-  // here. Say so instead of "nothing saved" (QA #44).
-  const inDigest = !!cal.data?.days.find((d) => d.day === cal.data!.today)?.has_digest;
-  const fresh = !!items.data && !!cal.data && all.length === 0 && !inDigest && cal.data.counts.saved === 0 && !cal.data.previous_month;
+  // here. Say so instead of "nothing saved" (QA #44), and say nothing about it until the calendar has answered.
+  const inDigest = calendar === "ready" && !!cal.data?.days.find((d) => d.day === cal.data!.today)?.has_digest;
+  const fresh = !!items.data && calendar === "ready" && !!cal.data && all.length === 0 && !inDigest && cal.data.counts.saved === 0 && !cal.data.previous_month;
+  const empty = emptyToday({ analyses: analyses.length, waiting: waiting.length, all: all.length, calendar, inDigest, fresh });
   const count = (n: number) => ` · ${t("today.n", { n })}`;
   // While items wait, the list asks again quietly; an analysis that lands moves its item up
   // into the analyses without a reload (QA #26). The panel and the status bar are told.
@@ -61,10 +67,24 @@ export function Today({ selected }: { selected?: string }) {
       ) : (
         <>
           {/* An account that has never saved anything is shown how a day goes, not one bare sentence. */}
-          {fresh && <Start inline />}
-          {!fresh && analyses.length === 0 && waiting.length === 0 && (
+          {empty === "start" && <Start inline />}
+          {/* The calendar has not answered: it is not yet known what an empty list means (QA #44). */}
+          {empty === "pending" && (
+            <p class="sentence quiet" aria-busy="true" data-testid="today-empty-pending">
+              {t("common.loading")}
+            </p>
+          )}
+          {empty === "unknown" && (
+            <p class="sentence" role="status" data-testid="today-empty-unknown">
+              {t("today.unknown")}{" "}
+              <button class="link" type="button" onClick={cal.reload}>
+                {t("today.unknown_retry")}
+              </button>
+            </p>
+          )}
+          {(empty === "all_done" || empty === "in_digest" || empty === "nothing") && (
             <p class="sentence" data-testid="today-empty">
-              {all.length ? t("today.all_done") : inDigest ? (
+              {empty === "all_done" ? t("today.all_done") : empty === "in_digest" ? (
                 <>
                   {t("today.in_digest")} <a href="/digest">{t("today.open_digest")}</a>
                 </>

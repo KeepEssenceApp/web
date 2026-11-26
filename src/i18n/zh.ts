@@ -84,6 +84,8 @@ export const zh = {
   "today.nothing": "今天还没有存入。把链接或一段文字贴进上面的框，点「存入」。",
   "today.in_digest": "今天的每日摘要已经出了。在它之前解读好的都在里面，没有删除。之后存入的，进明天的每日摘要。",
   "today.open_digest": "看每日摘要",
+  "today.unknown": "这里没有列出条目，但没读到今天的每日摘要有没有收走你存入的内容。",
+  "today.unknown_retry": "再试一次",
   "today.given_to": "等 {name} 解读",
   "today.days_left": "还剩 {n} 天",
   "today.kept": "收藏了，不过期",

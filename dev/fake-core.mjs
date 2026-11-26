@@ -761,6 +761,15 @@ on("POST", "/__test/video", null, (c) => {
   }
   return [200, itemOut(it, true)];
 });
+// Today's daily digest is written (#44): everything that was not in a digest goes into it, so Today's list is empty and
+// the calendar says today has a digest. As the core does when the digest is built.
+on("POST", "/__test/digest-today", null, () => {
+  const day = today(), a = S.assistants[0];
+  const ids = [...S.items.values()].filter((i) => !i.digest_day).map((i) => { i.digest_day = day; return i.id; });
+  S.digests.set(day, { day, read: false, item_ids: ids, saved: ids.length, summary: "今天存入的几条，内容是编的。", question: "明天最想弄明白的一个问题是什么？", assistant: { id: a.id, name: a.name } });
+  S.saved.set(day, Math.max(S.saved.get(day) ?? 0, ids.length));
+  return [200, { ok: true, items: ids.length }];
+});
 on("POST", "/__test/analyse", null, (c) => {
   const it = c.body.item_id ? getItem(c.body.item_id) : [...S.items.values()].filter((i) => !i.digest_day && i.stage !== "analysed").sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? fail(404, "not_found");
   const a = S.assistants[0];
