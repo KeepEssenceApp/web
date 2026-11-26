@@ -27,6 +27,10 @@
 
 - **标签不显示，但页面还在读它。** A6：标签不给用户看，条目页只有「交给哪个助手」「保留多久」两个控件和一句话。可初筛前核心只放一个占位的保留天数，`ItemPage` 靠条目上有没有 `expiry:` 标签才知道这个值是不是用户自己选的，所以别把读取一并删掉。端到端里不要按 `.tags` 去查（那个类已经没有了）；要查就查页面里没有 `assistant:`、`expiry:`、`source:` 字样，要看核心有没有收下选择就 `GET /v1/items/{id}` 看标签（见 `e2e/qa-94.spec.ts`）。
 
+## 部署
+
+- **用令牌部署要同时给 `CLOUDFLARE_ACCOUNT_ID`。** `wrangler.toml` 里没有 `account_id`：这个仓库是公开的，自托管的人用自己的账号，写死一个就让别人部署不了。只给令牌（wrangler 读的变量名是 `CLOUDFLARE_API_TOKEN`）时，wrangler 去调 `/memberships` 找账号，令牌没有这项权限就报 `10000` 鉴权失败。把账号 ID 放在环境变量 `CLOUDFLARE_ACCOUNT_ID` 里，和令牌放在一起，不进仓库；core 用的是同一个账号。用 `wrangler login` 登录的人不会碰到这个。
+
 ## 提交
 
 - 仓库的提交钩子会跑 gitleaks。测试里用来验「像密码」规则的假样本会被它拦下，所以样本在测试里用几段字符串拼出来，不写成整串。
