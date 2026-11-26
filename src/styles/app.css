@@ -316,6 +316,7 @@ label > .label { margin-bottom: 6px; }
 .inbox.over .inbox-box { border-color: var(--ke-text); border-style: dashed; }
 .inbox-files { display: flex; flex-direction: column; gap: 4px; font-size: var(--ke-size-secondary); }
 .inbox-files li { display: flex; gap: 10px; align-items: center; }
+.tier-legend { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .inbox-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
 .inbox-result { flex: 1; min-width: 0; }
 .inbox-actions { display: flex; gap: 8px; flex-shrink: 0; }

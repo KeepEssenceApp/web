@@ -383,14 +383,16 @@ test.describe("QA #18: the account's language", () => {
   test("QA #18: (a) changing the language in Account writes it through PATCH /v1/settings, and says what it is for", async ({ page, request }) => {
     await signIn(page, "/assistants/account");
     expect((await state(request)).user.lang).toBe("zh");
-    await expect(page.getByTestId("language-hint")).toHaveText("新的解读和每日摘要用这种语言写。");
+    // The hint says only what is true whatever the language: what already exists is not translated (QA #98).
+    await expect(page.getByTestId("language-hint")).toHaveText("已有的解读和每日摘要不会重新翻译。");
     const [patch] = await Promise.all([
       page.waitForRequest((r) => r.method() === "PATCH" && new URL(r.url()).pathname === "/v1/settings"),
       page.getByTestId("language").selectOption("en"),
     ]);
     expect(patch.postDataJSON()).toEqual({ lang: "en" });
     await expect(page.locator("nav.nav .nav-entry").first()).toHaveText("Today");
-    await expect(page.getByTestId("language-hint")).toHaveText("New analyses and digests are written in this language.");
+    await expect(page.getByTestId("language-hint")).toHaveText("Analyses and daily digests that already exist are not translated.");
+    await expect(page.getByTestId("language-changed")).toHaveText("Interface language changed.");
     await expect(page.getByTestId("language")).toHaveValue("en");
     expect((await state(request)).user.lang).toBe("en");
     // It holds after a reload: the account says English, and so does this device.

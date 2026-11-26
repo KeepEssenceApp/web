@@ -67,6 +67,14 @@ describe("words", () => {
     expect(hits).toEqual([]);
   });
 
+  // The word table calls the step 初筛, in English triage (QA #98): not "the dispatch step", not "first sort".
+  it("calls triage triage in English", () => {
+    const hits: string[] = [];
+    for (const [key, value] of Object.entries(en)) if (/dispatch step|first sort/i.test(value)) hits.push(key);
+    expect(hits).toEqual([]);
+    expect(en["step.triage"]).toBe("Triage");
+  });
+
   // A6 (Cheney, 2026-11-26): the user is not told that tags exist. Not shown, and not mentioned.
   // The export file still carries them; the interface does not say so.
   it("never mentions tags to the user (A6)", () => {

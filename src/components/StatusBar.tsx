@@ -9,9 +9,10 @@ import { State, type DotKind } from "./ui";
 
 const DOT: Record<AssistantState, DotKind> = { working: "solid", recent: "solid", quiet: "ring", never: "ring" };
 
-function lastCame(a: Status["assistants"][number]) {
+/** `idle`: nothing is waiting, so an assistant that has not come yet is not late, there is just nothing for it (QA #98). */
+function lastCame(a: Status["assistants"][number], idle: boolean) {
   if (a.state === "working") return t("status.now");
-  if (!a.last_seen_at) return t("status.never");
+  if (!a.last_seen_at) return t(idle ? "status.nothing_to_analyse" : "status.never");
   return t("status.came", { when: ago(a.last_seen_at) });
 }
 
@@ -56,13 +57,19 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
   // Red only when something will be lost: items are waiting and nobody is coming for them.
   const losing = s.waiting > 0 && active === 0 && !expected;
   const dot: DotKind = losing ? "danger" : active > 0 ? "solid" : "ring";
+  // Nothing waiting and nothing saved today: the assistant is not late, there is nothing for it
+  // yet. Say the next step instead (QA #98), the way Getting started says it; the counts would
+  // only repeat it.
+  const nothingYet = active === 0 && expected && s.waiting === 0 && s.saved_today === 0;
   const headline =
     active > 0
       ? t(active === 1 ? "status.working_one" : "status.working", { n: active })
-      : expected
-        ? t("status.not_come_yet", { name: first!.name })
-        : t("status.none_working");
-  const counts = [t("status.saved_today", { n: s.saved_today }), t("status.waiting", { n: s.waiting })];
+      : nothingYet
+        ? t("status.save_first")
+        : expected && s.waiting > 0
+          ? t("status.not_come_yet", { name: first!.name })
+          : t("status.none_working");
+  const counts = nothingYet ? [] : [t("status.saved_today", { n: s.saved_today }), t("status.waiting", { n: s.waiting })];
   const manage = canManage();
   const layout = phone ? (page === "today" ? "narrow" : "narrowest") : page === "today" ? "wide" : "narrow";
 
@@ -81,7 +88,7 @@ export function StatusBar({ page }: { page: "today" | "other" }) {
             <State dot={DOT[a.state]}>
               <b>{a.name}</b>
             </State>
-            <span class="quiet">{lastCame(a)}</span>
+            <span class="quiet">{lastCame(a, s.waiting === 0)}</span>
           </div>
         ))}
       </div>

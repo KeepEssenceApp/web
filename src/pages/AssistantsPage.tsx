@@ -444,7 +444,7 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
       <section class="stack tight">
         <h2>{t("set.rules")}</h2>
         <p class="quiet small">{t("rules.hint")}</p>
-        <textarea rows={8} maxLength={4000} value={rules} aria-label={t("set.rules")}
+        <textarea rows={8} maxLength={4000} value={rules} aria-label={t("set.rules")} placeholder={t("rules.placeholder")}
           onInput={(ev) => {
             setRules(ev.currentTarget.value);
             setOutcome(null);
@@ -517,6 +517,15 @@ function Devices() {
       <section class="stack">
         <h2>{t("set.devices")}</h2>
         <p class="quiet small">{t("devices.hint")}</p>
+        {/* What each permission lets a device do, so the choice below is not a guess (QA #98). */}
+        <ul class="tier-legend quiet small" data-testid="tier-legend" aria-label={t("devices.tier")}>
+          {TIERS.map((x) => (
+            <li key={x} data-tier={x}>
+              <b>{t(`tier.${x}`)}</b> · {t(`tier.${x}.desc`)}
+            </li>
+          ))}
+        </ul>
+        <p class="quiet small" data-testid="tier-hint">{t("devices.tier_hint")}</p>
         <ul class="rows">
           {list.data.devices.map((d: Device) => (
             <li key={d.id} class="stack tight" data-device={d.id}>
@@ -745,12 +754,24 @@ function Notify() {
 }
 
 // ---------------------------------------------------------------- account
+// Changing the language remounts the whole app (the new language is drawn from the start), so
+// the page that asked cannot keep the confirmation itself: it leaves it here for the next mount.
+let languageJustChanged = 0;
+const takeLanguageChanged = () => {
+  const fresh = Date.now() - languageJustChanged < 5000;
+  languageJustChanged = 0;
+  return fresh;
+};
+
 function Account() {
   const settings = useLoad(api.settings, []);
   useStore(session);
   const [fail, setFail] = useState<string | null>(null);
   const [busy, run] = useBusy();
   const [asked, setAsked] = useState<Lang | null>(null);
+  // One neutral sentence after the language was changed. It does not say anything about what
+  // is written in it later: that is not promised while QA #18 is open.
+  const [changed, setChanged] = useState(takeLanguageChanged);
   const s = settings.data;
   if (!s) return <Loading error={settings.error} />;
   let zones: string[] = [];
@@ -766,12 +787,15 @@ function Account() {
   // (QA #51): the page never looks finished in the old language.
   const changeLang = (next: Lang) => {
     setAsked(next);
+    setChanged(false);
     return run("lang", async () => {
       const saved = await api.updateSettings({ lang: next });
       settings.set(saved);
       const now = session.get();
       if (now.user) session.set({ ...now, user: { ...now.user, lang: saved.lang } });
+      languageJustChanged = Date.now();
       setLang(saved.lang);
+      setChanged(true);
     }).finally(() => setAsked(null));
   };
   const signOut = () => {
@@ -792,6 +816,11 @@ function Account() {
                 <option value="en">{t("account.lang_en")}</option>
               </select>
             </label>
+            {changed && !asked && (
+              <p class="small" data-testid="language-changed" role="status">
+                {t("account.language_changed")}
+              </p>
+            )}
             <p class="quiet small" data-testid="language-hint" role="status">{asked ? t("account.language_changing") : t("account.language_hint")}</p>
           </div>
           <label class="stack tight">
