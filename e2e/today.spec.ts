@@ -80,7 +80,7 @@ test("W2: when everything is handled there is one sentence only", async ({ page,
   await expect(page.locator(".page img, .page svg.illustration")).toHaveCount(0);
 
   await page.locator(".inbox-box").fill("https://example.com/one-thing");
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
   await expect(page.locator(".waiting")).toHaveCount(1);
   await request.post("/__test/analyse", { data: {} });

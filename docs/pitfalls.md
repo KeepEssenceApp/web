@@ -17,6 +17,7 @@
 - **无头 Chromium 的通知权限缺省是 denied，不是 default。** 测「只在点了通知我之后问一次」时，要在页面脚本里把 `Notification.permission` 换成可控的。
 - **页面开着时不弹通知。** 规格要求读的界面开着的设备不弹。`sw.js` 发现有可见的窗口就只让页面刷新。Chrome 对「收到推送却不显示通知」有容忍次数，超过后会自己弹一条通用提示；如果内测里见到，就改成照常弹。
 - **分享入口要 service worker 已经接管。** `share_target` 用的是 POST（这样才能带图片），由 `sw.js` 接住，把文件放进一个临时缓存，再转到 `/share` 由页面存入（凭据只有页面拿得到）。第一次打开还没装上 service worker 时，POST 会直接打到服务器；核心转给静态文件的 Worker 时要对 `POST /share` 回 303 到 `/share`（假核心是这么做的），否则会是 404/405。这个临时缓存是 `sw.js` 里唯一的缓存，接口应答不缓存。
+- **选择文件要一个看得见的按钮去点隐藏的 `<input type=file>`。** 手机上拖不了，也基本贴不进文件（QA #95）。按钮是真的 `button`（键盘能到，Enter 打开选择器）；隐藏的 input 带 `multiple` 和与核心一致的 `accept`，Markdown 文件常常没有类型，所以 `accept` 里也列扩展名。选完要把 `value` 清空，否则拿掉的文件选不回来。端到端里用 `filechooser` 事件，取消用 `setFiles([])`；「存入」按钮用 `data-testid="inbox-save"` 找，因为 `.inbox .btn` 现在有两个。
 - **所有图片都转成 WebP。** 动图（GIF）经 canvas 之后只剩第一帧。
 - **色表里没有遮罩色。** 弹层后面的暗底用 `color-mix(in srgb, var(--ke-black) 55%, transparent)`，没有新增色值。
 - **登录页恒为深色。** 靠在根元素上放 `data-theme="dark"`（色表支持），离开时去掉；不是另写一套颜色。

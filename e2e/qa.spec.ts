@@ -364,7 +364,7 @@ test("QA #16: with no daily digest the page says when one comes, what it needs, 
   // The count is the current one.
   await page.goto("/");
   await page.locator(".inbox-box").fill("https://example.com/for-tonight");
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
   await request.post("/__test/analyse", { data: {} });
   await page.goto("/digest");

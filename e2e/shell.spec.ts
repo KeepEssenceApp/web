@@ -56,7 +56,7 @@ test("a save-only device has no reading interface, only the inbox", async ({ pag
   await expect(page.locator("nav.nav")).toHaveCount(0);
   await expect(page.locator(".inbox-box")).toBeVisible();
   await page.locator(".inbox-box").fill("https://example.com/from-a-save-only-device");
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
 });
 

@@ -8,14 +8,14 @@ test("W6: paste a link or text, one action saves, one sentence from the core", a
   const box = page.locator(".inbox-box");
   const url = `https://example.com/articles/leases-${Date.now()}`;
   await box.fill(url);
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
   await expect(box).toHaveValue("");
   if (FAKE) expect((await state(request)).last_saved).toMatchObject({ kind: "link", url, entry: "web-inbox" });
 
   // The same link again is swallowed, and said so.
   await box.fill(url);
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("之前存过了，没有重复存。");
 
   await box.fill("今天读到一句话：一份活同时只归一个人。");
@@ -30,7 +30,7 @@ test("W6: content that looks like a password asks first", async ({ page, request
   const before = (await state(request)).counts.items;
   const box = page.locator(".inbox-box");
   await box.fill("pass" + "word = " + "made-up-Example-1"); // a made-up look-alike
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   const ask = page.locator(".inbox-ask");
   await expect(ask).toContainText("这段内容看起来像密码或凭据，还要存入吗？");
   expect((await state(request)).counts.items).toBe(before);
@@ -39,7 +39,7 @@ test("W6: content that looks like a password asks first", async ({ page, request
   expect((await state(request)).counts.items).toBe(before);
 
   await box.fill("sk-" + "abcdefghij".repeat(3)); // a made-up look-alike
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await page.locator(".inbox-ask").getByRole("button", { name: "存入", exact: true }).click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
   expect((await state(request)).counts.items).toBe(before + 1);
@@ -63,7 +63,7 @@ test("W6: a dropped image is compressed to WebP at 1600 px, hashed and uploaded"
     document.querySelector(".inbox")!.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
   });
   await expect(page.locator(".inbox-files li")).toContainText("diagram.png");
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
 
   if (FAKE) {
@@ -105,6 +105,6 @@ test("W6: an image pasted from the clipboard is taken too", async ({ page }) => 
     document.querySelector(".inbox-box")!.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   });
   await expect(page.locator(".inbox-files li")).toHaveCount(1);
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
 });
