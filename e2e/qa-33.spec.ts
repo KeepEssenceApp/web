@@ -30,9 +30,9 @@ test("QA #33: the expiry options' error goes when the value becomes valid, and s
   await expect(hint).toBeVisible();
   await expect(field).toHaveAttribute("aria-invalid", "false");
   expect((await state(request)).settings.expiry_options).toEqual([7, 30, 90, 365]);
-  // Typing a wrong value again does not bring the error back before a save is tried.
+  // A wrong value is said while it is typed, without waiting for a save (QA #88).
   await field.fill("7, 30, 400");
-  await expect(alert).toHaveCount(0);
+  await expect(alert).toHaveText("要 1 到 6 个数，每个 1 到 365。");
   await field.fill("7, 30, 40");
   await page.getByRole("button", { name: "保存" }).click();
   await expect(page.locator(".said")).toHaveText("已保存。");
@@ -161,4 +161,28 @@ test("QA #53: a rules save that changed something stays confirmed beside the but
   // It goes as soon as something is edited: it spoke of what was saved, not of what is typed now.
   await days.fill("7, 30");
   await expect(outcome).toHaveText("");
+});
+
+test("QA #88: days out of range are said while they are typed, and are not sent", async ({ page }) => {
+  await signIn(page, "/assistants/rules");
+  const days = page.locator('input[inputmode="numeric"]');
+  const note = page.getByTestId("expiry-note");
+  let sent = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PATCH" && new URL(r.url()).pathname === "/v1/settings") sent++;
+  });
+  for (const wrong of ["0", "400", "7, 0", "7, 30, 400", "1.5", "-3", "1, 2, 3, 4, 5, 6, 7", ""]) {
+    await days.fill(wrong);
+    await expect(days).toHaveAttribute("aria-invalid", "true");
+    await expect(note).toHaveAttribute("role", "alert");
+  }
+  await days.fill("400");
+  await page.getByRole("button", { name: "保存" }).click();
+  await expect(days).toHaveAttribute("aria-invalid", "true");
+  expect(sent).toBe(0);
+  for (const right of ["1", "365", "7, 30"]) {
+    await days.fill(right);
+    await expect(days).toHaveAttribute("aria-invalid", "false");
+    await expect(note).not.toHaveAttribute("role", "alert");
+  }
 });

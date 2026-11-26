@@ -415,6 +415,8 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
   // off (QA #82). Days that cannot be read count as a change, so that pressing Save says what is wrong.
   const typed = expiryOptions(expiry);
   const same = (xs: number[]) => [...new Set(xs)].sort((x, y) => x - y).join(",");
+  // Days that cannot be used are said while they are typed, not only when Save is pressed (QA #88).
+  const invalid = bad || !typed;
   const dirty = rules !== settings.rules || !typed || same(typed) !== same(settings.expiry_options);
   const save = (ev: Event) => {
     ev.preventDefault();
@@ -458,7 +460,7 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
             type="text"
             inputMode="numeric"
             value={expiry}
-            aria-invalid={bad}
+            aria-invalid={invalid}
             onInput={(ev) => {
               const value = ev.currentTarget.value;
               setExpiry(value);
@@ -470,8 +472,8 @@ function RulesForm({ settings, onSaved }: { settings: Settings; onSaved: (s: Set
             }}
           />
         </label>
-        <p class={bad ? "bad small" : "quiet small"} role={bad ? "alert" : undefined}>
-          {bad ? t("rules.expiry_invalid") : t("rules.expiry_hint")}
+        <p class={invalid ? "bad small" : "quiet small"} role={invalid ? "alert" : undefined} data-testid="expiry-note">
+          {invalid ? t("rules.expiry_invalid") : t("rules.expiry_hint")}
         </p>
       </section>
       <div class="row">
