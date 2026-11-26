@@ -56,6 +56,13 @@ test("QA #95: a PNG, a PDF and a Markdown file chosen together wait in the list,
   await expect(page.locator(".inbox-files li")).toHaveCount(0);
   expect(await items(request)).toBe(before + 3);
   expect((await state(request)).counts.assets).toBe(3);
+  // They are shown afterwards, on Today, under their file names (the picture and the PDF).
+  await page.goto("/");
+  await expect(page.getByText("diagram.png").first()).toBeVisible();
+  await expect(page.getByText("paper.pdf").first()).toBeVisible();
+  // And nothing is left to send: Save has nothing to do.
+  await expect(save(page)).toBeDisabled();
+  expect(await items(request)).toBe(before + 3);
 });
 
 test("QA #95: cancelling the picker sends nothing and changes nothing", async ({ page, request }) => {
@@ -94,6 +101,36 @@ test("QA #95: a kind of file the core does not take is said plainly, and is not 
   await expect(result(page)).toContainText("这种文件存不了");
   await expect(result(page)).toHaveClass(/bad/);
   expect(await items(request)).toBe(before);
+  // It stays in the list, named, so the user can tell which one was not saved and take it out.
+  await expect(page.locator(".inbox-files li")).toHaveCount(1);
+  await expect(page.locator(".inbox-files")).toContainText("tool.bin");
+  await expect(page.locator(".inbox-files").getByRole("button", { name: "拿掉" })).toBeVisible();
+});
+
+test("QA #95: a dropped file, a pasted file and a chosen file wait in the same list, and none replaces another", async ({ page, request }) => {
+  await signIn(page);
+  const before = await items(request);
+  // Drop and paste are the old ways (W6 in inbox.spec.ts); here they and the new button share the list.
+  await page.evaluate(() => {
+    const drop = new DataTransfer();
+    drop.items.add(new File(["made-up"], "dropped.txt", { type: "text/plain" }));
+    document.querySelector(".inbox")!.dispatchEvent(new DragEvent("drop", { dataTransfer: drop, bubbles: true, cancelable: true }));
+    const paste = new DataTransfer();
+    paste.items.add(new File(["made-up"], "pasted.txt", { type: "text/plain" }));
+    document.querySelector(".inbox-box")!.dispatchEvent(new ClipboardEvent("paste", { clipboardData: paste, bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator(".inbox-files li")).toHaveCount(2);
+  await (await openPicker(page)).setFiles([{ name: "chosen.txt", mimeType: "text/plain", buffer: Buffer.from("made-up") }]);
+  const list = page.locator(".inbox-files");
+  await expect(page.locator(".inbox-files li")).toHaveCount(3);
+  await expect(list).toContainText("dropped.txt");
+  await expect(list).toContainText("pasted.txt");
+  await expect(list).toContainText("chosen.txt");
+  // Nothing was sent by adding; Save sends the three, once each.
+  expect(await items(request)).toBe(before);
+  await save(page).click();
+  await expect(result(page)).toHaveText("已存入。");
+  expect(await items(request)).toBe(before + 3);
 });
 
 test("QA #95: files chosen and text typed go together; the text is saved once too", async ({ page, request }) => {
