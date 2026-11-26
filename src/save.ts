@@ -3,6 +3,7 @@ import { api, ApiError } from "./api";
 import { meta, refresh } from "./session";
 import { shared, t } from "./i18n";
 import { gifFrames } from "./gif";
+import { mib } from "./size";
 import { sha256Hex, toWebp } from "./lib";
 
 const ASSET_TYPES = ["image/webp", "image/png", "image/jpeg", "image/gif", "application/pdf", "text/plain", "text/markdown"];
@@ -64,7 +65,7 @@ export async function saveFile(file: File, entry: string): Promise<Outcome> {
       type = "image/webp";
     }
     if (!ASSET_TYPES.includes(type)) return failed(t("inbox.bad_type"));
-    if (blob.size > max) return failed(t("inbox.too_large", { mb: Math.round(max / 1048576) }));
+    if (blob.size > max) return failed(t("inbox.too_large", { mib: mib(max) }));
     const bytes = await blob.arrayBuffer();
     const asset = await api.requestUpload({ sha256: await sha256Hex(bytes), bytes: blob.size, content_type: type });
     if (asset.status === "upload" && asset.upload_url) {
