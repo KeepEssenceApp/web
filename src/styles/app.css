@@ -359,8 +359,6 @@ label > .label { margin-bottom: 6px; }
 .item-title { font-size: var(--ke-size-subtitle); overflow-wrap: anywhere; }
 .original-body { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ke-text-2); max-height: 420px; overflow: auto; padding: 12px 14px; border-left: 2px solid var(--ke-line); }
 .original-image { border-radius: var(--ke-radius); border: 1px solid var(--ke-line); }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tags code { padding: 2px 6px; border-radius: var(--ke-radius-tag); background: var(--ke-quiet); color: var(--ke-text-2); }
 .confirm { display: flex; flex-direction: column; gap: 8px; }
 
 /* ---------------------------------------------------------------- daily digest */
@@ -410,6 +408,7 @@ label > .label { margin-bottom: 6px; }
 .mark-digest_unread .cal-dot { border: 1.5px solid var(--ke-text); }
 .mark-digest_read .cal-dot { background: var(--ke-text); }
 .mark-note .cal-dot { background: var(--ke-gold); }
+.mark-future .cal-dot { width: var(--tiny); height: var(--tiny); background: var(--ke-line); }
 .cal-legend { --cell: 18px; --dot: 10px; --tiny: 4px; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .cal-legend li { display: flex; align-items: center; gap: 6px; }
 .cal-day.is-today { border-color: var(--ke-text-3); }
@@ -579,7 +578,7 @@ button.btn[aria-busy="true"]::after, button.link[aria-busy="true"]::after { cont
 .month-nav h1 { margin: 0; text-align: center; flex: 1 1 auto; }
 .month-nav .btn[aria-disabled="true"] { opacity: 0.45; cursor: default; pointer-events: none; }
 .cal-large .cal-day:focus-visible { outline: none; border-color: var(--ke-text); }
-.cal-large span.cal-day:hover { border-color: var(--ke-line); }
+.cal-large span.cal-day:not(.mark-future):hover { border-color: var(--ke-line); }
 .cal-readout { min-height: 1.5em; font-size: var(--ke-size-secondary); }
 @media (prefers-reduced-motion: reduce) {
   .switch[aria-busy="true"] .switch-knob { animation: none; }

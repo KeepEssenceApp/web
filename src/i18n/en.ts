@@ -103,6 +103,7 @@ export const en: Record<keyof typeof zh, string> = {
   "field.summary": "Summary",
   "field.key_fact": "Key fact",
   "field.points": "Key points",
+  "field.points_none": "The analysis lists none.",
   "field.verdict": "Verdict",
   "field.related": "Related",
 
@@ -117,7 +118,6 @@ export const en: Record<keyof typeof zh, string> = {
 
   "item.analysis": "Analysis",
   "item.not_analysed": "Not analysed yet.",
-  "item.tags": "Tags",
   "item.analysed_by": "Given to",
   "item.kept_for": "Kept for",
   "item.days": "{n} day{s:n}",
@@ -244,7 +244,7 @@ export const en: Record<keyof typeof zh, string> = {
   "calendar.mark.digest_unread": "Daily digest unread",
   "calendar.mark.digest_read": "Daily digest read",
   "calendar.mark.note": "A note was kept",
-  "calendar.mark.future": "",
+  "calendar.mark.future": "Not yet",
 
   "set.assistants": "Assistants",
   "set.rules": "Rules",
@@ -432,7 +432,7 @@ export const en: Record<keyof typeof zh, string> = {
   "calendar.no_counts": "This day is too far back for its numbers.",
   "account.session": "This device",
   "account.data": "Your data",
-  "account.data_in": "The download holds your rules and choices, every daily digest, every note with its sources and origin, and every item that still exists with its analysis and tags.",
+  "account.data_in": "The download holds your rules and choices, every daily digest, every note with its sources and origin, and every item that still exists with its analysis.",
   "account.data_out": "It does not hold items that were already deleted, or the contents of files. Files are listed by name, type and size; each one is downloaded separately from its own item.",
   "account.download_data": "Download my data",
   "account.download_notes": "Download my notes",

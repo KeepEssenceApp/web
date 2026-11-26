@@ -7,6 +7,7 @@ import { go } from "../router";
 import { refresh } from "../session";
 import { useStore } from "../store";
 import type { Calendar, QueueEntry } from "../types";
+import { calendarHref, type CalendarFrom } from "../calendar-link";
 import { CalendarCounts, CalendarDots } from "./CalendarDots";
 import { Loading, State, Stats, type DotKind } from "./ui";
 
@@ -14,19 +15,19 @@ import { Loading, State, Stats, type DotKind } from "./ui";
  * The card opens the month. Pressed on one of its days, it opens the month with that day
  * chosen (QA #73); a narrow screen has no day panel and shows the month.
  */
-const openDay = (ev: MouseEvent) => {
+const openDay = (from: CalendarFrom) => (ev: MouseEvent) => {
   if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
   const day = (ev.target as HTMLElement | null)?.closest<HTMLElement>("[data-day]")?.dataset.day;
   if (!day) return;
   ev.preventDefault();
   ev.stopPropagation();
-  go(`/calendar?day=${day}`);
+  go(calendarHref(from, { day }));
 };
 
 /** The month as a card: one dot a day and the month's numbers. Pressing it opens the month. */
 export function MonthCard({ cal }: { cal: Calendar }) {
   return (
-    <a class="card month-card" href="/calendar" aria-label={t("calendar.open")}>
+    <a class="card month-card" href={calendarHref("notes")} aria-label={t("calendar.open")}>
       <span class="label">
         {t("calendar.title")} · {monthName(cal.month)}
       </span>
@@ -43,10 +44,10 @@ const monthCells = (cal: Calendar) => [
   { id: "notes", n: cal.counts.notes, label: t("cal.notes") },
 ];
 
-/** The month in a panel: the dots, and beside them the month's numbers as a grid. It opens the month. */
-export function MonthPanel({ cal }: { cal: Calendar }) {
+/** The month in a panel: the dots, and beside them the month's numbers as a grid. It opens the month, from the page the panel is beside. */
+export function MonthPanel({ cal, from }: { cal: Calendar; from: CalendarFrom }) {
   return (
-    <a class="card month-card month-wide" href="/calendar" aria-label={t("calendar.open")} data-testid="month-panel" onClick={openDay}>
+    <a class="card month-card month-wide" href={calendarHref(from)} aria-label={t("calendar.open")} data-testid="month-panel" onClick={openDay(from)}>
       <span class="label">
         {t("calendar.title")} · {monthName(cal.month)}
       </span>
@@ -82,7 +83,7 @@ export function TodayRest() {
           ]}
         />
       </section>
-      <MonthPanel cal={cal.data} />
+      <MonthPanel cal={cal.data} from="today" />
       {handled.length > 0 && (
         <section aria-label={t("rest.handled")} data-testid="rest-handled">
           <h2 class="label">{t("today.handled_n", { n: handled.length })}</h2>
@@ -144,7 +145,7 @@ export function NotesRest() {
             </ul>
           )}
         </section>
-        <MonthPanel cal={cal.data} />
+        <MonthPanel cal={cal.data} from="notes" />
       </div>
     </div>
   );

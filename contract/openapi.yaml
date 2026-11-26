@@ -69,6 +69,8 @@ x-limits:
   triage_per_user_per_day: 200
   triage_default_after_minutes: 10
   page_fetch_timeout_seconds: 8
+  video_max_minutes: 15
+  video_wait_minutes: 60
   queue_idle_days: 7
   analysis_summary_max_chars: 160
   analysis_key_fact_max_chars: 200
@@ -121,6 +123,18 @@ x-shared-rules:
     good_to_know: { zh: "知道就行", en: "Good to know" }
     skippable: { zh: "可以略过", en: "Skippable" }
   content_unavailable: { zh: "没取到内容", en: "Content could not be fetched" }
+  video:
+    description: >
+      What an item says about its video, which is read apart from the item's text (`video_state`). The core
+      returns the key; a client shows the text in the user's language. `recognized_text_label` and
+      `recognized_text_note` go with every block of recognized text: it is not the author's, and it may
+      contain mistakes.
+    reading: { zh: "正在读视频里的话，读好了会接着解读。", en: "Reading what is said in the video. The analysis follows when it is done." }
+    no_speech: { zh: "视频里没有识别出话语。", en: "No speech was recognized in the video." }
+    too_long: { zh: "视频太长（超过 {minutes} 分钟），没读。", en: "The video is too long (over {minutes} minutes) and was not read." }
+    unavailable: { zh: "视频里的话没取到。", en: "What is said in the video could not be fetched." }
+    recognized_text_label: { zh: "识别出来的文字", en: "Recognized text" }
+    recognized_text_note: { zh: "从视频的声音识别出来的，可能有错字。", en: "Recognized from the video's sound. It may contain mistakes." }
   notifications:
     one_analysis: { zh: "「{title}」的解读好了，可以看判定。", en: "The analysis of “{title}” is ready. You can see the verdict." }
     one_deep_read: { zh: "「{title}」的精读好了，可以去深挖队列看精读。", en: "The deep read of “{title}” is ready. See it in the deep-dive queue." }
@@ -1843,6 +1857,15 @@ components:
         created_at: { type: string, format: date-time }
         stage: { type: string, enum: [saved, triaged, analysed], description: How far the item got. }
         content_unavailable: { type: boolean }
+        video_state:
+          type: [string, "null"]
+          enum: [reading, recognized, no_speech, too_long, unavailable, null]
+          description: >
+            What became of the item's video; optional, and null when the item has no video (or none was found).
+            `reading`: the core is waiting for what is said in it, and the item is not analysed until that is
+            read or given up on (`video_wait_minutes`). `recognized`: `recognized_text` holds it. `no_speech`,
+            `too_long` and `unavailable`: the video was not read, and the rest of the item is as it was
+            (`content_unavailable` keeps its meaning: nothing at all could be read).
         dispatch_to: { type: [object, "null"], properties: { id: { type: string }, name: { type: string } } }
         days_left: { type: [integer, "null"], description: "Days from the date of today to the date the item ends on, in the time zone of the user. 0 means it ends today. Null when pinned." }
         pinned: { type: boolean }
@@ -1855,7 +1878,8 @@ components:
         - $ref: "#/components/schemas/Item"
         - type: object
           properties:
-            body: { type: [string, "null"] }
+            body: { type: [string, "null"], description: "The author's own words: the caption, the text of the page. Never what was recognized from a video." }
+            recognized_text: { type: [string, "null"], description: "What was recognized from the sound of the item's video, at most 30000 characters. Not the author's, and it may contain mistakes: show it apart from `body`, with `shared_rules.video.recognized_text_note`. Part of the item: gone with it, and in the export." }
             asset_id: { type: [string, "null"] }
             tags: { type: array, description: "No `expiry:` tag is listed while the item is pinned.", items: { type: string, description: "`kind:value`" } }
             expiry_days: { type: [integer, "null"] }
@@ -2219,6 +2243,8 @@ components:
             url: { type: [string, "null"] }
             opening: { type: string, description: The first part of the content. For `triage` this is all that is given. }
             body: { type: [string, "null"], description: For a text file (plain text or Markdown) this holds the file's text. }
+            recognized_text: { type: [string, "null"], description: "What was recognized from the sound of the item's video. Not the author's, and it may contain mistakes: say \"the video says …\", and do not take a name or a number in it as fact." }
+            video_state: { type: [string, "null"], enum: [reading, recognized, no_speech, too_long, unavailable, null], description: See `Item.video_state`. }
             content_unavailable: { type: boolean }
             asset_type: { type: [string, "null"], description: The content type of the item's file. }
             asset_url: { type: [string, "null"], description: A short-lived download address for an image or file. }

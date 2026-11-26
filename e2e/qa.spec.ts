@@ -8,11 +8,12 @@ test.beforeEach(async ({ request }) => reset(request));
 const keptFor = (page: Page) => page.getByTestId("kept-for");
 const analysedBy = (page: Page) => page.getByTestId("analysed-by");
 const header = (page: Page) => page.locator("article header .quiet");
-const tags = (page: Page) => page.locator(".tags code").allInnerTexts();
+// Rule A6 (QA #94): the internal tag strings are never shown to the user.
+const noRawTags = (page: Page) => expect(page.locator("article")).not.toContainText(/\b(assistant|expiry|source):/);
 const setTier = async (page: Page, request: APIRequestContext, tier: string) =>
   request.post("/__test/set-tier", { data: { tier }, headers: { Authorization: `Bearer ${await credentialOf(page)}` } });
 
-test("QA #7: one retention control; what the user set survives triage; header, control and tag always agree", async ({ page, request }) => {
+test("QA #7: one retention control; what the user set survives triage; header and control always agree", async ({ page, request }) => {
   await signIn(page);
   await page.goto("/item/it_saved");
   // One control: the user's days, then "never" as the last choice. No separate button to mistake for "save".
@@ -30,14 +31,14 @@ test("QA #7: one retention control; what the user set survives triage; header, c
   await expect(analysedBy(page)).toHaveValue("as_adu");
   await expect(keptFor(page)).toHaveValue("30");
   await expect(header(page)).toContainText("还剩 30 天");
-  expect(await tags(page)).toEqual(expect.arrayContaining(["assistant:阿读", "expiry:30"]));
+  await noRawTags(page);
 
-  // Never delete: said in one sentence; the header agrees and no expiry tag is shown.
+  // Never delete: said in one sentence; the header agrees.
   await keptFor(page).selectOption("never");
   await expect(page.locator(".said")).toHaveText("收藏了，不过期。");
   await expect(header(page)).toContainText("收藏了，不过期");
   await expect(keptFor(page)).toHaveValue("never");
-  expect((await tags(page)).filter((x) => x.startsWith("expiry:"))).toEqual([]);
+  await noRawTags(page);
 
   // Choosing days on a kept item gives it an end date: the sentence names the days and the day.
   await keptFor(page).selectOption("90");
@@ -45,13 +46,13 @@ test("QA #7: one retention control; what the user set survives triage; header, c
   await expect(header(page)).toContainText("还剩 90 天");
   await expect(header(page)).not.toContainText("不过期");
   await expect(keptFor(page)).toHaveValue("90");
-  expect((await tags(page)).filter((x) => x.startsWith("expiry:"))).toEqual(["expiry:90"]);
+  await noRawTags(page);
 
   // It stays so after a reload.
   await page.reload();
   await expect(keptFor(page)).toHaveValue("90");
   await expect(header(page)).toContainText("还剩 90 天");
-  expect((await tags(page)).filter((x) => x.startsWith("expiry:"))).toEqual(["expiry:90"]);
+  await noRawTags(page);
 });
 
 test("QA #7: without the manage tier the button says what it does, never a bare Keep", async ({ page, request }) => {

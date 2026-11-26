@@ -95,7 +95,7 @@ npm run build        # 产物在 dist/
 npx wrangler deploy  # 只有静态文件的 Worker：keepessence-web，带单页回退
 ```
 
-这个 Worker 没有路由。核心独占域名，把不是接口的请求经 service binding 转过来（决定 D4）。部署要 Cloudflare 的凭据，放在环境变量里，不进仓库。
+这个 Worker 没有路由。核心独占域名，把不是接口的请求经 service binding 转过来（决定 D4）。部署要 Cloudflare 的凭据，放在环境变量里，不进仓库。用令牌（不是 `wrangler login`）部署时要两个变量：`CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，原因见 `docs/pitfalls.md` 的「部署」。
 
 ## 先读
 

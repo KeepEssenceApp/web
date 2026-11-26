@@ -27,18 +27,18 @@ test.afterEach(async ({ request }) => {
 test("QA #73: a day pressed in the month card on Today opens the month with that day chosen", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 0) < 900, "the day panel exists on wide screens only");
   await signIn(page, "/");
-  const days = page.getByTestId("month-panel").locator(".cal-day[data-day]");
+  const days = page.getByTestId("month-panel").locator(".cal-day[data-day]:not(.mark-future)");
   await expect(days.first()).toBeVisible();
   const n = await days.count();
   test.skip(n < 3, "the month has only just begun");
   const day = await days.nth(n - 3).getAttribute("data-day");
   await days.nth(n - 3).click();
-  await expect(page).toHaveURL(new RegExp(`/calendar\\?day=${day}$`));
+  await expect(page).toHaveURL(new RegExp(`/calendar\\?day=${day}&from=today$`));
   await expect(page.getByTestId("day-panel")).toHaveAttribute("data-day", day!);
   // Beside the days, the card still opens the month as before.
   await page.goto("/");
   await page.getByTestId("month-panel").locator(".label").click();
-  await expect(page).toHaveURL(/\/calendar$/);
+  await expect(page).toHaveURL(/\/calendar\?from=today$/);
 });
 
 test("QA #75: the month says what each kind of dot means", async ({ page }) => {

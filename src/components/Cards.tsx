@@ -195,18 +195,23 @@ export function AnalysisFields({ a }: { a: Analysis }) {
               <dd>{a.key_fact}</dd>
             </div>
           )}
-          {!!a.points?.length && (
-            <div>
-              <dt>{t("field.points")}</dt>
-              <dd>
+          {/* The field is always there (A11: four fixed fields). An analysis that came back without a key point says so; none is made up (QA #69). */}
+          <div>
+            <dt>{t("field.points")}</dt>
+            <dd>
+              {a.points?.length ? (
                 <ul class="points">
                   {a.points.slice(0, 3).map((p, i) => (
                     <li key={i}>{p}</li>
                   ))}
                 </ul>
-              </dd>
-            </div>
-          )}
+              ) : (
+                <span class="quiet" data-testid="points-none">
+                  {t("field.points_none")}
+                </span>
+              )}
+            </dd>
+          </div>
           {a.verdict && (
             <div>
               <dt>{t("field.verdict")}</dt>
@@ -264,6 +269,8 @@ export function AnalysisCard({ item, act, selected = false }: { item: Item; act:
 export function WaitingRow({ item, selected = false }: { item: Item; selected?: boolean }) {
   const rules = useStore(meta)?.shared_rules;
   const facts: string[] = [];
+  // The video of the post is being read: the analysis waits for it, and the row says so (#103).
+  const reading = item.video_state === "reading" ? shared(rules?.video?.reading) || null : null;
   // Not sorted yet: how long it is kept is not decided, so no number of days is shown (QA #32).
   if (item.stage === "saved") {
     facts.push(t("today.just_saved"));
@@ -279,7 +286,7 @@ export function WaitingRow({ item, selected = false }: { item: Item; selected?: 
       <div>
         <a class="title-clip" href={`/item/${item.id}`} title={item.title}>{item.title}</a>
         <p class="quiet small">
-          {[item.site, item.content_unavailable ? shared(rules?.content_unavailable) : null, ...facts].filter(Boolean).join(" · ")}
+          {[item.site, item.content_unavailable ? shared(rules?.content_unavailable) : null, reading, ...facts].filter(Boolean).join(" · ")}
         </p>
       </div>
     </li>

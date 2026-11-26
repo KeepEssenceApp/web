@@ -101,6 +101,7 @@ export const zh = {
   "field.summary": "内容概述",
   "field.key_fact": "关键事实",
   "field.points": "要点",
+  "field.points_none": "解读里没有列出要点。",
   "field.verdict": "判定",
   "field.related": "关联提示",
 
@@ -115,7 +116,6 @@ export const zh = {
 
   "item.analysis": "解读",
   "item.not_analysed": "还没解读。",
-  "item.tags": "标签",
   "item.analysed_by": "交给哪个助手",
   "item.kept_for": "保留多久",
   "item.days": "{n} 天",
@@ -242,7 +242,7 @@ export const zh = {
   "calendar.mark.digest_unread": "有每日摘要，还没读",
   "calendar.mark.digest_read": "每日摘要读了",
   "calendar.mark.note": "留下了笔记",
-  "calendar.mark.future": "",
+  "calendar.mark.future": "还没到",
 
   "set.assistants": "助手",
   "set.rules": "规则",
@@ -430,7 +430,7 @@ export const zh = {
   "calendar.no_counts": "这一天太早，数字查不到了。",
   "account.session": "这台设备",
   "account.data": "你的数据",
-  "account.data_in": "下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读和标签。",
+  "account.data_in": "下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读。",
   "account.data_out": "里面没有：已经删除的条目，和文件本身的内容。文件只列出名称、类型和大小，要到它所在的条目里单独下载。",
   "account.download_data": "下载我的数据",
   "account.download_notes": "下载我的笔记",
