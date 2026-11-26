@@ -157,6 +157,8 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
             </a>
           )}
           {it.content_unavailable && <p class="sentence">{shared(rules?.content_unavailable)}</p>}
+          {/* What to do instead, said once where the user looks for the content (QA #85). */}
+          {it.content_unavailable && it.kind === "link" && <p class="quiet small" data-testid="unavailable-hint">{t("item.unavailable_hint")}</p>}
           {asset.data?.content_type.startsWith("image/") && <img class="original-image" src={asset.data.download_url} alt={it.title} />}
           {it.body && <div class="original-body">{it.body}</div>}
           {/* The file itself: an image or a PDF opens in a tab; a text file, whose text is above, is downloaded (QA #31). */}

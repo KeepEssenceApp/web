@@ -492,4 +492,5 @@ export const zh = {
   "feedback.back": "回到今天",
   "rules.nothing_to_save": "没有要保存的：现在保存的就是这样。",
   "today.last_day": "今天到期",
+  "item.unavailable_hint": "有些网站的内容只在它自己的应用里、或者通过验证之后才显示，从外面读不到。想要解读的话，在那边把正文复制下来当文字存入，或者存一张截图。",
 };
