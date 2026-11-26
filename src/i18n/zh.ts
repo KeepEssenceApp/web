@@ -241,7 +241,7 @@ export const zh = {
   "calendar.mark.digest_unread": "有每日摘要，还没读",
   "calendar.mark.digest_read": "每日摘要读了",
   "calendar.mark.note": "留下了笔记",
-  "calendar.mark.future": "",
+  "calendar.mark.future": "还没到",
 
   "set.assistants": "助手",
   "set.rules": "规则",

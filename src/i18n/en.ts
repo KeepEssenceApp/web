@@ -243,7 +243,7 @@ export const en: Record<keyof typeof zh, string> = {
   "calendar.mark.digest_unread": "Daily digest unread",
   "calendar.mark.digest_read": "Daily digest read",
   "calendar.mark.note": "A note was kept",
-  "calendar.mark.future": "",
+  "calendar.mark.future": "Not yet",
 
   "set.assistants": "Assistants",
   "set.rules": "Rules",
