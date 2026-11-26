@@ -75,6 +75,15 @@ describe("words", () => {
     expect(en["step.triage"]).toBe("Triage");
   });
 
+  // The same step in Chinese (QA #98): the word table's 初筛, not "分派助手", which is the name of who does it and not of the step.
+  it("calls triage 初筛 in Chinese, and the rules and the two controls speak of it", () => {
+    const hits: string[] = [];
+    for (const [key, value] of Object.entries(zh)) if (/分派助手/.test(value)) hits.push(key);
+    expect(hits).toEqual([]);
+    expect(zh["step.triage"]).toBe("初筛");
+    for (const key of ["item.yours_hint", "rules.hint", "rules.fallback"] as const) expect(zh[key], key).toContain("初筛");
+  });
+
   // A6 (Cheney, 2026-11-26): the user is not told that tags exist. Not shown, and not mentioned.
   // The export file still carries them; the interface does not say so.
   it("never mentions tags to the user (A6)", () => {
