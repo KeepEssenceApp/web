@@ -31,6 +31,10 @@
 
 - **几个会话同时跑端到端时，会共用 8803 这个端口。** `playwright.config.ts` 的 `reuseExistingServer` 在本机是真，第二个会话不会起自己的假核心，而是连到第一个会话的（那个会话的 `dist`）。结果是不相干的用例莫名其妙挂掉，而你改的功能「没生效」。跑之前看一眼 `lsof -nP -iTCP:8803 -sTCP:LISTEN`；有占用就用一份临时配置，换一个端口（`PORT=8815 node dev/fake-core.mjs`，`baseURL` 同步改），别提交这份配置。
 
+## 工作区
+
+- **共用的检出目录会被别人切分支、`reset --hard`。** 在 `web/` 里写到一半的改动被一次 `reset --hard origin/main` 清掉过。自己的工作放在 `git worktree add ../web-wt/<名字> -b <分支> origin/main`，`node_modules` 做个软链。
+
 ## 部署
 
 - **用令牌部署要同时给 `CLOUDFLARE_ACCOUNT_ID`。** `wrangler.toml` 里没有 `account_id`：这个仓库是公开的，自托管的人用自己的账号，写死一个就让别人部署不了。只给令牌（wrangler 读的变量名是 `CLOUDFLARE_API_TOKEN`）时，wrangler 去调 `/memberships` 找账号，令牌没有这项权限就报 `10000` 鉴权失败。把账号 ID 放在环境变量 `CLOUDFLARE_ACCOUNT_ID` 里，和令牌放在一起，不进仓库；core 用的是同一个账号。用 `wrangler login` 登录的人不会碰到这个。
