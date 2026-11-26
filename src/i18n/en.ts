@@ -68,7 +68,8 @@ export const en: Record<keyof typeof zh, string> = {
   "status.open": "Open Assistants",
 
   "inbox.label": "Save",
-  "inbox.placeholder": "Paste a link or text, or drop images and files here",
+  "inbox.placeholder": "Paste a link or text, or choose images and files",
+  "inbox.pick": "Choose files",
   "inbox.save": "Save",
   "inbox.saving": "Saving…",
   "inbox.dont_save": "Don't save",
@@ -104,6 +105,7 @@ export const en: Record<keyof typeof zh, string> = {
   "field.summary": "Summary",
   "field.key_fact": "Key fact",
   "field.points": "Key points",
+  "field.points_none": "The analysis lists none.",
   "field.verdict": "Verdict",
   "field.related": "Related",
 
@@ -118,7 +120,6 @@ export const en: Record<keyof typeof zh, string> = {
 
   "item.analysis": "Analysis",
   "item.not_analysed": "Not analysed yet.",
-  "item.tags": "Tags",
   "item.analysed_by": "Given to",
   "item.kept_for": "Kept for",
   "item.days": "{n} day{s:n}",
@@ -245,7 +246,7 @@ export const en: Record<keyof typeof zh, string> = {
   "calendar.mark.digest_unread": "Daily digest unread",
   "calendar.mark.digest_read": "Daily digest read",
   "calendar.mark.note": "A note was kept",
-  "calendar.mark.future": "",
+  "calendar.mark.future": "Not yet",
 
   "set.assistants": "Assistants",
   "set.rules": "Rules",
@@ -436,7 +437,7 @@ export const en: Record<keyof typeof zh, string> = {
   "calendar.no_counts": "This day is too far back for its numbers.",
   "account.session": "This device",
   "account.data": "Your data",
-  "account.data_in": "The download holds your rules and choices, every daily digest, every note with its sources and origin, and every item that still exists with its analysis and tags.",
+  "account.data_in": "The download holds your rules and choices, every daily digest, every note with its sources and origin, and every item that still exists with its analysis.",
   "account.data_out": "It does not hold items that were already deleted, or the contents of files. Files are listed by name, type and size; each one is downloaded separately from its own item.",
   "account.download_data": "Download my data",
   "account.download_notes": "Download my notes",
@@ -458,7 +459,7 @@ export const en: Record<keyof typeof zh, string> = {
   "start.title": "Getting started",
   "start.lead": "KeepEssence takes what you come across during the day, tells you in a few lines what each thing is, and lets go of what you did not need. This is how a day goes.",
   "start.save": "Save what you come across",
-  "start.save_body": "Paste a link or some text into the box at the top of Today, or drop an image or a file on it, and press Save. From your phone or your browser, see the ways below.",
+  "start.save_body": "Paste a link or some text into the box at the top of Today, or press “Choose files” to add images, PDFs and text files (on a computer you can also drop them on the box), then press Save. From your phone or your browser, see the ways below.",
   "start.wait": "The analysis arrives in a few minutes",
   "start.wait_body": "The built-in assistant reads each item and writes four lines: a summary, a key fact, up to three key points and a verdict. Nothing to do meanwhile.",
   "start.act": "Decide with one press",

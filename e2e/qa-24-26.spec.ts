@@ -348,7 +348,7 @@ test.describe("QA #25: the account's data and deleting the account", () => {
   test("QA #25: Account says what the download holds and what it does not, and “Download my data” saves the export as keepessence-export-YYYY-MM-DD.json", async ({ page }) => {
     await signIn(page, "/assistants/account");
     const data = page.getByTestId("your-data");
-    await expect(data.getByTestId("data-in")).toHaveText("下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读和标签。");
+    await expect(data.getByTestId("data-in")).toHaveText("下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读。");
     await expect(data.getByTestId("data-out")).toHaveText("里面没有：已经删除的条目，和文件本身的内容。文件只列出名称、类型和大小，要到它所在的条目里单独下载。");
     const file = await download(page, data.getByTestId("download-data"));
     expect(file.name).toBe(`keepessence-export-${dayAgo(0)}.json`);

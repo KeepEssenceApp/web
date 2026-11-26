@@ -75,6 +75,15 @@ describe("words", () => {
     expect(en["step.triage"]).toBe("Triage");
   });
 
+  // A6 (Cheney, 2026-11-26): the user is not told that tags exist. Not shown, and not mentioned.
+  // The export file still carries them; the interface does not say so.
+  it("never mentions tags to the user (A6)", () => {
+    const hits: string[] = [];
+    for (const [key, value] of Object.entries(zh)) if (/标签/.test(value)) hits.push(`zh ${key}`);
+    for (const [key, value] of Object.entries(en)) if (/\btags?\b/i.test(value)) hits.push(`en ${key}`);
+    expect(hits).toEqual([]);
+  });
+
   it("names the four entries exactly as the term table does", () => {
     expect([zh["nav.today"], zh["nav.digest"], zh["nav.notes"], zh["nav.assistants"]]).toEqual(["今天", "每日摘要", "笔记", "助手设置"]);
     expect([en["nav.today"], en["nav.digest"], en["nav.notes"], en["nav.assistants"]]).toEqual(["Today", "Daily digest", "Notes", "Assistants"]);

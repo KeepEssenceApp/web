@@ -22,7 +22,8 @@ export function retentionSentence(it: ItemDetail, timeZone?: string): string {
 }
 
 /**
- * One item: the original, the analysis, the tags. On its own page it leads back to Today; on a
+ * One item: the original, the analysis, and the two things the user can decide (who analyses it,
+ * how long it is kept). Tags are never shown (rule A6). On its own page it leads back to Today; on a
  * wide screen the same thing sits in the panel beside the list it was opened from (`panel`),
  * and `back` is that list.
  */
@@ -142,10 +143,17 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   const retentionBySorting = sorted && !it.pinned && !mine.current.retention && (it.retention_set_by ?? "triage") !== "user";
   const assistantBySorting = sorted && !!it.dispatch_to && !mine.current.assistant && (it.assistant_set_by ?? "triage") !== "user";
   const defaultDays = Number(about?.limits?.item_expiry_default_days) || 30;
-  // A kept item has no end date: an expiry tag from before does not apply and is not shown.
-  const tags = (it.tags ?? []).filter((tag) => !((it.pinned || !decided) && tag.startsWith("expiry:")));
   const state = it.in_queue ? t("digest.in_queue") : it.signal === "not_interested" ? t("action.not_interested") : it.signal === "seen" ? t("action.seen") : null;
   const was = { signal: it.signal ?? null, in_queue: !!it.in_queue };
+  // The video of the item (#103): while it is read the analysis waits and the page says so; a video that was not read is said once, beside the
+  // author's words, and the rest of the page is as it was. A video that was read is the block of recognized text.
+  const video = rules?.video;
+  const reading = it.video_state === "reading" ? shared(video?.reading) || null : null;
+  const videoLine =
+    it.video_state === "no_speech" ? shared(video?.no_speech)
+    : it.video_state === "too_long" ? shared(video?.too_long, { minutes: Number(about?.limits?.video_max_minutes) || 15 })
+    : it.video_state === "unavailable" ? shared(video?.unavailable)
+    : null;
 
   return (
     <div class="page reading" data-open-item={id}>
@@ -172,6 +180,15 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
           {it.content_unavailable && it.kind === "link" && <p class="quiet small" data-testid="unavailable-hint">{t("item.unavailable_hint")}</p>}
           {asset.data?.content_type.startsWith("image/") && <img class="original-image" src={asset.data.download_url} alt={it.title} />}
           {it.body && <div class="original-body">{it.body}</div>}
+          {/* What is said in the video is read apart from the page's words, and shown apart from them (#103). */}
+          {videoLine && <p class="quiet small" data-testid="video-state">{videoLine}</p>}
+          {it.recognized_text && (
+            <div class="stack tight recognized" data-testid="recognized-text">
+              <h3 class="label">{shared(rules?.video?.recognized_text_label)}</h3>
+              <div class="original-body">{it.recognized_text}</div>
+              <p class="quiet small" data-testid="recognized-note">{shared(rules?.video?.recognized_text_note)}</p>
+            </div>
+          )}
           {/* The file itself: an image or a PDF opens in a tab; a text file, whose text is above, is downloaded (QA #31). */}
           {asset.data && it.asset_id && (
             <p>
@@ -198,20 +215,11 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
               <Actions itemId={id} act={act} was={was} onSheet={() => setSheet(true)} />
             </>
           ) : (
-            <p class="sentence quiet">{t("item.not_analysed")}</p>
+            <p class="sentence quiet" data-testid={reading ? "video-reading" : undefined}>
+              {reading ?? t("item.not_analysed")}
+            </p>
           )}
         </section>
-
-        {tags.length > 0 && (
-          <section class="stack tight" aria-label={t("item.tags")}>
-            <h2 class="label">{t("item.tags")}</h2>
-            <p class="tags">
-              {tags.map((tag) => (
-                <code key={tag}>{tag}</code>
-              ))}
-            </p>
-          </section>
-        )}
 
         <section class="stack" aria-label={t("item.kept_for")}>
           {manage && (

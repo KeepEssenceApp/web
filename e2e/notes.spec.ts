@@ -124,9 +124,9 @@ test("W4: the calendar card opens the large month; paging; a day opens its diges
   await page.locator(".month-card").click();
   await expect(page).toHaveURL(/\/calendar$/);
   const month = await page.locator("[data-month]").getAttribute("data-month");
-  // One dot a day, none for the future; today has the thin square frame.
-  const today = new Date(Date.now() + 8 * 3600e3).getUTCDate();
-  await expect(page.locator(".cal-large .cal-day")).toHaveCount(today);
+  // One dot a day, as many as the month has days (the days to come are neutral dots, QA #15); today has the thin square frame.
+  const now = new Date(Date.now() + 8 * 3600e3);
+  await expect(page.locator(".cal-large .cal-day")).toHaveCount(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate());
   await expect(page.locator(".cal-large .is-today")).toHaveCount(1);
   expect(await page.locator(".cal-large .mark-note").count()).toBeGreaterThan(0);
   // A day without a digest cannot be pressed. (On a wide screen every day is chosen instead, QA #24.)

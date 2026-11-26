@@ -80,7 +80,7 @@ test("W2: when everything is handled there is one sentence only", async ({ page,
   await expect(page.locator(".page img, .page svg.illustration")).toHaveCount(0);
 
   await page.locator(".inbox-box").fill("https://example.com/one-thing");
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
   await expect(page.locator(".waiting")).toHaveCount(1);
   await request.post("/__test/analyse", { data: {} });
@@ -127,11 +127,12 @@ test("deep dive: add to the queue, or go now with a choice of assistant", async 
   await expect(page.locator('.queue-row[data-item="it_worth"]')).toBeVisible();
 });
 
-test("opening an item: original, analysis, tags; manage can change who and how long, and delete", async ({ page, request }) => {
+test("opening an item: original, analysis; manage can change who and how long, and delete", async ({ page, request }) => {
   await signIn(page);
   await page.locator('[data-item="it_triaged"] a').first().click();
   await expect(page).toHaveURL(/\/item\/it_triaged$/);
-  await expect(page.locator(".tags code").first()).toContainText(":");
+  // No tag strings (A6, QA #94); the two controls below are how the user sees them.
+  await expect(page.locator("[data-open-item]")).not.toContainText(/\b(assistant|expiry|source):/);
   await expect(page.locator("section", { hasText: "解读" }).last()).toContainText("还没解读");
 
   // One control for how long it is kept: the days, and "never" as its last choice.

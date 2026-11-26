@@ -13,10 +13,12 @@
 
 - **开发代理的前缀会吃掉应用自己的路径。** Vite 的代理写成 `/c` 时，`/calendar` 也被转给了核心，得到 404。代理改成了正则：`^/(v1|oauth|\.well-known|c)/` 和 `^/mcp$`。对着真核心跑端到端才发现的；假核心按完整的路径段分，所以没露出来。
 
+- **端到端的假核心端口是固定的。** 不设 `BASE_URL` 时，Playwright 用 8803，而且 `reuseExistingServer` 为真：两个检出（含 `git worktree`）同时跑端到端，会共用先起来的那个假核心。后起的一边测的其实是别人的构建，状态还会被对方的 `reset` 清掉（表现是测到一半被登出、`test-results` 里的文件找不到、`EADDRINUSE`）。同时跑时给自己起一个：`npm run build`，再 `PORT=8813 node dev/fake-core.mjs`，另开一个终端 `BASE_URL=http://127.0.0.1:8813 FAKE=1 npx playwright test`。
 - **手机上滑动测试要先把卡片滚进视口。** Playwright 经 CDP 发触摸事件，坐标落在视口外不报错，只是什么都不发生。
 - **无头 Chromium 的通知权限缺省是 denied，不是 default。** 测「只在点了通知我之后问一次」时，要在页面脚本里把 `Notification.permission` 换成可控的。
 - **页面开着时不弹通知。** 规格要求读的界面开着的设备不弹。`sw.js` 发现有可见的窗口就只让页面刷新。Chrome 对「收到推送却不显示通知」有容忍次数，超过后会自己弹一条通用提示；如果内测里见到，就改成照常弹。
 - **分享入口要 service worker 已经接管。** `share_target` 用的是 POST（这样才能带图片），由 `sw.js` 接住，把文件放进一个临时缓存，再转到 `/share` 由页面存入（凭据只有页面拿得到）。第一次打开还没装上 service worker 时，POST 会直接打到服务器；核心转给静态文件的 Worker 时要对 `POST /share` 回 303 到 `/share`（假核心是这么做的），否则会是 404/405。这个临时缓存是 `sw.js` 里唯一的缓存，接口应答不缓存。
+- **选择文件要一个看得见的按钮去点隐藏的 `<input type=file>`。** 手机上拖不了，也基本贴不进文件（QA #95）。按钮是真的 `button`（键盘能到，Enter 打开选择器）；隐藏的 input 带 `multiple` 和与核心一致的 `accept`，Markdown 文件常常没有类型，所以 `accept` 里也列扩展名。选完要把 `value` 清空，否则拿掉的文件选不回来。端到端里用 `filechooser` 事件，取消用 `setFiles([])`；「存入」按钮用 `data-testid="inbox-save"` 找，因为 `.inbox .btn` 现在有两个。
 - **所有图片都转成 WebP。** 动图（GIF）经 canvas 之后只剩第一帧。
 - **色表里没有遮罩色。** 弹层后面的暗底用 `color-mix(in srgb, var(--ke-black) 55%, transparent)`，没有新增色值。
 - **登录页恒为深色。** 靠在根元素上放 `data-theme="dark"`（色表支持），离开时去掉；不是另写一套颜色。
@@ -26,6 +28,22 @@
 
 - **换语言会把整个应用重新挂一遍。** 根元素按语言设了 `key`，所以账户页自己的状态（比如「界面语言已更改」那句确认）随旧页面一起没了。确认放在模块里的一个短时标记里，新挂上的账户页取走一次（见 `AssistantsPage.tsx` 的 `takeLanguageChanged`）。
 - **新账号的状态栏不能说助手「还没来」。** 空账号里助手确实没来过，可那时没有东西等它，说「还没来」像在说它迟到了。状态栏只在有东西在等、助手又从没来过时才这么说；空账号里说下一步（QA #98）。假核心用 `reset({ empty: true, never_came: true })` 摆出这种账号：默认的假数据里内置助手几分钟前来过，看不到这句。
+
+## 标签
+
+- **标签不显示，但页面还在读它。** A6：标签不给用户看，条目页只有「交给哪个助手」「保留多久」两个控件和一句话。可初筛前核心只放一个占位的保留天数，`ItemPage` 靠条目上有没有 `expiry:` 标签才知道这个值是不是用户自己选的，所以别把读取一并删掉。端到端里不要按 `.tags` 去查（那个类已经没有了）；要查就查页面里没有 `assistant:`、`expiry:`、`source:` 字样，要看核心有没有收下选择就 `GET /v1/items/{id}` 看标签（见 `e2e/qa-94.spec.ts`）。
+
+## 端到端
+
+- **几个会话同时跑端到端时，会共用 8803 这个端口。** `playwright.config.ts` 的 `reuseExistingServer` 在本机是真，第二个会话不会起自己的假核心，而是连到第一个会话的（那个会话的 `dist`）。结果是不相干的用例莫名其妙挂掉，而你改的功能「没生效」。跑之前看一眼 `lsof -nP -iTCP:8803 -sTCP:LISTEN`；有占用就用一份临时配置，换一个端口（`PORT=8815 node dev/fake-core.mjs`，`baseURL` 同步改），别提交这份配置。
+
+## 工作区
+
+- **共用的检出目录会被别人切分支、`reset --hard`。** 在 `web/` 里写到一半的改动被一次 `reset --hard origin/main` 清掉过。自己的工作放在 `git worktree add ../web-wt/<名字> -b <分支> origin/main`，`node_modules` 做个软链。
+
+## 部署
+
+- **用令牌部署要同时给 `CLOUDFLARE_ACCOUNT_ID`。** `wrangler.toml` 里没有 `account_id`：这个仓库是公开的，自托管的人用自己的账号，写死一个就让别人部署不了。只给令牌（wrangler 读的变量名是 `CLOUDFLARE_API_TOKEN`）时，wrangler 去调 `/memberships` 找账号，令牌没有这项权限就报 `10000` 鉴权失败。把账号 ID 放在环境变量 `CLOUDFLARE_ACCOUNT_ID` 里，和令牌放在一起，不进仓库；core 用的是同一个账号。用 `wrangler login` 登录的人不会碰到这个。
 
 ## 提交
 

@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { api } from "../api";
+import { calendarHref, type CalendarFrom } from "../calendar-link";
 import { CalendarCounts, CalendarDots, dayLabel } from "../components/CalendarDots";
 import { Split } from "../components/Split";
 import { Loading, State, Stats, type DotKind } from "../components/ui";
@@ -15,33 +16,34 @@ import { DigestPage } from "./DigestPage";
  * seven to a row by date: the brand's calendar has no weekday columns and no printed numbers),
  * one line that names the day under the pointer or the keyboard, and the month's numbers.
  * On a wide screen (`wide`) the month is the list and the chosen day (`day`) shows in the panel
- * beside it; with no day chosen the panel shows today, or the month's numbers.
+ * beside it; with no day chosen the panel shows today, or the month's numbers. `from` is the page it was
+ * opened from (Today or Notes): its way back, and where the month's own links lead.
  */
-export function CalendarPage({ month, wide = false, day }: { month?: string; wide?: boolean; day?: string | null }) {
+export function CalendarPage({ month, wide = false, day, from = "notes" }: { month?: string; wide?: boolean; day?: string | null; from?: CalendarFrom }) {
   const tick = useStore(refresh);
   const cal = useLoad(() => api.calendar(month), [month, tick]);
   const [pointed, setPointed] = useState<string | null>(null);
   const c = cal.data;
   const todays = c?.days.find((d) => d.day === c.today);
   const named = c?.days.find((d) => d.day === pointed) ?? todays;
-  const base = month ? `/calendar/${month}` : "/calendar";
+  const base = calendarHref(from, { month });
   // A day of this month that has come can be chosen; anything else in the address is ignored.
   const chosen = wide && c ? (c.days.find((d) => d.day === day && d.mark !== "future")?.day ?? null) : null;
   const page = (
     <div class="page reading calendar-page">
-      <a class="link back" href="/notes">
-        ‹ {t("nav.notes")}
+      <a class="link back" href={from === "today" ? "/" : "/notes"} data-testid="calendar-back">
+        ‹ {t(from === "today" ? "nav.today" : "nav.notes")}
       </a>
       {!c ? (
         <Loading error={cal.error} />
       ) : (
         <div class="stack loose" data-month={c.month}>
           <nav class="month-nav" aria-label={t("calendar.title")}>
-            <Step to={c.previous_month} label={t("calendar.prev")} none={t("calendar.no_earlier")} rel="prev" />
+            <Step from={from} to={c.previous_month} label={t("calendar.prev")} none={t("calendar.no_earlier")} rel="prev" />
             <h1 aria-live="polite">{monthName(c.month)}</h1>
-            <Step to={c.next_month} label={t("calendar.next")} none={t("calendar.no_later")} rel="next" />
+            <Step from={from} to={c.next_month} label={t("calendar.next")} none={t("calendar.no_later")} rel="next" />
           </nav>
-          <CalendarDots cal={c} size="large" onPoint={setPointed} select={wide ? (d) => `${base}?day=${d}` : undefined} selected={chosen} />
+          <CalendarDots cal={c} size="large" onPoint={setPointed} select={wide ? (d) => calendarHref(from, { month, day: d }) : undefined} selected={chosen} />
           <p class="cal-readout quiet" data-testid="cal-readout" aria-live="polite">
             {named ? dayLabel(named, c.today) : ""}
           </p>
@@ -70,7 +72,7 @@ export function CalendarPage({ month, wide = false, day }: { month?: string; wid
   return (
     <Split
       label={t("panel.day")}
-      at={`${base}?${chosen ?? ""}`}
+      at={calendarHref(from, { month, day: chosen })}
       close={base}
       list={page}
       panel={!c ? null : shown ? <DayPanel key={shown} cal={c} day={shown} close={closable ? base : null} /> : <MonthRest cal={c} />}
@@ -79,10 +81,10 @@ export function CalendarPage({ month, wide = false, day }: { month?: string; wid
 }
 
 /** One paging control. Where there is no month to go to it stays in place, visibly not pressable. */
-function Step({ to, label, none, rel }: { to?: string | null; label: string; none: string; rel: "prev" | "next" }) {
+function Step({ from, to, label, none, rel }: { from: CalendarFrom; to?: string | null; label: string; none: string; rel: "prev" | "next" }) {
   const text = rel === "prev" ? `‹ ${label}` : `${label} ›`;
   return to ? (
-    <a class="btn quiet small" href={`/calendar/${to}`} rel={rel}>
+    <a class="btn quiet small" href={calendarHref(from, { month: to })} rel={rel}>
       {text}
     </a>
   ) : (

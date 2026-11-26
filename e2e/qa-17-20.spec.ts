@@ -489,7 +489,7 @@ test.describe("QA #19: titles", () => {
     await signIn(page);
     const text = "Mixed language test 混合语言测试 — Please review the Q3 report 第三季度报告 before Friday 周五之前。";
     await page.locator(".inbox-box").fill(text);
-    await page.locator(".inbox .btn").click();
+    await page.getByTestId("inbox-save").click();
     await expect(page.locator(".inbox-result")).toHaveText("已存入。");
     const row = page.locator(".waiting", { hasText: "Mixed language test" });
     await expect(row.locator("a.title-clip")).toHaveText("Mixed language test 混合语言测试 — Please review the Q3 report 第三季度报告 before Friday…");

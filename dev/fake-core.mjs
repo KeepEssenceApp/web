@@ -21,7 +21,7 @@ const LIMITS = {
   login_code_max_attempts: 5, device_idle_days: 90, asset_max_bytes: 3145728, image_long_edge_px: 1600,
   storage_quota_bytes: 1073741824, triage_per_user_per_day: 200, triage_default_after_minutes: 10,
   page_fetch_timeout_seconds: 8, queue_idle_days: 7, analysis_summary_max_chars: 60, analysis_points_max: 3,
-  notify_wait_seconds: 120, notify_max_wait_seconds: 600, text_max_chars: 200000,
+  notify_wait_seconds: 120, notify_max_wait_seconds: 600, text_max_chars: 200000, video_max_minutes: 15, video_wait_minutes: 60,
 };
 const SHARED_RULES = {
   secret_like: {
@@ -52,6 +52,14 @@ const SHARED_RULES = {
     skippable: { zh: "可以略过", en: "Skippable" },
   },
   content_unavailable: { zh: "没取到内容", en: "Content could not be fetched" },
+  video: {
+    reading: { zh: "正在读视频里的话，读好了会接着解读。", en: "Reading what is said in the video. The analysis follows when it is done." },
+    no_speech: { zh: "视频里没有识别出话语。", en: "No speech was recognized in the video." },
+    too_long: { zh: "视频太长（超过 {minutes} 分钟），没读。", en: "The video is too long (over {minutes} minutes) and was not read." },
+    unavailable: { zh: "视频里的话没取到。", en: "What is said in the video could not be fetched." },
+    recognized_text_label: { zh: "识别出来的文字", en: "Recognized text" },
+    recognized_text_note: { zh: "从视频的声音识别出来的，可能有错字。", en: "Recognized from the video's sound. It may contain mistakes." },
+  },
   notifications: {
     one_analysis: { zh: "「{title}」的解读好了，可以看判定。", en: "The analysis of “{title}” is ready. You can see the verdict." },
     one_deep_read: { zh: "「{title}」的精读好了，可以去深挖队列看精读。", en: "The deep read of “{title}” is ready. See it in the deep-dive queue." },
@@ -249,7 +257,7 @@ function daysLeft(it) {
   return Math.max(0, it.expiry_days - Math.floor((Date.now() - termStart(it)) / DAY));
 }
 function itemOut(it, detail = false) {
-  const o = { id: it.id, kind: it.kind, title: it.title, site: it.site, url: it.url, created_at: it.created_at, stage: it.stage, content_unavailable: it.content_unavailable,
+  const o = { id: it.id, kind: it.kind, title: it.title, site: it.site, url: it.url, created_at: it.created_at, stage: it.stage, content_unavailable: it.content_unavailable, video_state: it.video_state ?? null,
     dispatch_to: it.stage === "saved" && !it.user_assistant ? null : it.dispatch_to, days_left: daysLeft(it), pinned: it.pinned, signal: it.signal, in_queue: inQueue(it.id), analysis: it.analysis };
   if (!detail) return o;
   const tags = [];
@@ -257,7 +265,7 @@ function itemOut(it, detail = false) {
   // A kept item has no end date, so no expiry tag is listed for it.
   if ((it.stage !== "saved" || it.user_set) && !it.pinned) tags.push(`expiry:${it.expiry_days}`);
   tags.push(`source:${it.source}`);
-  return { ...o, body: it.body, asset_id: it.asset_id, tags, expiry_days: it.pinned ? null : it.expiry_days,
+  return { ...o, body: it.body, recognized_text: it.recognized_text ?? null, asset_id: it.asset_id, tags, expiry_days: it.pinned ? null : it.expiry_days,
     expires_at: it.pinned ? null : iso(termStart(it) + it.expiry_days * DAY) };
 }
 function deviceOut(d, me) {
@@ -734,6 +742,25 @@ on("POST", "/v1/oauth/requests/:id/decision", "manage", (c) => {
 
 // ---------------------------------------------------------------- test hooks
 on("POST", "/__test/reset", null, (c) => { seed(c.body ?? {}); DELETED = null; return [200, { ok: true }]; });
+// An item with a video (#103), made or changed: `state` is its `video_state`, `recognized_text` what was recognized, `body` the author's words.
+// `stage: "analysed"` gives it an analysis. Without an `item_id` a new item is made (a Xiaohongshu note, just saved).
+on("POST", "/__test/video", null, (c) => {
+  const b = c.body ?? {};
+  let it = b.item_id ? getItem(b.item_id) : null;
+  if (!it) {
+    it = { id: rid("it", 6), kind: "link", title: b.title ?? "阳台上的薄荷", site: "www.xiaohongshu.com", url: "https://www.xiaohongshu.com/explore/demo", created_at: ago(2 * 60e3), stage: "saved", content_unavailable: false,
+      dispatch_to: null, expiry_days: 30, pinned: false, signal: null, analysis: null, body: null, asset_id: null, digest_day: null, source: "web" };
+    S.items.set(it.id, it);
+  }
+  for (const k of ["body", "recognized_text", "content_unavailable"]) if (k in b) it[k] = b[k];
+  if ("state" in b) it.video_state = b.state;
+  if (b.stage === "analysed") {
+    const a = S.assistants[0];
+    it.stage = "analysed"; it.dispatch_to ??= { id: a.id, name: a.name };
+    it.analysis = analysis(a, "这是一份刚交回的解读，内容是编的。", "视频 · 约 1 分钟", ["第一条要点。", "第二条要点。"], "good_to_know", null, 0);
+  }
+  return [200, itemOut(it, true)];
+});
 on("POST", "/__test/analyse", null, (c) => {
   const it = c.body.item_id ? getItem(c.body.item_id) : [...S.items.values()].filter((i) => !i.digest_day && i.stage !== "analysed").sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? fail(404, "not_found");
   const a = S.assistants[0];
@@ -741,6 +768,7 @@ on("POST", "/__test/analyse", null, (c) => {
   it.analysis = analysis(a, "这是一份刚交回的解读，内容是编的。", "文章 · 约 1000 字", ["第一条要点。", "第二条要点。"], "good_to_know", null, 0);
   // `unavailable`: the assistant could not read it and says so in one sentence (the built-in
   // assistant after three failed attempts: "content could not be read").
+  if (Array.isArray(c.body.points)) it.analysis.points = c.body.points; // `points: []`: the analysis came back without a key point
   if (c.body.unavailable) it.analysis = { unavailable: true, summary: String(c.body.unavailable), assistant: { id: a.id, name: a.name }, created_at: ago(0) };
   return [200, itemOut(it)];
 });

@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { AnalysisCard, WaitingRow, itemActions } from "../components/Cards";
+import { calendarHref } from "../calendar-link";
 import { CalendarDots } from "../components/CalendarDots";
 import { Inbox } from "../components/Inbox";
 import { AccountLink, HelpLinks, PageHead } from "../components/Shell";
@@ -49,7 +50,7 @@ export function Today({ selected }: { selected?: string }) {
     <div class="page today">
       <PageHead title={t("nav.today")} page="today">
         {cal.data && (
-          <a class="today-cal" href="/calendar" aria-label={t("calendar.open")}>
+          <a class="today-cal" href={calendarHref("today")} aria-label={t("calendar.open")}>
             <CalendarDots cal={cal.data} size="faint" />
           </a>
         )}

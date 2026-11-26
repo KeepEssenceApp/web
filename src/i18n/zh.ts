@@ -66,7 +66,8 @@ export const zh = {
   "status.open": "去助手设置",
 
   "inbox.label": "存入",
-  "inbox.placeholder": "粘贴链接或文字，或者把图片、文件拖进来",
+  "inbox.placeholder": "粘贴链接或文字，或者选择图片、文件",
+  "inbox.pick": "选择文件",
   "inbox.save": "存入",
   "inbox.saving": "正在存入…",
   "inbox.dont_save": "不存入",
@@ -102,6 +103,7 @@ export const zh = {
   "field.summary": "内容概述",
   "field.key_fact": "关键事实",
   "field.points": "要点",
+  "field.points_none": "解读里没有列出要点。",
   "field.verdict": "判定",
   "field.related": "关联提示",
 
@@ -116,7 +118,6 @@ export const zh = {
 
   "item.analysis": "解读",
   "item.not_analysed": "还没解读。",
-  "item.tags": "标签",
   "item.analysed_by": "交给哪个助手",
   "item.kept_for": "保留多久",
   "item.days": "{n} 天",
@@ -243,7 +244,7 @@ export const zh = {
   "calendar.mark.digest_unread": "有每日摘要，还没读",
   "calendar.mark.digest_read": "每日摘要读了",
   "calendar.mark.note": "留下了笔记",
-  "calendar.mark.future": "",
+  "calendar.mark.future": "还没到",
 
   "set.assistants": "助手",
   "set.rules": "规则",
@@ -434,7 +435,7 @@ export const zh = {
   "calendar.no_counts": "这一天太早，数字查不到了。",
   "account.session": "这台设备",
   "account.data": "你的数据",
-  "account.data_in": "下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读和标签。",
+  "account.data_in": "下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读。",
   "account.data_out": "里面没有：已经删除的条目，和文件本身的内容。文件只列出名称、类型和大小，要到它所在的条目里单独下载。",
   "account.download_data": "下载我的数据",
   "account.download_notes": "下载我的笔记",
@@ -456,7 +457,7 @@ export const zh = {
   "start.title": "开始用",
   "start.lead": "KeepEssence 接住你一天里碰到的东西，用几行字告诉你每一条是什么，没用上的就放手。一天是这样过的。",
   "start.save": "碰到什么就存入",
-  "start.save_body": "把链接或文字贴进「今天」最上面的框，或者把图片、文件拖进去，按「存入」。在手机或浏览器里怎么存，看下面。",
+  "start.save_body": "把链接或文字贴进「今天」最上面的框，或者点「选择文件」加入图片、PDF 和文本文件（在电脑上也可以拖进框里），再按「存入」。在手机或浏览器里怎么存，看下面。",
   "start.wait": "几分钟后解读就到",
   "start.wait_body": "内置助手读每一条，写四行：内容概述、关键事实、最多三条要点、判定。这段时间你什么都不用做。",
   "start.act": "按一下就定了",
