@@ -269,6 +269,8 @@ export function AnalysisCard({ item, act, selected = false }: { item: Item; act:
 export function WaitingRow({ item, selected = false }: { item: Item; selected?: boolean }) {
   const rules = useStore(meta)?.shared_rules;
   const facts: string[] = [];
+  // The video of the post is being read: the analysis waits for it, and the row says so (#103).
+  const reading = item.video_state === "reading" ? shared(rules?.video?.reading) || null : null;
   // Not sorted yet: how long it is kept is not decided, so no number of days is shown (QA #32).
   if (item.stage === "saved") {
     facts.push(t("today.just_saved"));
@@ -284,7 +286,7 @@ export function WaitingRow({ item, selected = false }: { item: Item; selected?: 
       <div>
         <a class="title-clip" href={`/item/${item.id}`} title={item.title}>{item.title}</a>
         <p class="quiet small">
-          {[item.site, item.content_unavailable ? shared(rules?.content_unavailable) : null, ...facts].filter(Boolean).join(" · ")}
+          {[item.site, item.content_unavailable ? shared(rules?.content_unavailable) : null, reading, ...facts].filter(Boolean).join(" · ")}
         </p>
       </div>
     </li>
