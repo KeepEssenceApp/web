@@ -44,8 +44,10 @@ test("QA #87: a picture waiting in the inbox comes with one quiet sentence about
   await drop(page, "png");
   const edge = await longEdge(page);
   expect(edge).toBe(1600);
-  await expect(note(page)).toHaveText(`图片会压缩后存入，最长边不超过 ${edge} 像素；原图不上传，留在你的设备上。`);
+  await expect(note(page)).toHaveText(`图片会先在你的设备上处理再存入，长边超过 ${edge} 像素的会缩小；原图不上传。`);
   await expect(note(page)).toHaveClass(/quiet/);
+  // Only what is known: no promise about small text, no "original saved", "HD" or "lossless".
+  for (const never of ["原图保存", "高清", "无损", "读得清", "不影响"]) await expect(note(page)).not.toContainText(never);
   // A sentence beside the files, not a question: saving needs no second press, and the success sentence is the core's, alone.
   await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
@@ -68,7 +70,7 @@ test("QA #87: the sentence is in English too", async ({ page }) => {
   await expect(page.locator("nav.nav .nav-entry").first()).toHaveText("Today");
   await page.goto("/");
   await drop(page, "png");
-  await expect(note(page)).toHaveText("Images are compressed before saving (1600 px on the long edge at most). The original isn't uploaded; it stays on your device.");
+  await expect(note(page)).toHaveText("Images are processed on your device before saving; anything over 1600 px on the long edge is scaled down. The original isn't uploaded.");
 });
 
 test("QA #87: a GIF that was an animation says that one picture was kept, and does not say which; a still GIF says nothing", async ({ page }) => {
@@ -116,7 +118,7 @@ test("QA #87: what the system share sheet sends is told the same way, only when 
     }, withImage);
   await share(true);
   await expect(page.getByTestId("share-result")).toHaveText("已存入。");
-  await expect(page.getByTestId("share-image-note")).toHaveText("图片会压缩后存入，最长边不超过 1600 像素；原图不上传，留在你的设备上。");
+  await expect(page.getByTestId("share-image-note")).toHaveText("图片会先在你的设备上处理再存入，长边超过 1600 像素的会缩小；原图不上传。");
   await page.goto("/");
   await share(false);
   await expect(page.getByTestId("share-result")).toBeVisible();
@@ -141,4 +143,50 @@ test("QA #87: a file over the limit says the limit in MiB, the unit it is in, an
   await expect(page.locator(".inbox-result")).toContainText("文件超过 3 MiB");
   await expect(page.locator(".inbox-result")).not.toContainText("MB ");
   expect((await state(page.request)).counts.items).toBe(before);
+});
+
+/** Puts a file that only has the name of a picture on the inbox. */
+async function dropBroken(page: Page) {
+  await expect(page.locator(".inbox")).toBeVisible();
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(["this is not a picture, only a test marker"], "broken.png", { type: "image/png" }));
+    document.querySelector(".inbox")!.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator(".inbox-files li")).toHaveCount(1);
+}
+
+test("QA #87: a picture the browser cannot read says so in the interface's language, not in the browser's English, and saves nothing", async ({ page }) => {
+  await signIn(page);
+  const before = (await state(page.request)).counts.items;
+  await dropBroken(page);
+  await page.getByTestId("inbox-save").click();
+  await expect(page.locator(".inbox-result")).toHaveText("没存入：这种文件存不了");
+  await expect(page.locator(".inbox-result")).not.toContainText(/decode|source image/i);
+  // It can be taken off again, and nothing was made of it.
+  await expect(page.locator(".inbox-files li")).toHaveCount(1);
+  await page.locator(".inbox-files button", { hasText: "拿掉" }).click();
+  expect((await state(page.request)).counts.items).toBe(before);
+});
+
+test("QA #87: the same in English", async ({ page }) => {
+  await signIn(page, "/assistants/account");
+  await page.getByTestId("language").selectOption("en");
+  await expect(page.locator("nav.nav .nav-entry").first()).toHaveText("Today");
+  await page.goto("/");
+  const before = (await state(page.request)).counts.items;
+  await dropBroken(page);
+  await page.getByTestId("inbox-save").click();
+  await expect(page.locator(".inbox-result")).toContainText("This kind of file cannot be saved");
+  await expect(page.locator(".inbox-result")).not.toContainText(/decode|source image/i);
+  expect((await state(page.request)).counts.items).toBe(before);
+});
+
+test("QA #87: an animation whose picture was not stored (over the storage quota) does not say that a frame was kept", async ({ page, request }) => {
+  await reset(request, { over_quota: true });
+  await signIn(page);
+  await drop(page, { gif: gif(3) });
+  await page.getByTestId("inbox-save").click();
+  await expect(page.locator(".inbox-result")).toHaveText("已存入。图片没存入：超出存储配额。");
+  await expect(page.locator(".inbox-result")).not.toContainText("动图");
 });

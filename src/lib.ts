@@ -193,9 +193,15 @@ export async function sha256Hex(data: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Compress an image to WebP with the long edge at most `edge` px, at most `maxBytes`. */
+/**
+ * Compress an image to WebP with the long edge at most `edge` px, at most `maxBytes`. Throws `Error("webp")` when the
+ * browser cannot make a picture of the bytes (a damaged file, or one that only has the name of a picture): the browser's
+ * own exception is English and says nothing the user can use, so the caller says its own sentence (QA #87).
+ */
 export async function toWebp(file: Blob, edge: number, maxBytes: number): Promise<Blob> {
-  const bmp = await createImageBitmap(file);
+  const bmp = await createImageBitmap(file).catch(() => {
+    throw new Error("webp");
+  });
   const scale = Math.min(1, edge / Math.max(bmp.width, bmp.height));
   const w = Math.max(1, Math.round(bmp.width * scale));
   const h = Math.max(1, Math.round(bmp.height * scale));

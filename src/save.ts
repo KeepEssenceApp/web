@@ -81,7 +81,8 @@ export async function saveFile(file: File, entry: string): Promise<Outcome> {
       entry,
     });
     refresh.set((n) => n + 1);
-    return { ok: true, sentence: animation ? `${res.message} ${t("inbox.gif_one_frame")}` : res.message };
+    // Only when the picture was stored: a save whose picture was not (the quota answer) has no frame to speak of.
+    return { ok: true, sentence: animation && res.message_key === "saved" ? `${res.message} ${t("inbox.gif_one_frame")}` : res.message };
   } catch (err) {
     return failed(err instanceof Error && err.message === "webp" ? t("inbox.bad_type") : reasonOf(err));
   }
