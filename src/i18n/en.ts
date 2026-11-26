@@ -430,7 +430,7 @@ export const en: Record<keyof typeof zh, string> = {
   "calendar.no_counts": "This day is too far back for its numbers.",
   "account.session": "This device",
   "account.data": "Your data",
-  "account.data_in": "The download holds your rules and choices, every daily digest, every note with its sources and origin, and every item that still exists with its analysis and tags.",
+  "account.data_in": "The download holds your rules and choices, every daily digest, every note with its sources and origin, and every item that still exists with its analysis.",
   "account.data_out": "It does not hold items that were already deleted, or the contents of files. Files are listed by name, type and size; each one is downloaded separately from its own item.",
   "account.download_data": "Download my data",
   "account.download_notes": "Download my notes",
