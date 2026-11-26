@@ -13,6 +13,7 @@
 
 - **开发代理的前缀会吃掉应用自己的路径。** Vite 的代理写成 `/c` 时，`/calendar` 也被转给了核心，得到 404。代理改成了正则：`^/(v1|oauth|\.well-known|c)/` 和 `^/mcp$`。对着真核心跑端到端才发现的；假核心按完整的路径段分，所以没露出来。
 
+- **端到端的假核心端口是固定的。** 不设 `BASE_URL` 时，Playwright 用 8803，而且 `reuseExistingServer` 为真：两个检出（含 `git worktree`）同时跑端到端，会共用先起来的那个假核心。后起的一边测的其实是别人的构建，状态还会被对方的 `reset` 清掉（表现是测到一半被登出、`test-results` 里的文件找不到、`EADDRINUSE`）。同时跑时给自己起一个：`npm run build`，再 `PORT=8813 node dev/fake-core.mjs`，另开一个终端 `BASE_URL=http://127.0.0.1:8813 FAKE=1 npx playwright test`。
 - **手机上滑动测试要先把卡片滚进视口。** Playwright 经 CDP 发触摸事件，坐标落在视口外不报错，只是什么都不发生。
 - **无头 Chromium 的通知权限缺省是 denied，不是 default。** 测「只在点了通知我之后问一次」时，要在页面脚本里把 `Notification.permission` 换成可控的。
 - **页面开着时不弹通知。** 规格要求读的界面开着的设备不弹。`sw.js` 发现有可见的窗口就只让页面刷新。Chrome 对「收到推送却不显示通知」有容忍次数，超过后会自己弹一条通用提示；如果内测里见到，就改成照常弹。

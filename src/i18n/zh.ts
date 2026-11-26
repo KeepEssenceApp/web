@@ -428,7 +428,7 @@ export const zh = {
   "calendar.no_counts": "这一天太早，数字查不到了。",
   "account.session": "这台设备",
   "account.data": "你的数据",
-  "account.data_in": "下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读和标签。",
+  "account.data_in": "下载的文件里有：你的规则和各项选择、每一份每日摘要、每一篇笔记连同出处和来源、每一条还在的条目连同解读。",
   "account.data_out": "里面没有：已经删除的条目，和文件本身的内容。文件只列出名称、类型和大小，要到它所在的条目里单独下载。",
   "account.download_data": "下载我的数据",
   "account.download_notes": "下载我的笔记",
