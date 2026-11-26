@@ -769,8 +769,8 @@ function Account() {
   const [fail, setFail] = useState<string | null>(null);
   const [busy, run] = useBusy();
   const [asked, setAsked] = useState<Lang | null>(null);
-  // One neutral sentence after the language was changed. It does not say anything about what
-  // is written in it later: that is not promised while QA #18 is open.
+  // One neutral sentence after the language was changed. What is written in it later is said by the
+  // switch below it (QA #18, option 2): by default the item's own language, or this one when it is on.
   const [changed, setChanged] = useState(takeLanguageChanged);
   const s = settings.data;
   if (!s) return <Loading error={settings.error} />;
@@ -781,7 +781,8 @@ function Account() {
     /* older browsers */
   }
   if (!zones.includes(s.timezone)) zones = [s.timezone, ...zones];
-  // The language belongs to the account: analyses and daily digests are written in it. It is
+  // The language belongs to the account: it is the interface's, and the one new analyses and daily
+  // digests are written in when "Always use my language" is on (or the item's own cannot be told). It is
   // sent to the core first; the interface follows only once the core has it (QA #18).
   // While the core is asked, the control keeps the choice and one sentence says it is on its way
   // (QA #51): the page never looks finished in the old language.
@@ -822,6 +823,32 @@ function Account() {
               </p>
             )}
             <p class="quiet small" data-testid="language-hint" role="status">{asked ? t("account.language_changing") : t("account.language_hint")}</p>
+          </div>
+          <div class="stack tight" data-part="always-mine">
+            <div class="row spread">
+              <span>{t("account.always_mine")}</span>
+              <Switch
+                on={s.always_my_language}
+                label={t("account.always_mine")}
+                disabled={busy !== null}
+                onChange={(on) => {
+                  // The sentence under the switch follows it at once, and goes back if the core refuses.
+                  const before = s;
+                  settings.set({ ...s, always_my_language: on });
+                  return api.updateSettings({ always_my_language: on }).then(
+                    (next) => {
+                      settings.set(next);
+                      say(t(on ? "account.always_mine_turned_on" : "account.always_mine_turned_off"));
+                    },
+                    (err) => {
+                      settings.set(before);
+                      sayError(err);
+                    },
+                  );
+                }}
+              />
+            </div>
+            <p class="quiet small" data-testid="always-mine-hint">{s.always_my_language ? t("account.always_mine_on") : t("account.always_mine_off")}</p>
           </div>
           <label class="stack tight">
             <span class="label">{t("account.timezone")}</span>
