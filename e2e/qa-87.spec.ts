@@ -1,7 +1,7 @@
 // Internal QA #87: what happens to a picture is said once, beside the files that wait (not after each save, not as a
 // question), and a GIF that was an animation says that one picture was kept. The success sentence stays the core's.
 import { expect, test, type Page } from "@playwright/test";
-import { reset, signIn } from "./helpers";
+import { reset, signIn, state } from "./helpers";
 
 test.beforeEach(async ({ request }) => reset(request));
 
@@ -121,4 +121,24 @@ test("QA #87: what the system share sheet sends is told the same way, only when 
   await share(false);
   await expect(page.getByTestId("share-result")).toBeVisible();
   await expect(page.getByTestId("share-image-note")).toHaveCount(0);
+});
+
+test("QA #87: a file over the limit says the limit in MiB, the unit it is in, and saves nothing", async ({ page }) => {
+  await signIn(page);
+  const before = (await state(page.request)).counts.items;
+  const limit = ((await (await page.request.get("/v1/meta")).json()).limits.asset_max_bytes as number);
+  expect(limit).toBe(3145728);
+  // A PDF one byte over the limit, so no picture is made of it: only the size is judged.
+  await page.evaluate(async (max) => {
+    const bytes = new Uint8Array(max + 1);
+    bytes.set(new TextEncoder().encode("%PDF-1.7 "));
+    const data = new DataTransfer();
+    data.items.add(new File([bytes], "big.pdf", { type: "application/pdf" }));
+    document.querySelector(".inbox")!.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
+  }, limit);
+  await expect(page.locator(".inbox-files li")).toHaveCount(1);
+  await page.getByTestId("inbox-save").click();
+  await expect(page.locator(".inbox-result")).toContainText("文件超过 3 MiB");
+  await expect(page.locator(".inbox-result")).not.toContainText("MB ");
+  expect((await state(page.request)).counts.items).toBe(before);
 });
