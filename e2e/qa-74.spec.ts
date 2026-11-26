@@ -65,3 +65,27 @@ test("QA #76: the save box's sentence goes once the user moves on", async ({ pag
   await expect(page.locator(".inbox-box")).toBeVisible();
   await expect(result).toHaveText("");
 });
+
+test("QA #92: an analysis the panel learns of first also moves the item in the list, at once", async ({ page, request }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 900, "the panel sits beside the list on wide screens only");
+  await signIn(page, "/");
+  await page.locator(".inbox-box").fill("等解读的一条 " + Date.now());
+  await page.locator(".inbox-box").press("Meta+Enter");
+  const row = page.locator(".waiting").first();
+  await expect(row).toBeVisible();
+  const id = await row.getAttribute("data-item");
+  await row.locator("a").click();
+  await expect(page).toHaveURL(new RegExp(`/item/${id}$`));
+  await expect(page.getByRole("complementary")).toContainText("还没解读");
+  // The analysis is handed in. The list's next answer is an old one (it was on its way already);
+  // the panel's is the new one.
+  const old = await (await page.request.get("/v1/items?state=today", { headers: { authorization: `Bearer ${await page.evaluate(() => localStorage.getItem("ke.credential"))}` } })).text();
+  await request.post("/__test/analyse", { data: { item_id: id } });
+  let stale = 1;
+  await page.route("**/v1/items?*", (route) => (stale-- > 0 ? route.fulfill({ contentType: "application/json", body: old }) : route.continue()));
+  // Anything that makes both ask again: here, another save.
+  await page.locator(".inbox-box").fill("又一条 " + Date.now());
+  await page.locator(".inbox-box").press("Meta+Enter");
+  await expect(page.getByRole("complementary").locator("dt").first()).toBeVisible({ timeout: 5000 });
+  await expect(page.locator(`.waiting[data-item="${id}"]`)).toHaveCount(0, { timeout: 3000 });
+});

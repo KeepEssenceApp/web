@@ -38,6 +38,17 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
     if (prev && ((!prev.analysis && next.analysis) || prev.stage !== next.stage)) refresh.set((n) => n + 1);
   };
   useWatch(!!item.data && !item.data.analysis, () => item.poll(landed));
+  // The analysis can also arrive with an ordinary load (one started just before it was handed
+  // in, while the list's own load came back just too early). However this page learns of it,
+  // the lists are told once, so they never show the item as waiting beside its analysis (QA #92).
+  const known = useRef<{ id: string; analysed: boolean } | null>(null);
+  const analysedNow = item.data ? !!item.data.analysis : null;
+  useEffect(() => {
+    if (analysedNow === null) return;
+    const was = known.current;
+    known.current = { id, analysed: analysedNow };
+    if (was && was.id === id && !was.analysed && analysedNow) refresh.set((n) => n + 1);
+  }, [id, analysedNow]);
   // A notification that arrived while the page is open says "refresh". Beside a list the load
   // above follows it already; the item's own page asks again quietly.
   const seenTick = useRef(tick);
