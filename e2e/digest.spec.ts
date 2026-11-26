@@ -22,7 +22,7 @@ test("W3: opens on the latest; four parts in order; unread dot; Read. Good night
   await expect(page.locator(".rest-line").first()).toBeHidden();
   // Plain text: no images, no tags.
   await expect(page.locator("article img")).toHaveCount(0);
-  await expect(page.locator("article .tags")).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText(/\b(assistant|expiry|source):/);
 
   await page.getByRole("button", { name: "读了，晚安" }).click();
   await expect(page.getByRole("button", { name: "读了，晚安" })).toHaveCount(0);

@@ -116,7 +116,6 @@ export const en: Record<keyof typeof zh, string> = {
 
   "item.analysis": "Analysis",
   "item.not_analysed": "Not analysed yet.",
-  "item.tags": "Tags",
   "item.analysed_by": "Given to",
   "item.kept_for": "Kept for",
   "item.days": "{n} day{s:n}",

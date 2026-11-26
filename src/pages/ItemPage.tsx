@@ -22,7 +22,8 @@ export function retentionSentence(it: ItemDetail, timeZone?: string): string {
 }
 
 /**
- * One item: the original, the analysis, the tags. On its own page it leads back to Today; on a
+ * One item: the original, the analysis, and the two things the user can decide (who analyses it,
+ * how long it is kept). Tags are never shown (rule A6). On its own page it leads back to Today; on a
  * wide screen the same thing sits in the panel beside the list it was opened from (`panel`),
  * and `back` is that list.
  */
@@ -142,8 +143,6 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   const retentionBySorting = sorted && !it.pinned && !mine.current.retention && (it.retention_set_by ?? "triage") !== "user";
   const assistantBySorting = sorted && !!it.dispatch_to && !mine.current.assistant && (it.assistant_set_by ?? "triage") !== "user";
   const defaultDays = Number(about?.limits?.item_expiry_default_days) || 30;
-  // A kept item has no end date: an expiry tag from before does not apply and is not shown.
-  const tags = (it.tags ?? []).filter((tag) => !((it.pinned || !decided) && tag.startsWith("expiry:")));
   const state = it.in_queue ? t("digest.in_queue") : it.signal === "not_interested" ? t("action.not_interested") : it.signal === "seen" ? t("action.seen") : null;
   const was = { signal: it.signal ?? null, in_queue: !!it.in_queue };
 
@@ -201,17 +200,6 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
             <p class="sentence quiet">{t("item.not_analysed")}</p>
           )}
         </section>
-
-        {tags.length > 0 && (
-          <section class="stack tight" aria-label={t("item.tags")}>
-            <h2 class="label">{t("item.tags")}</h2>
-            <p class="tags">
-              {tags.map((tag) => (
-                <code key={tag}>{tag}</code>
-              ))}
-            </p>
-          </section>
-        )}
 
         <section class="stack" aria-label={t("item.kept_for")}>
           {manage && (

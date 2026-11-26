@@ -114,7 +114,6 @@ export const zh = {
 
   "item.analysis": "解读",
   "item.not_analysed": "还没解读。",
-  "item.tags": "标签",
   "item.analysed_by": "交给哪个助手",
   "item.kept_for": "保留多久",
   "item.days": "{n} 天",
