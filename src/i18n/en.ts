@@ -73,6 +73,7 @@ export const en: Record<keyof typeof zh, string> = {
   "inbox.too_large": "The file is larger than {mb} MB",
   "inbox.bad_type": "This kind of file cannot be saved",
   "inbox.remove": "Remove",
+  "inbox.choose": "Choose a file",
   "inbox.drop": "Drop to add",
 
   "today.analyses": "Analyses · newest first",
@@ -453,7 +454,7 @@ export const en: Record<keyof typeof zh, string> = {
   "start.title": "Getting started",
   "start.lead": "KeepEssence takes what you come across during the day, tells you in a few lines what each thing is, and lets go of what you did not need. This is how a day goes.",
   "start.save": "Save what you come across",
-  "start.save_body": "Paste a link or some text into the box at the top of Today, or drop an image or a file on it, and press Save. From your phone or your browser, see the ways below.",
+  "start.save_body": "Paste a link or some text into the box at the top of Today, or choose or drop an image or a file, and press Save. From your phone or your browser, see the ways below.",
   "start.wait": "The analysis arrives in a few minutes",
   "start.wait_body": "The built-in assistant reads each item and writes four lines: a summary, a key fact, up to three key points and a verdict. Nothing to do meanwhile.",
   "start.act": "Decide with one press",

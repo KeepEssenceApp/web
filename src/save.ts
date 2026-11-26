@@ -5,6 +5,12 @@ import { shared, t } from "./i18n";
 import { sha256Hex, toWebp } from "./lib";
 
 const ASSET_TYPES = ["image/webp", "image/png", "image/jpeg", "image/gif", "application/pdf", "text/plain", "text/markdown"];
+/**
+ * What the file picker offers. Every image goes up as WebP, so any image the browser can read is
+ * offered (a phone's photo library too); other files are the contract's types. `.md` is named
+ * because many systems give a Markdown file no type.
+ */
+export const FILE_ACCEPT = ["image/*", ...ASSET_TYPES.filter((x) => !x.startsWith("image/")), ".md"].join(",");
 const limit = (name: string, fallback: number) => {
   const v = meta.get()?.limits?.[name];
   return typeof v === "number" ? v : fallback;

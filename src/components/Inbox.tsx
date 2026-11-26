@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { shared, t } from "../i18n";
 import { looksSecret } from "../lib";
-import { combine, saveFile, saveText, type Outcome } from "../save";
+import { combine, FILE_ACCEPT, saveFile, saveText, type Outcome } from "../save";
 import { useRoute } from "../router";
 import { meta } from "../session";
 import { useStore } from "../store";
@@ -16,6 +16,7 @@ export function Inbox() {
   const [over, setOver] = useState(false);
   const [result, setResult] = useState<Outcome | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   // The sentence answers one save. It goes when the user moves on to something else (opens an
   // item, closes it, comes back): later it would speak of a save long past (QA #76).
   const route = useRoute();
@@ -100,6 +101,21 @@ export function Inbox() {
           }
         }}
       />
+      <input
+        ref={picker}
+        type="file"
+        multiple
+        hidden
+        accept={FILE_ACCEPT}
+        data-testid="inbox-file"
+        tabIndex={-1}
+        onChange={(ev) => {
+          const input = ev.currentTarget;
+          add(input.files);
+          // Cancelling fires nothing, so nothing is added. Emptied so the same file can be chosen again after it was taken out.
+          input.value = "";
+        }}
+      />
       {files.length > 0 && (
         <ul class="inbox-files">
           {files.map((f, i) => (
@@ -136,6 +152,10 @@ export function Inbox() {
             <p class={`inbox-result${result && !result.ok ? " bad" : ""}`} role="status" aria-live="polite">
               {busy ? t("inbox.saving") : result?.sentence}
             </p>
+            {/* The way in for a phone, where nothing can be dropped or pasted. A chosen file waits in the list like a dropped one. */}
+            <button class="link inbox-choose" type="button" disabled={busy} onClick={() => picker.current?.click()}>
+              {t("inbox.choose")}
+            </button>
             <button class="btn" type="button" disabled={busy || (!text.trim() && !files.length)} onClick={() => void save()}>
               {t("inbox.save")}
             </button>
