@@ -5,6 +5,11 @@ import { shared, t } from "./i18n";
 import { sha256Hex, toWebp } from "./lib";
 
 const ASSET_TYPES = ["image/webp", "image/png", "image/jpeg", "image/gif", "application/pdf", "text/plain", "text/markdown"];
+/**
+ * What the file picker offers: the same kinds the core takes. A Markdown file often has no type
+ * of its own, so its extensions are listed too (the type is then guessed from the name below).
+ */
+export const PICKER_ACCEPT = [...ASSET_TYPES, ".pdf", ".txt", ".md", ".markdown"].join(",");
 const limit = (name: string, fallback: number) => {
   const v = meta.get()?.limits?.[name];
   return typeof v === "number" ? v : fallback;
@@ -44,7 +49,7 @@ export async function saveFile(file: File, entry: string): Promise<Outcome> {
   const max = limit("asset_max_bytes", 3145728);
   try {
     let blob: Blob = file;
-    let type = file.type || (file.name.endsWith(".md") ? "text/markdown" : "");
+    let type = file.type || (/\.(md|markdown)$/i.test(file.name) ? "text/markdown" : "");
     const isImage = type.startsWith("image/");
     if (isImage) {
       // Every image goes up as WebP with the long edge at the contract's limit.

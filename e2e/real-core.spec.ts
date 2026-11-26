@@ -12,7 +12,7 @@ test("real core: save, see it in Today, status bar, calendar", async ({ page }) 
   await signIn(page);
   const url = `https://example.com/real/${Date.now()}-${Math.random().toString(36).slice(2)}`;
   await page.locator(".inbox-box").fill(url);
-  await page.locator(".inbox .btn").click();
+  await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("已存入。");
   // Not analysed yet: listed after the analyses, lighter.
   await expect(page.locator(".waiting").first()).toBeVisible();

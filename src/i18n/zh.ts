@@ -64,7 +64,8 @@ export const zh = {
   "status.open": "去助手设置",
 
   "inbox.label": "存入",
-  "inbox.placeholder": "粘贴链接或文字，或者把图片、文件拖进来",
+  "inbox.placeholder": "粘贴链接或文字，或者选择图片、文件",
+  "inbox.pick": "选择文件",
   "inbox.save": "存入",
   "inbox.saving": "正在存入…",
   "inbox.dont_save": "不存入",
@@ -451,7 +452,7 @@ export const zh = {
   "start.title": "开始用",
   "start.lead": "KeepEssence 接住你一天里碰到的东西，用几行字告诉你每一条是什么，没用上的就放手。一天是这样过的。",
   "start.save": "碰到什么就存入",
-  "start.save_body": "把链接或文字贴进「今天」最上面的框，或者把图片、文件拖进去，按「存入」。在手机或浏览器里怎么存，看下面。",
+  "start.save_body": "把链接或文字贴进「今天」最上面的框，或者点「选择文件」加入图片、PDF 和文本文件（在电脑上也可以拖进框里），再按「存入」。在手机或浏览器里怎么存，看下面。",
   "start.wait": "几分钟后解读就到",
   "start.wait_body": "内置助手读每一条，写四行：内容概述、关键事实、最多三条要点、判定。这段时间你什么都不用做。",
   "start.act": "按一下就定了",
