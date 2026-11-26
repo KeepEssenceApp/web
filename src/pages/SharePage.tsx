@@ -3,7 +3,7 @@ import { Inbox } from "../components/Inbox";
 import { Loading } from "../components/ui";
 import { shared, t } from "../i18n";
 import { looksSecret } from "../lib";
-import { combine, saveFile, saveText, type Outcome } from "../save";
+import { combine, imageLongEdge, saveFile, saveText, type Outcome } from "../save";
 import { canRead, meta } from "../session";
 import { Standalone } from "./Approve";
 
@@ -29,6 +29,7 @@ async function sharedFiles(): Promise<File[]> {
 export function SharePage({ search }: { search: string }) {
   const [result, setResult] = useState<Outcome | null>(null);
   const [ask, setAsk] = useState<null | (() => void)>(null);
+  const [images, setImages] = useState(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -50,7 +51,11 @@ export function SharePage({ search }: { search: string }) {
     const run = async () => {
       const outcomes: Outcome[] = [];
       if (body) outcomes.push(await saveText(body, "share", link ? title || rest || undefined : undefined));
-      if (hasFiles) for (const f of await sharedFiles()) outcomes.push(await saveFile(f, "share"));
+      if (hasFiles) {
+        const files = await sharedFiles();
+        setImages(files.some((f) => f.type.startsWith("image/")));
+        for (const f of files) outcomes.push(await saveFile(f, "share"));
+      }
       setResult(outcomes.length ? combine(outcomes) : { ok: false, sentence: t("share.nothing") });
     };
     if (body && !link && looksSecret(body, meta.get()?.shared_rules)) setAsk(() => run);
@@ -77,6 +82,11 @@ export function SharePage({ search }: { search: string }) {
           <p class={`sentence${result.ok ? "" : " bad"}`} role="status" data-testid="share-result">
             {result.sentence}
           </p>
+          {images && (
+            <p class="quiet small" data-testid="share-image-note">
+              {t("inbox.image_note", { px: imageLongEdge() })}
+            </p>
+          )}
           {canRead() && (
             <a class="link" href="/">
               {t("share.go_today")}

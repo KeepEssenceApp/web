@@ -2,6 +2,7 @@
 import { api, ApiError } from "./api";
 import { meta, refresh } from "./session";
 import { shared, t } from "./i18n";
+import { gifFrames } from "./gif";
 import { sha256Hex, toWebp } from "./lib";
 
 const ASSET_TYPES = ["image/webp", "image/png", "image/jpeg", "image/gif", "application/pdf", "text/plain", "text/markdown"];
@@ -14,6 +15,9 @@ const limit = (name: string, fallback: number) => {
   const v = meta.get()?.limits?.[name];
   return typeof v === "number" ? v : fallback;
 };
+
+/** The longest edge, in pixels, that a saved picture keeps: the one value that saving uses and the notes say. */
+export const imageLongEdge = () => limit("image_long_edge_px", 1600);
 
 export interface Outcome {
   ok: boolean;
@@ -51,9 +55,12 @@ export async function saveFile(file: File, entry: string): Promise<Outcome> {
     let blob: Blob = file;
     let type = file.type || (/\.(md|markdown)$/i.test(file.name) ? "text/markdown" : "");
     const isImage = type.startsWith("image/");
+    // A GIF is kept as one still picture. Say so only when it was an animation, and not that it is the "first" of them:
+    // what is known is that one picture is kept (QA #87).
+    const animation = type === "image/gif" && gifFrames(new Uint8Array(await file.arrayBuffer())) > 1;
     if (isImage) {
       // Every image goes up as WebP with the long edge at the contract's limit.
-      blob = await toWebp(file, limit("image_long_edge_px", 1600), max);
+      blob = await toWebp(file, imageLongEdge(), max);
       type = "image/webp";
     }
     if (!ASSET_TYPES.includes(type)) return failed(t("inbox.bad_type"));
@@ -73,7 +80,7 @@ export async function saveFile(file: File, entry: string): Promise<Outcome> {
       entry,
     });
     refresh.set((n) => n + 1);
-    return { ok: true, sentence: res.message };
+    return { ok: true, sentence: animation ? `${res.message} ${t("inbox.gif_one_frame")}` : res.message };
   } catch (err) {
     return failed(err instanceof Error && err.message === "webp" ? t("inbox.bad_type") : reasonOf(err));
   }

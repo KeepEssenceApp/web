@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { shared, t } from "../i18n";
 import { looksSecret } from "../lib";
-import { combine, PICKER_ACCEPT, saveFile, saveText, type Outcome } from "../save";
+import { combine, imageLongEdge, PICKER_ACCEPT, saveFile, saveText, type Outcome } from "../save";
 import { useRoute } from "../router";
 import { meta } from "../session";
 import { useStore } from "../store";
@@ -126,6 +126,12 @@ export function Inbox() {
             </li>
           ))}
         </ul>
+      )}
+      {/* What happens to a picture, said once beside the files that wait: not after each save, not as a question (QA #87). */}
+      {files.some((f) => f.type.startsWith("image/")) && (
+        <p class="quiet small" data-testid="inbox-image-note">
+          {t("inbox.image_note", { px: imageLongEdge() })}
+        </p>
       )}
       <div class="inbox-foot">
         {asking ? (
