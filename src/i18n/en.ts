@@ -86,6 +86,8 @@ export const en: Record<keyof typeof zh, string> = {
   "today.nothing": "Nothing saved today yet. Paste a link or some text in the box above and press Save.",
   "today.in_digest": "Today's daily digest is written. Everything analysed before it is in the digest, nothing was deleted. What you save from now on goes into tomorrow's.",
   "today.open_digest": "Open the daily digest",
+  "today.unknown": "Nothing is listed here, but whether today's daily digest has taken what you saved could not be read.",
+  "today.unknown_retry": "Try again",
   "today.given_to": "Waiting for {name}",
   "today.days_left": "{n} day{s:n} left",
   "today.kept": "Kept, never deleted",
