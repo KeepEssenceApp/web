@@ -26,6 +26,8 @@ test("W3: opens on the latest; four parts in order; unread dot; Read. Good night
 
   await page.getByRole("button", { name: "读了，晚安" }).click();
   await expect(page.getByRole("button", { name: "读了，晚安" })).toHaveCount(0);
+  // In its place: a whole sentence, not a bare label (QA #89).
+  await expect(page.getByTestId("digest-read-done")).toHaveText("这份每日摘要你读过了。");
   await expect(page.locator("article header .state")).toHaveText("读了");
   await expect(page.getByTestId("digest-unread")).toHaveCount(0);
 });

@@ -495,4 +495,5 @@ export const en: Record<keyof typeof zh, string> = {
   "rules.nothing_to_save": "Nothing to save: this is what is saved now.",
   "today.last_day": "Ends today",
   "item.unavailable_hint": "Some sites only show their content inside their own app or after a check, so it cannot be read from outside. To get an analysis, copy the text there and save it here as text, or save a screenshot.",
+  "digest.read_done": "You have read this daily digest.",
 };

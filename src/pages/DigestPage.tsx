@@ -236,7 +236,8 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
 
           <div class="row">
             {d.read ? (
-              <State dot="solid">{t("digest.is_read")}</State>
+              // Where the "Read. Good night" button was: a whole sentence, so it does not read as a stray label (QA #89).
+              <State dot="solid"><span data-testid="digest-read-done">{t("digest.read_done")}</span></State>
             ) : (
               <button class="btn" type="button" disabled={busy === "read"} aria-busy={busy === "read"} onClick={() => markRead(d)}>
                 {t("digest.read")}
