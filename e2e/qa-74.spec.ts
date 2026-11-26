@@ -33,12 +33,12 @@ test("QA #73: a day pressed in the month card on Today opens the month with that
   test.skip(n < 3, "the month has only just begun");
   const day = await days.nth(n - 3).getAttribute("data-day");
   await days.nth(n - 3).click();
-  await expect(page).toHaveURL(new RegExp(`/calendar\\?day=${day}$`));
+  await expect(page).toHaveURL(new RegExp(`/calendar\\?day=${day}&from=today$`));
   await expect(page.getByTestId("day-panel")).toHaveAttribute("data-day", day!);
   // Beside the days, the card still opens the month as before.
   await page.goto("/");
   await page.getByTestId("month-panel").locator(".label").click();
-  await expect(page).toHaveURL(/\/calendar$/);
+  await expect(page).toHaveURL(/\/calendar\?from=today$/);
 });
 
 test("QA #75: the month says what each kind of dot means", async ({ page }) => {
