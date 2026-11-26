@@ -9,11 +9,24 @@ export type Verdict = "worth_deep_dive" | "good_to_know" | "skippable";
 export type Signal = "not_interested" | "seen";
 export type LangText = Record<Lang, string>;
 
+/** The sentences about an item's video, by `video_state`, and the label and note that go with the recognized text. `too_long` holds `{minutes}`. */
+export interface VideoRules {
+  reading: LangText;
+  no_speech: LangText;
+  too_long: LangText;
+  unavailable: LangText;
+  recognized_text_label: LangText;
+  recognized_text_note: LangText;
+}
+export type VideoState = "reading" | "recognized" | "no_speech" | "too_long" | "unavailable";
+
 export interface SharedRules {
   secret_like: { max_length_checked: number; patterns: { name: string; regex: string; flags?: string }[] };
   save_messages: Record<string, LangText>;
   verdicts: Record<Verdict, LangText>;
   content_unavailable: LangText;
+  /** What an item says about its video (#103). Absent from a core that does not read videos. */
+  video?: VideoRules;
   notifications: Record<string, LangText>;
   opening_line: LangText;
 }
@@ -58,6 +71,8 @@ export interface Item {
   created_at: string;
   stage: "saved" | "triaged" | "analysed";
   content_unavailable?: boolean;
+  /** What became of the item's video; null or absent when it has none. `reading`: the analysis waits for it. */
+  video_state?: VideoState | null;
   dispatch_to?: { id: string; name: string } | null;
   days_left?: number | null;
   pinned?: boolean;
@@ -67,6 +82,8 @@ export interface Item {
 }
 export interface ItemDetail extends Item {
   body?: string | null;
+  /** What was recognized from the sound of the video. Not the author's words, and it may hold mistakes: shown apart from `body`, with the note. */
+  recognized_text?: string | null;
   asset_id?: string | null;
   tags?: string[];
   expiry_days?: number | null;
