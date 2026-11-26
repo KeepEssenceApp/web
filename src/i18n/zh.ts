@@ -73,7 +73,7 @@ export const zh = {
   "inbox.dont_save": "不存入",
   "inbox.too_large": "文件超过 {mib} MiB",
   "inbox.bad_type": "这种文件存不了",
-  "inbox.image_note": "图片会压缩后存入，最长边不超过 {px} 像素；原图不上传，留在你的设备上。",
+  "inbox.image_note": "图片会先在你的设备上处理再存入，长边超过 {px} 像素的会缩小；原图不上传。",
   "inbox.gif_one_frame": "动图只保留了一帧。",
   "inbox.remove": "拿掉",
   "inbox.drop": "松手就放进来",
