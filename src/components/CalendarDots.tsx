@@ -10,7 +10,8 @@ export function dayLabel(d: Day, today?: string): string {
 }
 
 /**
- * One month: one dot a day, seven to a row, in date order. Days in the future are not drawn.
+ * One month: one dot a day, seven to a row, in date order, as many as the month has days. A day to
+ * come is a neutral grey dot with no mark: it cannot be pointed at, chosen or opened.
  * `faint` is the background on Today, `card` the card under Notes, `large` the opened month.
  * In the opened month every day can be pointed at or reached with the keyboard (`onPoint` then
  * names it), and a day with a daily digest opens that digest. With `select` (wide screens) every
@@ -30,11 +31,17 @@ export function CalendarDots({
   select?: (day: string) => string;
   selected?: string | null;
 }) {
-  const days = cal.days.filter((d) => d.mark !== "future");
   return (
     <div class={`cal cal-${size}`} role={size === "faint" ? "presentation" : "list"}>
-      {days.map((d) => {
+      {cal.days.map((d) => {
         const label = dayLabel(d, cal.today);
+        if (d.mark === "future") {
+          return (
+            <span class="cal-day mark-future" role={size === "faint" ? undefined : "listitem"} key={d.day} data-day={size === "faint" ? undefined : d.day} aria-label={size === "faint" ? undefined : label} title={size === "faint" ? undefined : label}>
+              <i class="cal-dot" aria-hidden="true" />
+            </span>
+          );
+        }
         const cls = `cal-day mark-${d.mark}${d.day === cal.today ? " is-today" : ""}`;
         const dot = <i class="cal-dot" aria-hidden="true" />;
         const point = onPoint && {
