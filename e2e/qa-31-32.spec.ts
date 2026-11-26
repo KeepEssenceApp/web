@@ -16,7 +16,8 @@ const item = (page: Page, id: string) => page.locator(`[data-open-item="${id}"]`
 const keptFor = (page: Page) => page.getByTestId("kept-for");
 const analysedBy = (page: Page) => page.getByTestId("analysed-by");
 const header = (page: Page) => page.locator("article header .quiet");
-const tags = (page: Page) => page.locator(".tags code").allInnerTexts();
+// Rule A6 (QA #94): the internal tag strings are never shown to the user.
+const noRawTags = (page: Page) => expect(page.locator("article")).not.toContainText(/\b(assistant|expiry|source):/);
 const chosen = (select: ReturnType<typeof keptFor>) => select.evaluate((el: HTMLSelectElement) => el.selectedOptions[0]?.textContent?.trim());
 const auth = async (page: Page) => ({ Authorization: `Bearer ${await credentialOf(page)}` });
 const triage = (request: APIRequestContext, item_id: string, expiry_days: number, assistant_id = "as_builtin") =>
@@ -200,7 +201,7 @@ test.describe("QA #32: how long an item is kept is decided when it is sorted, an
     await expect(header(page)).not.toContainText("还剩");
     // "30 days", not the minutes of a time of day such as 20:30.
     await expect(header(page)).not.toHaveText(/(^|[^:\d])30\s*天/);
-    expect((await tags(page)).filter((x) => x.startsWith("expiry:"))).toEqual([]);
+    await noRawTags(page);
     // The control: a state as its current value, the user's days and "never" to choose from.
     await expect(keptFor(page)).toHaveValue("");
     expect(await chosen(keptFor(page))).toBe("初筛时定");
@@ -230,7 +231,7 @@ test.describe("QA #32: how long an item is kept is decided when it is sorted, an
     await expect(header(page)).toContainText("还剩 7 天");
     await expect(keptFor(page)).toHaveValue("7");
     await expect(keptFor(page).locator("option")).toHaveText(["7 天", "30 天", "90 天", "365 天", "收藏（不过期）"]);
-    expect((await tags(page)).filter((x) => x.startsWith("expiry:"))).toEqual(["expiry:7"]);
+    await noRawTags(page);
     await expect(open.getByTestId("retention-undecided")).toHaveCount(0);
     await expect(open.getByTestId("retention-note")).toHaveText("初筛时定的。另选一个就改。");
     await expect(analysedBy(page)).toHaveValue("as_builtin");
@@ -272,11 +273,11 @@ test.describe("QA #32: how long an item is kept is decided when it is sorted, an
     await expect(keptFor(page)).toBeEnabled();
     await keptFor(page).selectOption("90");
     await expect(page.locator(".said")).toHaveText(/^保留 90 天，到 .+ 删除。$/);
-    // It is the user's decision now: shown as one, in the header, the control and the tag.
+    // It is the user's decision now: shown as one, in the header and the control.
     await expect(keptFor(page)).toHaveValue("90");
     await expect(keptFor(page).locator("option")).toHaveText(["7 天", "30 天", "90 天", "365 天", "收藏（不过期）"]);
     await expect(header(page)).toContainText("还剩 90 天");
-    expect((await tags(page)).filter((x) => x.startsWith("expiry:"))).toEqual(["expiry:90"]);
+    await noRawTags(page);
     await expect(open.getByTestId("retention-undecided")).toHaveCount(0);
 
     // Sorting would have said 7 days. The user's 90 stay, and the sentence says what is true.
