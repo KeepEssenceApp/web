@@ -32,6 +32,8 @@
 
 ## 弹层、底栏和页面宽度
 
+- **条目自己的页面只在窄屏上有，宽屏上它在列表旁边。** `App.tsx` 里 1100 px 以上（`WIDE`）一个条目总是开在 `Split` 的右栏，左边那页（今天、笔记、每日摘要）已经带状态栏；1100 px 以下（手机是 760 px 以下）才是 `ItemPage` 自己的一页。所以状态栏（规则 A5，QA #108）只放在自己的页面上（`ItemPage` 的 `Top`），`panel` 里不放，否则宽屏上会有两条。测它要把视口放窄：手机项目是手机，桌面项目用 `setViewportSize` 到 900 px；宽屏上 `/item/:id` 打开也看不到这一页，别在 1280 px 上等它（`e2e/qa-108.spec.ts`）。
+
 - **粘在底部的元素（`position: sticky` 或 `fixed`）自己就是一个层叠上下文。** 存入的弹层原来放在粘性的 `.inbox` 里面，它的 `z-index: 51` 只在那个上下文里算，比手机底栏（`z-index: 30`）低，底栏盖住了弹层的下半截，「存入」按钮看不见。现在 `.inbox` 是 `display: contents`，只有 `.savebar` 自己是粘性的，弹层和底栏在同一层比。症状是「按钮不见了」，原因是层，不是尺寸。
 - **键盘出来时，只跟高度不够。** 手机上弹层贴着可视视口：`visualViewport` 的 `height`、`offsetTop`、`offsetLeft`、`width` 都要读（`lib.ts` 的 `useVisualViewport`）。只跟底部和高度，弹层会留在布局视口里，而可见的那一块因为放大或为了露出输入框左右移了，弹层就像在左右漂。`e2e/overflow.spec.ts` 里有一条用假的 `visualViewport` 验这件事。
 - **页面左右晃，不要用 `overflow-x: hidden` 去盖。** 能被横向拖动，是因为有东西比屏幕宽（一个很长的不断词：网址、一串话题；负的外边距；`100vw`）。`.main` 上 `overflow-wrap: anywhere` 让长词在边上断开，`e2e/overflow.spec.ts` 在 320、360、390、430 px 上看每个页面、弹层打开时、带很长不断词的内容：文档宽度不超过窗口，`scrollX` 拖不动，没有元素伸出两边。

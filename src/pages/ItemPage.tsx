@@ -3,6 +3,7 @@ import { api } from "../api";
 import { Actions, AnalysisFields, itemActions } from "../components/Cards";
 import { DeepDive } from "../components/DeepDive";
 import { SavedFile } from "../components/SavedFile";
+import { StatusBar } from "../components/StatusBar";
 import { KindIcon, Loading, State } from "../components/ui";
 import { dateTime, endDay, shared, t } from "../i18n";
 import { say, useBusy, useLoad, useWatch } from "../lib";
@@ -89,7 +90,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   const it = item.data;
   if (original.current.id !== id) original.current = { id, decided: false, open: true };
   if (it && !original.current.decided) original.current = { id, decided: true, open: !it.analysis };
-  if (!it) return <div class="page reading"><BackLink to={back} panel={panel} /><Loading error={item.error} /></div>;
+  if (!it) return <div class="page reading"><Top to={back} panel={panel} /><Loading error={item.error} /></div>;
   const zone = session.get().user?.timezone;
 
   /** After any change the core's answer replaces what is shown, and one sentence says what is true now. */
@@ -162,7 +163,7 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
 
   return (
     <div class="page reading" data-open-item={id}>
-      <BackLink to={back} panel={panel} />
+      <Top to={back} panel={panel} />
       <article class="stack">
         <header class="stack tight">
           <h1 class="item-title">
@@ -327,6 +328,22 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
         )}
       </article>
       {sheet && <DeepDive itemId={id} onClose={() => setSheet(false)} onQueued={() => act.queued(id, was)} />}
+    </div>
+  );
+}
+
+/**
+ * The top of the page: the way back, and the status bar (rule A5, QA #108). On a phone an item opens on a page of its
+ * own, and that is where the user would otherwise never see whether the assistant is at work: a small mark that opens
+ * the wide bar, as on the other pages. Beside a list the list's column already carries the bar, so there is only the way
+ * back here (a second one would be the same bar twice).
+ */
+function Top({ to, panel }: { to: string; panel: boolean }) {
+  if (panel) return <BackLink to={to} panel />;
+  return (
+    <div class="item-top">
+      <BackLink to={to} panel={false} />
+      <StatusBar page="other" />
     </div>
   );
 }
