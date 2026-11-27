@@ -1,6 +1,6 @@
 // QA #74: marking a line of the daily digest from its panel shows on the line at once.
 import { expect, test } from "@playwright/test";
-import { FAKE, reset, signIn } from "./helpers";
+import { FAKE, reset, signIn, openInbox } from "./helpers";
 
 test.skip(!FAKE, "relies on the fake's seed");
 test.beforeEach(async ({ request }) => {
@@ -49,26 +49,28 @@ test("QA #75: the month says what each kind of dot means", async ({ page }) => {
   for (const box of await legend.locator(".cal-dot").all()) expect((await box.boundingBox())!.width).toBeGreaterThan(2);
 });
 
-test("QA #76: the save box's sentence goes once the user moves on", async ({ page }) => {
-  test.skip((page.viewportSize()?.width ?? 0) < 900, "on a narrow screen opening an item leaves Today, and the box with it");
+test("QA #76: the save sentence goes once the user moves on", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 900, "on a narrow screen opening an item leaves Today, and the bar with it");
   await signIn(page, "/");
+  await openInbox(page);
   await page.locator(".inbox-box").fill("一条用来看提示的文字");
   await page.locator(".inbox-box").press("Meta+Enter");
-  const result = page.locator(".inbox-result");
-  await expect(result).toHaveText("已存入。");
-  // Open an item beside the list: Today, and the box, stay on the screen.
+  const said = page.locator(".said");
+  await expect(said).toHaveText("已存入。");
+  // Open an item beside the list: Today, and the two controls, stay on the screen; the sentence about the save does not.
   await page.evaluate(() => {
     history.pushState(null, "", "/?item=it_worth");
     dispatchEvent(new PopStateEvent("popstate"));
   });
   await expect(page).toHaveURL(/\?item=it_worth$/);
-  await expect(page.locator(".inbox-box")).toBeVisible();
-  await expect(result).toHaveText("");
+  await expect(page.getByTestId("inbox-open")).toBeVisible();
+  await expect(said).toHaveCount(0);
 });
 
 test("QA #92: an analysis the panel learns of first also moves the item in the list, at once", async ({ page, request }) => {
   test.skip((page.viewportSize()?.width ?? 0) < 900, "the panel sits beside the list on wide screens only");
   await signIn(page, "/");
+  await openInbox(page);
   await page.locator(".inbox-box").fill("等解读的一条 " + Date.now());
   await page.locator(".inbox-box").press("Meta+Enter");
   const row = page.locator(".waiting").first();
@@ -84,6 +86,7 @@ test("QA #92: an analysis the panel learns of first also moves the item in the l
   let stale = 1;
   await page.route("**/v1/items?*", (route) => (stale-- > 0 ? route.fulfill({ contentType: "application/json", body: old }) : route.continue()));
   // Anything that makes both ask again: here, another save.
+  await openInbox(page);
   await page.locator(".inbox-box").fill("又一条 " + Date.now());
   await page.locator(".inbox-box").press("Meta+Enter");
   await expect(page.getByRole("complementary").locator("dt").first()).toBeVisible({ timeout: 5000 });

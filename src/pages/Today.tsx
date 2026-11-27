@@ -61,7 +61,6 @@ export function Today({ selected }: { selected?: string }) {
           </a>
         )}
       </PageHead>
-      <Inbox />
       {!items.data ? (
         <Loading error={items.error} />
       ) : (
@@ -144,6 +143,8 @@ export function Today({ selected }: { selected?: string }) {
         <AccountLink place="today" />
         <HelpLinks place="today" />
       </p>
+      {/* The two ways to save stay at the foot of the screen, where a thumb is: a bar of its own, above the phone's. */}
+      <Inbox />
     </div>
   );
 }

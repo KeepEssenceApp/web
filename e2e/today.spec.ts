@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { FAKE, reset, signIn, state } from "./helpers";
+import { FAKE, reset, signIn, state, openInbox } from "./helpers";
 
 test.skip(!FAKE, "these rely on the fake's seed");
 test.beforeEach(async ({ request }) => reset(request));
@@ -79,9 +79,10 @@ test("W2: when everything is handled there is one sentence only", async ({ page,
   await expect(page.locator(".card.analysis")).toHaveCount(0);
   await expect(page.locator(".page img, .page svg.illustration")).toHaveCount(0);
 
+  await openInbox(page);
   await page.locator(".inbox-box").fill("https://example.com/one-thing");
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。");
+  await expect(page.locator(".said")).toHaveText("已存入。");
   await expect(page.locator(".waiting")).toHaveCount(1);
   await request.post("/__test/analyse", { data: {} });
   await page.reload();

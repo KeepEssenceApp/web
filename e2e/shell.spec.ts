@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { FAKE, credentialOf, reset, signIn } from "./helpers";
+import { FAKE, credentialOf, reset, signIn, openInbox } from "./helpers";
 
 test.beforeEach(async ({ request }) => reset(request));
 
@@ -54,10 +54,11 @@ test("a save-only device has no reading interface, only the inbox", async ({ pag
   await request.post("/__test/set-tier", { data: { tier: "save" }, headers: { Authorization: `Bearer ${cred}` } });
   await page.goto("/notes");
   await expect(page.locator("nav.nav")).toHaveCount(0);
+  await openInbox(page);
   await expect(page.locator(".inbox-box")).toBeVisible();
   await page.locator(".inbox-box").fill("https://example.com/from-a-save-only-device");
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。");
+  await expect(page.locator(".said")).toHaveText("已存入。");
 });
 
 test("two languages: follows the browser, changeable in Account", async ({ browser, baseURL }) => {
@@ -82,8 +83,8 @@ test("light and dark follow the system", async ({ browser, baseURL }) => {
     await ctx.close();
     return colour;
   };
-  expect(await bg("light")).toBe("rgb(245, 245, 243)");
-  expect(await bg("dark")).toBe("rgb(11, 11, 11)");
+  expect(await bg("light")).toBe("rgb(249, 246, 244)");
+  expect(await bg("dark")).toBe("rgb(25, 24, 23)");
 });
 
 test("sign-in: after 'use another email' the email field holds the address and takes typing", async ({ page }) => {

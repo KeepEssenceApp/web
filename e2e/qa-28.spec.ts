@@ -157,7 +157,7 @@ test.describe("phone", () => {
     await expect(page.locator(".today .cards")).toBeVisible();
     await expect(link).toHaveText(EMAIL);
     // Below everything else on the page, and clear of the bottom bar once scrolled to.
-    const lowest = await page.locator(".page.today > *").last().evaluate((el) => el.contains(document.querySelector('[data-testid="today-account"]')));
+    const lowest = await page.locator(".page.today > *:not(.inbox)").last().evaluate((el) => el.contains(document.querySelector('[data-testid="today-account"]')));
     expect(lowest).toBe(true);
     await link.scrollIntoViewIfNeeded();
     const box = (await link.boundingBox())!;

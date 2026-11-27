@@ -1,15 +1,21 @@
 /*
  * Design tokens: the one copy every client takes its colours, radii and type sizes from.
- * Rules (see the brand definition):
- *   - Black, white, paper and greys carry the interface.
+ * Rules (see the brand definition; the shapes and the greys follow the interaction prototype Cheney
+ * chose as the direction, 2026-11-27):
+ *   - Black, white, paper and greys carry the interface. The greys are soft and slightly warm; the
+ *     text is near-black (not pure black) so that a screen of words stays calm.
  *   - Gold (#C5A229) is the brand accent. It marks what was kept: a note, a "worth a deep dive"
  *     verdict, an unread daily digest, a calendar day with a note. It may also mark the selected
- *     tab, as a short line above the icon. Never a button, link, divider or decoration, and
- *     never body text on a light background. A screen carries little of it.
+ *     tab, as a short line above the icon. Never a button, link, divider or decoration, and never
+ *     body text on a light background. A screen carries little of it.
+ *     Where a gold WORD is needed (the "worth a deep dive" hint) it is set in --ke-gold-ink, the
+ *     darker gold that keeps the contrast (4.5:1 and more); never in --ke-gold itself.
  *     The icons and the mark come from design/brand/.
  *   - Red is the only functional colour, for things that lose data. There is no green or yellow.
  *   - Only things you can press have a fill or a border. A state is a dot plus words.
- *   - Radii: marks 0, tags 4, buttons/cards/inputs 6, bottom sheets 10.
+ *   - Radii, one scale for every client: marks 0, tags 8, fields and small blocks 14, cards 20,
+ *     bottom sheets (the top corners) 28, and pills (buttons, chips) fully round. A control is 44 px
+ *     high at least where a finger presses it.
  *   - No negative letter-spacing: titles often hold Chinese, which must not be squeezed.
  */
 :root {
@@ -17,22 +23,26 @@
   --ke-white: #FFFFFF;
   --ke-paper: #F5F5F3;
   --ke-gold: #C5A229;
+  --ke-gold-ink: #795600;
 
-  --ke-bg: #F5F5F3;
-  --ke-card: #FFFFFF;
-  --ke-quiet: #EAEAE7;
-  --ke-line: #DEDEDA;
-  --ke-text: #0B0B0B;
-  --ke-text-2: #4A4A4A;
-  --ke-text-3: #6B6B6B;
+  --ke-bg: #F9F6F4;
+  --ke-card: #FFFDFC;
+  --ke-quiet: #EEECEC;
+  --ke-line: #D7D1CF;
+  --ke-text: #252321;
+  --ke-text-2: #45403D;
+  --ke-text-3: #605B59;
   --ke-danger: #B3261E;
-  --ke-on-solid: #FFFFFF;      /* text on a black button */
-  --ke-solid: #0B0B0B;         /* button fill */
+  --ke-on-solid: #FFFFFF;      /* text on a solid button */
+  --ke-solid: #343231;         /* button fill */
 
   --ke-radius-mark: 0;
-  --ke-radius-tag: 4px;
-  --ke-radius: 6px;
-  --ke-radius-sheet: 10px;
+  --ke-radius-tag: 8px;
+  --ke-radius: 14px;           /* fields and small blocks */
+  --ke-radius-card: 20px;
+  --ke-radius-sheet: 28px;
+  --ke-radius-control: 999px;  /* pills */
+  --ke-control-height: 44px;
 
   /* System fonts only. No web font is loaded: what a developer sees is then what a phone shows,
      and Chinese text, which a Latin web font never covers, is set in the same family as the rest. */
@@ -57,28 +67,30 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ke-bg: #0B0B0B;
-    --ke-card: #161616;
-    --ke-quiet: #1F1F1F;
-    --ke-line: #2C2C2C;
-    --ke-text: #F5F5F3;
-    --ke-text-2: #B9B9B5;
-    --ke-text-3: #929290;
+    --ke-gold-ink: #F2D27D;
+    --ke-bg: #191817;
+    --ke-card: #292725;
+    --ke-quiet: #383532;
+    --ke-line: #625C57;
+    --ke-text: #F6F3F0;
+    --ke-text-2: #DDD7D2;
+    --ke-text-3: #BDB5AF;
     --ke-danger: #F2877B;
-    --ke-on-solid: #0B0B0B;
-    --ke-solid: #F5F5F3;
+    --ke-on-solid: #252321;
+    --ke-solid: #EFEBE7;
   }
 }
 
 :root[data-theme="dark"] {
-  --ke-bg: #0B0B0B;
-  --ke-card: #161616;
-  --ke-quiet: #1F1F1F;
-  --ke-line: #2C2C2C;
-  --ke-text: #F5F5F3;
-  --ke-text-2: #B9B9B5;
-  --ke-text-3: #929290;
+  --ke-gold-ink: #F2D27D;
+  --ke-bg: #191817;
+  --ke-card: #292725;
+  --ke-quiet: #383532;
+  --ke-line: #625C57;
+  --ke-text: #F6F3F0;
+  --ke-text-2: #DDD7D2;
+  --ke-text-3: #BDB5AF;
   --ke-danger: #F2877B;
-  --ke-on-solid: #0B0B0B;
-  --ke-solid: #F5F5F3;
+  --ke-on-solid: #252321;
+  --ke-solid: #EFEBE7;
 }

@@ -1,6 +1,6 @@
 // The internal QA issues #7 to #16, one or more tests each, named after the issue.
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { FAKE, credentialOf, reset, signIn } from "./helpers";
+import { FAKE, credentialOf, reset, signIn, openInbox } from "./helpers";
 
 test.skip(!FAKE, "these rely on the fake's seed and hooks");
 test.beforeEach(async ({ request }) => reset(request));
@@ -364,9 +364,10 @@ test("QA #16: with no daily digest the page says when one comes, what it needs, 
 
   // The count is the current one.
   await page.goto("/");
+  await openInbox(page);
   await page.locator(".inbox-box").fill("https://example.com/for-tonight");
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。");
+  await expect(page.locator(".said")).toHaveText("已存入。");
   await request.post("/__test/analyse", { data: {} });
   await page.goto("/digest");
   await expect(page.getByTestId("digest-why")).toHaveText("今天的还没到时间。今天到现在有 1 条解读。");

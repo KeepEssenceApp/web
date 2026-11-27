@@ -29,17 +29,18 @@ describe("colours", () => {
 
   it("only refers to tokens that exist", () => {
     const names = tokenNames();
-    const local = new Set(["--cell", "--gap", "--dot", "--tiny"]);
+    // Layout variables of the app itself (a cell of the calendar, the phone bar, where a popover or a sheet sits), not design tokens.
+    const local = new Set(["--cell", "--gap", "--dot", "--tiny", "--nav-h", "--pop-left", "--pop-bottom", "--pop-origin", "--vv-left", "--vv-bottom", "--vv-width", "--vv-height"]);
     const missing: string[] = [];
     for (const file of sources) for (const m of read(file).matchAll(/var\((--[a-z0-9-]+)/g)) if (!names.has(m[1]) && !local.has(m[1])) missing.push(`${file}: ${m[1]}`);
     expect(missing).toEqual([]);
   });
 
-  it("uses only the token radii (0, 4, 6, 10) and circles", () => {
+  it("uses only the token radii (0, 8, 14, 20, 28, pill) and circles", () => {
     const bad: string[] = [];
     for (const m of strip(read("src/styles/app.css")).matchAll(/border-radius\s*:\s*([^;]+);/g)) {
       const parts = m[1].trim().split(/\s+/);
-      if (!parts.every((p) => /^var\(--ke-radius(-mark|-tag|-sheet)?\)$/.test(p) || p === "0" || p === "50%")) bad.push(m[1]);
+      if (!parts.every((p) => /^var\(--ke-radius(-mark|-tag|-card|-sheet|-control)?\)$/.test(p) || p === "0" || p === "50%")) bad.push(m[1]);
     }
     expect(bad).toEqual([]);
   });
@@ -59,8 +60,9 @@ describe("colours", () => {
 
   it("has no green and no yellow among the tokens it relies on", () => {
     // Red is the only functional colour; gold is the only accent.
+    // The greys, the paper, black and white; gold and its darker ink (#795600, #F2D27D: a gold word only); red and its dark-theme twin.
     expect([...tokenColours()].sort()).toEqual(
-      ["#0B0B0B", "#161616", "#1F1F1F", "#2C2C2C", "#4A4A4A", "#6B6B6B", "#929290", "#B3261E", "#B9B9B5", "#C5A229", "#DEDEDA", "#EAEAE7", "#F2877B", "#F5F5F3", "#FFFFFF"].sort(),
+      ["#0B0B0B", "#191817", "#252321", "#292725", "#343231", "#383532", "#45403D", "#605B59", "#625C57", "#795600", "#B3261E", "#BDB5AF", "#C5A229", "#D7D1CF", "#DDD7D2", "#EEECEC", "#EFEBE7", "#F2877B", "#F2D27D", "#F5F5F3", "#F6F3F0", "#F9F6F4", "#FFFDFC", "#FFFFFF"].sort(),
     );
   });
 });

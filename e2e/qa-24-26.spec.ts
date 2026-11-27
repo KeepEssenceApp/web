@@ -4,7 +4,7 @@
 // deleted. #26: an open item and the Today list show an analysis when it lands.
 import fs from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { EMAIL, FAKE, credentialOf, reset, signIn, state } from "./helpers";
+import { EMAIL, FAKE, credentialOf, reset, signIn, state, openInbox } from "./helpers";
 
 test.skip(!FAKE, "these rely on the fake's seed and hooks");
 test.beforeEach(async ({ request }) => reset(request));
@@ -647,6 +647,7 @@ test.describe("QA #26: an analysis that lands shows without a reload", () => {
     await expect(page.locator("section", { hasText: "还没解读的条目" }).locator("h2")).toContainText("现有 2 条");
     await page.evaluate(() => ((window as unknown as { stayed: boolean }).stayed = true));
     const inbox = page.locator(".inbox-box");
+    await openInbox(page);
     await inbox.fill("写到一半的话");
 
     expect((await request.post("/__test/analyse", { data: { item_id: "it_triaged" } })).ok()).toBe(true);

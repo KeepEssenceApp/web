@@ -1,7 +1,7 @@
 // The internal QA issues #17 to #19 as the web app sees them, named after the issue.
 // #17: the panel beside the list on wide screens. #18: the account's language. #19: titles.
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { FAKE, credentialOf, reset, signIn, state } from "./helpers";
+import { FAKE, credentialOf, reset, signIn, state, openInbox } from "./helpers";
 
 test.skip(!FAKE, "these rely on the fake's seed and hooks");
 test.beforeEach(async ({ request }) => reset(request));
@@ -44,7 +44,9 @@ test.describe("QA #17 at 1440 × 900", () => {
     await card.locator("h3 a").click();
     await expect(page).toHaveURL(/\/item\/it_worth$/);
     await expect(panel(page).locator(".item-title")).toContainText("租约与认领：一份活怎么只归一个人");
-    await expect(list(page).locator(".inbox-box")).toBeVisible();
+    // The two ways to save are in the list column, at its foot.
+    await expect(list(page).getByTestId("inbox-paste")).toBeVisible();
+    await expect(list(page).getByTestId("inbox-open")).toBeVisible();
     await expect(list(page).locator('[data-item="it_know"]')).toBeVisible();
     // The same content and controls as the item page.
     await expect(panel(page).locator(".actions button")).toHaveText(["深挖", "不感兴趣", "看过了"]);
@@ -145,10 +147,13 @@ test.describe("QA #17 at 1440 × 900", () => {
     await expect(page).toHaveURL(new RegExp(`${order[1]}$`));
 
     // Typing in the inbox is typing: the arrow keys there do not move the selection.
+    await openInbox(page);
     await list(page).locator(".inbox-box").fill("two\nlines");
     await page.keyboard.press("ArrowUp");
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Escape");
+    // Escape shuts the box and leaves the selection where it was.
+    await expect(page.getByTestId("inbox-sheet")).toHaveCount(0);
     expect(await path(page)).toBe(order[1]);
     // A dialog closes on Escape without clearing the selection.
     await panel(page).locator(".actions button", { hasText: "深挖" }).click();
@@ -314,7 +319,7 @@ test.describe("QA #17 at 1000 × 800", () => {
 
   test("QA #17: below 1100 px nothing changes — one column, and a click opens the item as its own page", async ({ page }) => {
     await signIn(page);
-    await expect(page.locator(".inbox-box")).toBeVisible();
+    await expect(page.getByTestId("inbox-open")).toBeVisible();
     await expect(page.getByTestId("panel")).toHaveCount(0);
     await expect(page.getByTestId("split-list")).toHaveCount(0);
     // One column, as before: the page is at most 860 px wide next to the rail.
@@ -326,7 +331,7 @@ test.describe("QA #17 at 1000 × 800", () => {
     await expect(page).toHaveURL(/\/item\/it_worth$/);
     await expect(page.locator(".item-title")).toContainText("租约与认领");
     // The item is the page: Today's list is gone, and a link leads back to it.
-    await expect(page.locator(".inbox-box")).toHaveCount(0);
+    await expect(page.locator(".savebar")).toHaveCount(0);
     await expect(page.locator("a.back")).toHaveText("‹ 今天");
     await page.locator("a.back").click();
     await expect(page).toHaveURL(/\/$/);
@@ -488,9 +493,10 @@ test.describe("QA #19: titles", () => {
   test("QA #19: a title the core made from a long first sentence ends with its ellipsis, in the list and on the item", async ({ page }) => {
     await signIn(page);
     const text = "Mixed language test 混合语言测试 — Please review the Q3 report 第三季度报告 before Friday 周五之前。";
+    await openInbox(page);
     await page.locator(".inbox-box").fill(text);
     await page.getByTestId("inbox-save").click();
-    await expect(page.locator(".inbox-result")).toHaveText("已存入。");
+    await expect(page.locator(".said")).toHaveText("已存入。");
     const row = page.locator(".waiting", { hasText: "Mixed language test" });
     await expect(row.locator("a.title-clip")).toHaveText("Mixed language test 混合语言测试 — Please review the Q3 report 第三季度报告 before Friday…");
     await row.locator("a.title-clip").click();
