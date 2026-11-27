@@ -2,7 +2,7 @@
 // real authorization server, real short codes and a note saved by a real assistant credential.
 import { expect, test } from "@playwright/test";
 import crypto from "node:crypto";
-import { FAKE, credentialOf, signIn } from "./helpers";
+import { FAKE, credentialOf, signIn, openInbox } from "./helpers";
 
 test.skip(FAKE, "needs a real core");
 
@@ -11,9 +11,10 @@ const b64url = (b: Buffer) => b.toString("base64").replace(/\+/g, "-").replace(/
 test("real core: save, see it in Today, status bar, calendar", async ({ page }) => {
   await signIn(page);
   const url = `https://example.com/real/${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  await openInbox(page);
   await page.locator(".inbox-box").fill(url);
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。");
+  await expect(page.locator(".said")).toHaveText("已存入。");
   // Not analysed yet: listed after the analyses, lighter.
   await expect(page.locator(".waiting").first()).toBeVisible();
   await expect(page.locator(".page-head .status")).toContainText(/今天存入了 \d+ 条/);

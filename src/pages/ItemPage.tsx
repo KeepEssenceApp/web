@@ -71,6 +71,9 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
   }, [item.data]);
   // What this page itself has chosen for this item, since it was opened. The core does not say
   // who set a value, so this is all the page knows for certain about an item that is sorted.
+  // The original is shut when there is a reading to start from and open when there is none yet; it keeps what the user chose
+  // when the reading arrives in place (QA #26), and is decided again for another item.
+  const original = useRef({ id, decided: false, open: true });
   const mine = useRef({ id, retention: false, assistant: false });
   if (mine.current.id !== id) mine.current = { id, retention: false, assistant: false };
   const manage = canManage();
@@ -84,6 +87,8 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
     if (item.data) item.set({ ...item.data, ...change });
   });
   const it = item.data;
+  if (original.current.id !== id) original.current = { id, decided: false, open: true };
+  if (it && !original.current.decided) original.current = { id, decided: true, open: !it.analysis };
   if (!it) return <div class="page reading"><BackLink to={back} panel={panel} /><Loading error={item.error} /></div>;
   const zone = session.get().user?.timezone;
 
@@ -168,58 +173,60 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
           </p>
         </header>
 
-        <section class="stack tight" aria-label={t("action.original")}>
-          <h2 class="label">{t("action.original")}</h2>
-          {it.url && (
-            <a class="link break" href={it.url} target="_blank" rel="noopener noreferrer">
-              {it.site || t("action.original")}
-            </a>
-          )}
+        {/* The reading comes first (the analysis, then what it rests on). What the page could not give is said here, where the
+            reading would be, and never as a fragment of the page (A13). */}
+        <section class="read" aria-label={t("item.analysis")}>
+          <h2 class="label">{t("item.analysis")}</h2>
           {it.content_unavailable && <p class="sentence">{shared(rules?.content_unavailable)}</p>}
           {/* What to do instead, said once where the user looks for the content (QA #85). */}
           {it.content_unavailable && it.kind === "link" && <p class="quiet small" data-testid="unavailable-hint">{t("item.unavailable_hint")}</p>}
-          {asset.data?.content_type.startsWith("image/") && <img class="original-image" src={asset.data.download_url} alt={it.title} />}
-          {it.body && <div class="original-body">{it.body}</div>}
-          {/* What is said in the video is read apart from the page's words, and shown apart from them (#103). */}
-          {videoLine && <p class="quiet small" data-testid="video-state">{videoLine}</p>}
-          {it.recognized_text && (
-            <div class="stack tight recognized" data-testid="recognized-text">
-              <h3 class="label">{shared(rules?.video?.recognized_text_label)}</h3>
-              <div class="original-body">{it.recognized_text}</div>
-              <p class="quiet small" data-testid="recognized-note">{shared(rules?.video?.recognized_text_note)}</p>
-            </div>
-          )}
-          {/* The file itself: an image or a PDF opens in a tab; a text file, whose text is above, is downloaded (QA #31). */}
-          {asset.data && it.asset_id && (
-            <p>
-              <SavedFile assetId={it.asset_id} type={asset.data.content_type} name={it.title} />
-            </p>
-          )}
-        </section>
-
-        <section class="stack tight" aria-label={t("item.analysis")}>
-          <h2 class="label">{t("item.analysis")}</h2>
           {it.analysis ? (
             <>
               <AnalysisFields a={it.analysis} />
               <p class="quiet small">{t("today.signed", { name: it.analysis.assistant.name })}</p>
-              {/* What was done with it stays visible, with the way back and the other actions. */}
-              {state && (
-                <p class="row wrap item-state" data-testid="item-state" aria-label={t("item.state")}>
-                  <State dot="solid">{state}</State>
-                  <button class="link" type="button" onClick={() => act.restore(id, was)} title={it.in_queue ? undefined : t("action.restore_hint", { what: state })}>
-                    {it.in_queue ? t("queue.remove") : t("action.restore")}
-                  </button>
-                </p>
-              )}
-              <Actions itemId={id} act={act} was={was} onSheet={() => setSheet(true)} />
             </>
           ) : (
-            <p class="sentence quiet" data-testid={reading ? "video-reading" : undefined}>
-              {reading ?? t("item.not_analysed")}
-            </p>
+            <>
+              <p class="sentence quiet" data-testid={reading ? "video-reading" : undefined}>
+                {reading ?? t("item.not_analysed")}
+              </p>
+              {/* Where the item really is: not sorted yet, or with the assistant that will read it. */}
+              <p class="quiet small" data-testid="item-stage">
+                {it.dispatch_to ? t("today.given_to", { name: it.dispatch_to.name }) : t("today.just_saved")}
+              </p>
+            </>
           )}
+          {/* A video that was not read is said once, beside the reading (#103). */}
+          {videoLine && <p class="quiet small" data-testid="video-state">{videoLine}</p>}
         </section>
+
+        {/* The original, on request: shut when there is a reading to start from, open when there is nothing else to read yet. */}
+        <details class="original" open={original.current.open} aria-label={t("action.original")}>
+          <summary>{t("action.original")}</summary>
+          <div class="stack tight">
+            {it.url && (
+              <a class="link break" href={it.url} target="_blank" rel="noopener noreferrer">
+                {it.site || t("action.original")}
+              </a>
+            )}
+            {asset.data?.content_type.startsWith("image/") && <img class="original-image" src={asset.data.download_url} alt={it.title} />}
+            {it.body && <div class="original-body">{it.body}</div>}
+            {/* What is said in the video is read apart from the page's words, and shown apart from them (#103). */}
+            {it.recognized_text && (
+              <div class="stack tight recognized" data-testid="recognized-text">
+                <h3 class="label">{shared(rules?.video?.recognized_text_label)}</h3>
+                <div class="original-body">{it.recognized_text}</div>
+                <p class="quiet small" data-testid="recognized-note">{shared(rules?.video?.recognized_text_note)}</p>
+              </div>
+            )}
+            {/* The file itself: an image or a PDF opens in a tab; a text file, whose text is above, is downloaded (QA #31). */}
+            {asset.data && it.asset_id && (
+              <p>
+                <SavedFile assetId={it.asset_id} type={asset.data.content_type} name={it.title} />
+              </p>
+            )}
+          </div>
+        </details>
 
         <section class="stack" aria-label={t("item.kept_for")}>
           {manage && (
@@ -274,7 +281,6 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
                 </label>
               </div>
               {!decided && <p class="quiet small" data-testid="retention-undecided">{t("item.undecided_hint", { n: defaultDays })}</p>}
-              <p class="quiet small">{t("item.yours_hint")}</p>
             </>
           )}
           <div class="row">
@@ -303,6 +309,22 @@ export function ItemPage({ id, back = "/", panel = false }: { id: string; back?:
             </div>
           )}
         </section>
+
+        {/* What the user can do now, at the foot where a thumb is, and only what is true of this item: an item nobody has read yet has
+            nothing to decide; one that was dealt with shows how and the way back. */}
+        {it.analysis && (
+          <div class="actionbar" role="group" aria-label={t("item.state")}>
+            {state && (
+              <p class="item-state" data-testid="item-state" aria-label={t("item.state")}>
+                <State dot="solid">{state}</State>
+                <button class="link" type="button" onClick={() => act.restore(id, was)} title={it.in_queue ? undefined : t("action.restore_hint", { what: state })}>
+                  {it.in_queue ? t("queue.remove") : t("action.restore")}
+                </button>
+              </p>
+            )}
+            <Actions itemId={id} act={act} was={was} onSheet={() => setSheet(true)} />
+          </div>
+        )}
       </article>
       {sheet && <DeepDive itemId={id} onClose={() => setSheet(false)} onQueued={() => act.queued(id, was)} />}
     </div>

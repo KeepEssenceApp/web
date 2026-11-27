@@ -2,7 +2,7 @@
 // analysed; what was recognized is shown apart from the author's words, with its note; a video that was not
 // read is said once; none of it reaches the lists. The sentences are the core's (shared_rules.video).
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { FAKE, reset, signIn, state } from "./helpers";
+import { FAKE, reset, signIn, state, openOriginal } from "./helpers";
 
 test.skip(!FAKE, "these rely on the fake's seed and hooks");
 test.beforeEach(async ({ request }) => reset(request));
@@ -42,6 +42,7 @@ test("QA #103: what was recognized is a block of its own under the author's word
   await signIn(page);
   const id = await video(request, { title: "阳台上的薄荷", state: "recognized", recognized_text: SAID, body: AUTHOR, stage: "analysed" });
   await open(page, id);
+  await openOriginal(page);
   const block = page.getByTestId("recognized-text");
   await expect(block.getByRole("heading", { name: "识别出来的文字" })).toBeVisible();
   await expect(block.locator(".original-body")).toHaveText(SAID);
@@ -109,6 +110,7 @@ test("QA #103: in English the same sentences, the limit from the core, and no Ch
   await open(page, long);
   await expect(page.getByTestId("video-state")).toHaveText("The video is too long (over 15 minutes) and was not read.");
   await open(page, done);
+  await openOriginal(page);
   await expect(page.getByTestId("recognized-text").getByRole("heading", { name: "Recognized text" })).toBeVisible();
   await expect(page.getByTestId("recognized-note")).toHaveText("Recognized from the video's sound. It may contain mistakes.");
 });

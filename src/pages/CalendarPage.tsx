@@ -57,7 +57,6 @@ export function CalendarPage({ month, wide = false, day, from = "notes" }: { mon
               </li>
             ))}
           </ul>
-          <p class="quiet small">{wide ? t("calendar.hint_wide") : t("calendar.hint")}</p>
           <p class="quiet small">{t("calendar.rule")}</p>
         </div>
       )}

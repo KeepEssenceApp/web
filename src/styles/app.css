@@ -4,9 +4,12 @@
  *   - black, white, paper, greys carry the interface
  *   - gold marks what was kept and, as a short line, the selected tab; red only what loses data
  *   - only things you can press have a fill or a border; a state is a dot plus words
+ *   - one scale of rounding (design/tokens.css): fields 14, cards 20, sheets 28, buttons are pills
+ *   - nothing may be wider than the screen: long unbroken words (addresses, hashtags) break, and
+ *     nothing is hidden with overflow-x (e2e/overflow.spec.ts looks at the page, not at a style)
  */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; color-scheme: light dark; }
+html { -webkit-text-size-adjust: 100%; color-scheme: light dark; --nav-h: 0px; }
 body {
   margin: 0;
   background: var(--ke-bg);
@@ -76,10 +79,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 40px;
-  padding: 8px 16px;
+  min-height: var(--ke-control-height);
+  padding: 9px 20px;
   border: 1px solid var(--ke-solid);
-  border-radius: var(--ke-radius);
+  border-radius: var(--ke-radius-control);
   background: var(--ke-solid);
   color: var(--ke-on-solid);
   font: 600 var(--ke-size-body)/1.2 var(--ke-font);
@@ -88,14 +91,16 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 }
 .btn.quiet { background: transparent; color: var(--ke-text); border-color: var(--ke-line); }
 .btn.quiet:hover { border-color: var(--ke-text-3); }
-.btn.small { min-height: 32px; padding: 5px 12px; font-size: var(--ke-size-secondary); }
+.btn.small { min-height: 36px; padding: 6px 16px; font-size: var(--ke-size-secondary); }
+/* Where a finger presses, every control is as high as the token says. */
+@media (pointer: coarse) { .btn.small { min-height: var(--ke-control-height); } }
 .btn.danger { background: var(--ke-danger); border-color: var(--ke-danger); color: var(--ke-on-solid); }
 .btn.quiet.danger { background: transparent; color: var(--ke-danger); border-color: var(--ke-danger); }
 .btn:disabled { opacity: 0.45; cursor: default; }
 
 input[type="text"], input[type="email"], textarea, select {
   width: 100%;
-  padding: 9px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--ke-line);
   border-radius: var(--ke-radius);
   background: var(--ke-card);
@@ -103,7 +108,7 @@ input[type="text"], input[type="email"], textarea, select {
   font: inherit;
 }
 textarea { resize: vertical; line-height: 1.6; display: block; }
-select { width: auto; max-width: 100%; min-height: 40px; }
+select { width: auto; max-width: 100%; min-height: var(--ke-control-height); }
 input::placeholder, textarea::placeholder { color: var(--ke-text-3); opacity: 1; }
 /* A field that cannot be used right now looks it (QA #70). */
 :is(select, input, textarea):disabled { opacity: 0.45; cursor: default; }
@@ -134,18 +139,18 @@ label > .label { margin-bottom: 6px; }
 .switch::before {
   content: "";
   order: -1;
-  width: 40px;
-  height: 22px;
+  width: 44px;
+  height: 26px;
   border: 1px solid var(--ke-line);
-  border-radius: var(--ke-radius);
+  border-radius: var(--ke-radius-control);
   background: var(--ke-quiet);
 }
 .switch-knob {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   margin-left: 4px;
-  border-radius: var(--ke-radius-tag);
+  border-radius: 50%;
   background: var(--ke-text-3);
   transition: transform 0.12s;
 }
@@ -153,20 +158,20 @@ label > .label { margin-bottom: 6px; }
 .switch.on::before { background: var(--ke-solid); border-color: var(--ke-solid); }
 .switch.on .switch-knob { background: var(--ke-on-solid); transform: translateX(18px); }
 
-.segments { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--ke-line); border-radius: var(--ke-radius); overflow: hidden; align-self: flex-start; }
+.segments { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--ke-line); border-radius: var(--ke-radius-control); overflow: hidden; align-self: flex-start; }
 .segments button {
   border: 0;
   background: var(--ke-card);
   color: var(--ke-text);
   font: inherit;
   font-size: var(--ke-size-secondary);
-  padding: 7px 14px;
+  padding: 10px 18px;
   cursor: pointer;
 }
 .segments button + button { border-left: 1px solid var(--ke-line); }
 .segments button[aria-selected="true"], .segments button[aria-pressed="true"] { background: var(--ke-solid); color: var(--ke-on-solid); font-weight: 600; }
 
-.card { background: var(--ke-card); border: 1px solid var(--ke-line); border-radius: var(--ke-radius); padding: 18px 20px; }
+.card { background: var(--ke-card); border: 1px solid var(--ke-line); border-radius: var(--ke-radius-card); padding: 20px 22px; }
 
 /* A few numbers, each over its name: a grid that fills the width it is given. */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 14px 24px; }
@@ -263,9 +268,12 @@ label > .label { margin-bottom: 6px; }
 .start-ways dd { margin: 0; }
 .feedback-page form, .feedback-page [role="status"] { max-width: 560px; }
 .today-foot { display: none; }
-.main { min-width: 0; }
+/* A long unbroken word (an address, a run of hashtags) breaks at the edge instead of pushing the page wider than the screen. */
+.main { min-width: 0; overflow-wrap: anywhere; }
 .page { max-width: 860px; padding: 28px 36px 80px; display: flex; flex-direction: column; gap: 22px; }
 .page.reading { max-width: 720px; }
+/* Today is at least as tall as the screen, so that the two ways to save sit at its foot even when there is little to read. */
+.page.today { min-height: 100vh; min-height: 100dvh; }
 
 .page-head { position: relative; display: flex; flex-direction: column; gap: 16px; }
 .page-title { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; }
@@ -288,9 +296,9 @@ label > .label { margin-bottom: 6px; }
   align-items: center;
   gap: 6px;
   min-height: 32px;
-  padding: 4px 10px;
+  padding: 4px 14px;
   border: 1px solid var(--ke-line);
-  border-radius: var(--ke-radius);
+  border-radius: var(--ke-radius-control);
   background: transparent;
   color: var(--ke-text);
   font: 600 var(--ke-size-secondary) var(--ke-font);
@@ -302,26 +310,60 @@ label > .label { margin-bottom: 6px; }
   top: calc(100% + 6px);
   z-index: 20;
   width: min(320px, calc(100vw - 32px));
-  padding: 4px 14px 12px;
+  padding: 4px 16px 12px;
   background: var(--ke-card);
   border: 1px solid var(--ke-line);
-  border-radius: var(--ke-radius);
+  border-radius: var(--ke-radius-card);
 }
 .status-pop .status-wide { border: 0; }
 .status-pop .status-cells { flex-direction: column; gap: 10px; }
 
-/* ---------------------------------------------------------------- web inbox */
-.inbox { display: flex; flex-direction: column; gap: 8px; }
-.inbox-box { min-height: 64px; }
-.inbox.over .inbox-box { border-color: var(--ke-text); border-style: dashed; }
+/* ---------------------------------------------------------------- web inbox
+   Two controls at the foot of Today: a big one that saves what is on the clipboard, and a small
+   round one that opens the box to type or paste into (a bottom sheet on a phone, a popover beside the
+   button on a wide screen). The bar stays at the bottom, above the phone's own bar. */
+/* The section itself takes no place and makes no stacking context: the box that opens from it must be able to stand above the phone's bar. */
+.inbox { display: contents; }
+.inbox.over .savebar { outline: 2px dashed var(--ke-text); outline-offset: 4px; }
+.savebar { position: sticky; bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom)); z-index: 20; margin-top: auto; align-self: center; display: flex; align-items: center; gap: 8px; padding: 6px; max-width: 100%; border: 1px solid var(--ke-line); border-radius: var(--ke-radius-control); background: var(--ke-card); box-shadow: 0 6px 24px color-mix(in srgb, var(--ke-black) 12%, transparent); }
+.savebar .btn { min-height: 52px; padding-inline: 24px; min-width: 0; white-space: normal; }
+.savebar-type { flex: none; width: 52px; height: 52px; padding: 0; display: grid; place-items: center; border: 1px solid var(--ke-line); border-radius: 50%; background: var(--ke-card); color: var(--ke-text); cursor: pointer; }
+.savebar-type:hover { border-color: var(--ke-text-3); }
+.savebar-type svg { display: block; }
+.compose-scrim { position: fixed; inset: 0; z-index: 50; background: color-mix(in srgb, var(--ke-black) 40%, transparent); }
+.compose {
+  position: fixed;
+  z-index: 51;
+  /* A popover on a wide screen: above the button it opened from (the sheet's own place is set below for phones). */
+  left: var(--pop-left, 12px);
+  bottom: var(--pop-bottom, 12px);
+  width: min(420px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 18px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--ke-card);
+  border: 1px solid var(--ke-line);
+  border-radius: var(--ke-radius-sheet);
+  box-shadow: 0 16px 48px color-mix(in srgb, var(--ke-black) 22%, transparent);
+  transform-origin: var(--pop-origin, 50%) 100%;
+  animation: ke-compose 0.18s ease-out;
+}
+@keyframes ke-compose { from { opacity: 0; scale: 0.92; } }
+@keyframes ke-sheet { from { translate: 0 28px; opacity: 0; } }
+.compose-box { padding: 14px; background: var(--ke-quiet); border-radius: var(--ke-radius-card); display: flex; flex-direction: column; gap: 8px; }
+.compose-box textarea { min-height: 120px; max-height: 35vh; border-radius: var(--ke-radius); }
 .inbox-files { display: flex; flex-direction: column; gap: 4px; font-size: var(--ke-size-secondary); }
-.inbox-files li { display: flex; gap: 10px; align-items: center; }
+.inbox-files li { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.inbox-files li > span { min-width: 0; overflow-wrap: anywhere; }
 .tier-legend { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.inbox-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
-.inbox-result { flex: 1; min-width: 0; }
-.inbox-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.inbox-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1; }
-.inbox-ask > span { flex: 1 1 220px; }
+.inbox-result { overflow-wrap: anywhere; }
+.inbox-actions { display: flex; gap: 8px; }
+.inbox-actions .btn { flex: 1; }
+.inbox-ask { display: flex; flex-direction: column; gap: 10px; }
 
 /* ---------------------------------------------------------------- analyses and items */
 .cards { display: flex; flex-direction: column; gap: 12px; }
@@ -351,7 +393,7 @@ label > .label { margin-bottom: 6px; }
 .waiting .kind { margin-top: 4px; }
 
 /* Swipe on touch screens: right adds to the queue (black), left is not interested (grey). */
-.swipe { position: relative; overflow: hidden; border-radius: var(--ke-radius); }
+.swipe { position: relative; overflow: hidden; border-radius: var(--ke-radius-card); }
 .swipe-under { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-weight: 600; font-size: var(--ke-size-secondary); }
 .swipe[data-swipe="queue"] .swipe-under { background: var(--ke-solid); color: var(--ke-on-solid); }
 .swipe[data-swipe="no"] .swipe-under { background: var(--ke-quiet); color: var(--ke-text-2); }
@@ -459,35 +501,49 @@ a.cal-day:hover { border-color: var(--ke-text); }
   width: min(460px, 100%);
   max-height: calc(100dvh - 32px);
   overflow: auto;
-  padding: 20px 22px 22px;
+  overscroll-behavior: contain;
+  padding: 20px 24px 24px;
   background: var(--ke-card);
   border: 1px solid var(--ke-line);
-  border-radius: var(--ke-radius);
+  border-radius: var(--ke-radius-sheet);
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 .sheet.wide { width: min(640px, 100%); }
-.sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sheet-head h2 { font-size: var(--ke-size-item); overflow-wrap: anywhere; }
+/* The handle of a bottom sheet: phones only. */
+.sheet-handle { display: none; width: 40px; height: 5px; margin: 0 auto -4px; border-radius: var(--ke-radius-control); background: var(--ke-text-3); opacity: 0.35; }
+
+/* The one sentence about what just happened: at the top, where the eye already is, and never over
+   what has to be pressed (that is at the bottom). Quiet card, no solid fill. */
 .said {
   position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
+  top: calc(12px + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   z-index: 60;
   display: flex;
   align-items: center;
   gap: 14px;
-  max-width: calc(100vw - 32px);
-  padding: 10px 16px;
-  border-radius: var(--ke-radius);
-  background: var(--ke-solid);
-  color: var(--ke-on-solid);
+  max-width: min(520px, calc(100% - 32px));
+  padding: 12px 18px;
+  border: 1px solid var(--ke-line);
+  border-radius: var(--ke-radius-card);
+  background: var(--ke-card);
+  color: var(--ke-text);
   font-size: var(--ke-size-secondary);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--ke-black) 14%, transparent);
+  overflow-wrap: anywhere;
+  animation: ke-notice 0.2s ease-out;
 }
-.said .link { color: var(--ke-on-solid); text-decoration-color: currentColor; font-weight: 600; white-space: nowrap; }
-.said.bad { background: var(--ke-danger); }
+.said .link { color: var(--ke-text); text-decoration-color: currentColor; font-weight: 600; white-space: nowrap; }
+.said.bad { border-color: var(--ke-danger); color: var(--ke-danger); }
+.said.bad .link { color: var(--ke-danger); }
+@keyframes ke-notice { from { opacity: 0; translate: 0 -10px; } }
 
 /* ---------------------------------------------------------------- pages outside the shell */
 .standalone { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 32px 16px; }
@@ -548,19 +604,35 @@ a.cal-day:hover { border-color: var(--ke-text); }
   .card { padding: 16px; }
   .digest-day, .note-title { font-size: var(--ke-size-title); }
   input[type="text"], input[type="email"], textarea, select { font-size: 16px; }
+  html { --nav-h: 64px; }
+  /* The box to type into is a bottom sheet. Its place follows the visual viewport (the keyboard, a pinch zoom), set by
+     Compose from visualViewport: it sits above the keyboard, and the button that saves stays in view. */
+  .compose {
+    left: var(--vv-left, 0px);
+    bottom: var(--vv-bottom, 0px);
+    width: var(--vv-width, 100%);
+    max-width: 100%;
+    max-height: var(--vv-height, 88dvh);
+    padding: 12px 20px calc(16px + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    border-radius: var(--ke-radius-sheet) var(--ke-radius-sheet) 0 0;
+    animation: ke-sheet 0.2s ease-out;
+  }
+  .compose .sheet-handle { display: block; }
   .scrim { align-items: flex-end; padding: 0; }
   .sheet, .sheet.wide {
     width: 100%;
     max-height: 88dvh;
     border-radius: var(--ke-radius-sheet) var(--ke-radius-sheet) 0 0;
-    border-bottom: 0;
-    padding-bottom: calc(22px + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    padding: 12px 20px calc(20px + env(safe-area-inset-bottom));
   }
-  .said { bottom: calc(76px + env(safe-area-inset-bottom)); width: max-content; }
+  .sheet-handle { display: block; }
   .cal-large { --cell: 32px; --gap: 10px; --dot: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .swipe-top, .switch-knob, .about-row > summary::before { transition: none; }
+  .said, .compose { animation: none; }
 }
 
 /* ---------------------------------------------------------------- waiting on the core
@@ -646,3 +718,19 @@ button.btn[aria-busy="true"]::after, button.link[aria-busy="true"]::after { cont
 @media (min-width: 1441px) {
   .shell { border-left: 1px solid var(--ke-line); border-right: 1px solid var(--ke-line); }
 }
+
+/* ---------------------------------------------------------------- the opened item: the reading first, the original on request */
+.verdict-worth { color: var(--ke-gold-ink); font-weight: 600; }
+.read { padding: 20px 22px; background: var(--ke-quiet); border-radius: var(--ke-radius-card); display: flex; flex-direction: column; gap: 12px; }
+.item-state-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: var(--ke-size-secondary); color: var(--ke-text-2); }
+.original { border: 1px solid var(--ke-line); border-radius: var(--ke-radius-card); background: var(--ke-card); }
+.original > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--ke-control-height); padding: 10px 22px; cursor: pointer; list-style: none; font-weight: 600; }
+.original > summary::-webkit-details-marker { display: none; }
+.original > summary::after { content: "›"; color: var(--ke-text-3); transition: transform 0.15s; }
+.original[open] > summary::after { transform: rotate(90deg); }
+.original > .stack { padding: 0 22px 20px; }
+.actionbar { position: sticky; bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom)); z-index: 20; align-self: center; max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; padding: 8px; border: 1px solid var(--ke-line); border-radius: var(--ke-radius-card); background: var(--ke-card); box-shadow: 0 6px 24px color-mix(in srgb, var(--ke-black) 12%, transparent); }
+.actionbar .actions { justify-content: center; }
+.actionbar .item-state { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-inline: 8px; }
+.item-title { overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { .original > summary::after { transition: none; } }

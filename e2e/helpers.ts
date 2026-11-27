@@ -53,3 +53,17 @@ export async function swipe(page: Page, selector: string, dx: number) {
   for (let i = 1; i <= 8; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: point(x0 + (dx * i) / 8) });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 }
+
+/** The box to type or paste into opens from the small round button at the foot of Today (and of the save-only page). */
+export async function openInbox(page: Page) {
+  const sheet = page.getByTestId("inbox-sheet");
+  if (!(await sheet.isVisible())) await page.getByTestId("inbox-open").click();
+  await expect(sheet).toBeVisible();
+}
+
+/** The original of an item is shut when there is a reading to start from: open it, the way a user does. */
+export async function openOriginal(page: Page) {
+  const d = page.locator("details.original");
+  if ((await d.getAttribute("open")) === null) await d.locator("> summary").click();
+  await expect(d).toHaveAttribute("open", "");
+}

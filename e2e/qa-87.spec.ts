@@ -1,7 +1,7 @@
 // Internal QA #87: what happens to a picture is said once, beside the files that wait (not after each save, not as a
 // question), and a GIF that was an animation says that one picture was kept. The success sentence stays the core's.
 import { expect, test, type Page } from "@playwright/test";
-import { reset, signIn, state } from "./helpers";
+import { reset, signIn, state, openInbox } from "./helpers";
 
 test.beforeEach(async ({ request }) => reset(request));
 
@@ -32,6 +32,7 @@ async function drop(page: Page, kind: Kind) {
     data.items.add(file);
     document.querySelector(".inbox")!.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
   }, kind);
+  await openInbox(page);
   await expect(page.locator(".inbox-files li")).toHaveCount(1);
 }
 
@@ -49,8 +50,9 @@ test("QA #87: a picture waiting in the inbox comes with one quiet sentence about
   // Only what is known: no promise about small text, no "original saved", "HD" or "lossless".
   for (const never of ["原图保存", "高清", "无损", "读得清", "不影响"]) await expect(note(page)).not.toContainText(never);
   // A sentence beside the files, not a question: saving needs no second press, and the success sentence is the core's, alone.
+  await openInbox(page);
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。");
+  await expect(page.locator(".said")).toHaveText("已存入。");
   await expect(page.locator("[role=alertdialog]")).toHaveCount(0);
   await expect(note(page)).toHaveCount(0);
 });
@@ -60,6 +62,7 @@ test("QA #87: files that are not pictures carry no such sentence", async ({ page
   for (const kind of ["txt", "pdf"] as const) {
     await drop(page, kind);
     await expect(note(page)).toHaveCount(0);
+    await openInbox(page);
     await page.locator(".inbox-files button", { hasText: "拿掉" }).click();
   }
 });
@@ -77,13 +80,15 @@ test("QA #87: a GIF that was an animation says that one picture was kept, and do
   await signIn(page);
   await drop(page, { gif: gif(3) });
   await expect(note(page)).toBeVisible();
+  await openInbox(page);
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。 动图只保留了一帧。");
-  await expect(page.locator(".inbox-result")).not.toContainText("第一");
+  await expect(page.locator(".said")).toHaveText("已存入。 动图只保留了一帧。");
+  await expect(page.locator(".said")).not.toContainText("第一");
 
   await drop(page, { gif: gif(1) });
+  await openInbox(page);
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。");
+  await expect(page.locator(".said")).toHaveText("已存入。");
 });
 
 test("QA #87: what the system share sheet sends is told the same way, only when a picture came", async ({ page }) => {
@@ -138,6 +143,7 @@ test("QA #87: a file over the limit says the limit in MiB, the unit it is in, an
     data.items.add(new File([bytes], "big.pdf", { type: "application/pdf" }));
     document.querySelector(".inbox")!.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
   }, limit);
+  await openInbox(page);
   await expect(page.locator(".inbox-files li")).toHaveCount(1);
   await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toContainText("文件超过 3 MiB");
@@ -153,6 +159,7 @@ async function dropBroken(page: Page) {
     data.items.add(new File(["this is not a picture, only a test marker"], "broken.png", { type: "image/png" }));
     document.querySelector(".inbox")!.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
   });
+  await openInbox(page);
   await expect(page.locator(".inbox-files li")).toHaveCount(1);
 }
 
@@ -160,10 +167,12 @@ test("QA #87: a picture the browser cannot read says so in the interface's langu
   await signIn(page);
   const before = (await state(page.request)).counts.items;
   await dropBroken(page);
+  await openInbox(page);
   await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toHaveText("没存入：这种文件存不了");
   await expect(page.locator(".inbox-result")).not.toContainText(/decode|source image/i);
   // It can be taken off again, and nothing was made of it.
+  await openInbox(page);
   await expect(page.locator(".inbox-files li")).toHaveCount(1);
   await page.locator(".inbox-files button", { hasText: "拿掉" }).click();
   expect((await state(page.request)).counts.items).toBe(before);
@@ -176,6 +185,7 @@ test("QA #87: the same in English", async ({ page }) => {
   await page.goto("/");
   const before = (await state(page.request)).counts.items;
   await dropBroken(page);
+  await openInbox(page);
   await page.getByTestId("inbox-save").click();
   await expect(page.locator(".inbox-result")).toContainText("This kind of file cannot be saved");
   await expect(page.locator(".inbox-result")).not.toContainText(/decode|source image/i);
@@ -186,7 +196,8 @@ test("QA #87: an animation whose picture was not stored (over the storage quota)
   await reset(request, { over_quota: true });
   await signIn(page);
   await drop(page, { gif: gif(3) });
+  await openInbox(page);
   await page.getByTestId("inbox-save").click();
-  await expect(page.locator(".inbox-result")).toHaveText("已存入。图片没存入：超出存储配额。");
-  await expect(page.locator(".inbox-result")).not.toContainText("动图");
+  await expect(page.locator(".said")).toHaveText("已存入。图片没存入：超出存储配额。");
+  await expect(page.locator(".said")).not.toContainText("动图");
 });

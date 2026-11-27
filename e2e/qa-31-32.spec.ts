@@ -7,7 +7,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { FAKE, credentialOf, reset, signIn } from "./helpers";
+import { FAKE, credentialOf, reset, signIn, openOriginal } from "./helpers";
 
 test.skip(!FAKE, "these rely on the fake's seed and hooks");
 test.beforeEach(async ({ request }) => reset(request));
@@ -55,7 +55,8 @@ test.describe("QA #31: the control of a saved file does something visible at onc
     await signIn(page);
     const id = await saveFile(page, request, "retest-file.txt", "text/plain", TEXT);
     await page.goto(`/item/${id}`);
-    const original = item(page, id).locator("section").first();
+    await openOriginal(page);
+    const original = item(page, id).locator("details.original");
     await expect(original.locator(".original-body")).toHaveText(TEXT.toString("utf8").trim());
     // The control names what it does. It is not a link that opens a tab which closes again.
     const control = original.getByTestId("saved-file");
@@ -92,7 +93,8 @@ test.describe("QA #31: the control of a saved file does something visible at onc
     await signIn(page);
     const id = await saveFile(page, request, "diagram.png", "image/png", PNG);
     await page.goto(`/item/${id}`);
-    const original = item(page, id).locator("section").first();
+    await openOriginal(page);
+    const original = item(page, id).locator("details.original");
     await expect(original.locator("img.original-image")).toBeVisible();
     expect(await original.locator("img.original-image").evaluate((img: HTMLImageElement) => img.decode().then(() => img.naturalWidth))).toBe(1);
     const control = original.getByTestId("saved-file");

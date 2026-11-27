@@ -154,11 +154,12 @@ export interface Said {
 }
 export const said = createStore<Said | null>(null);
 let sayTimer = 0;
-export function say(text: string, action?: Said["action"], bad = false) {
+export function say(text: string, action?: Said["action"], bad = false): number {
   const id = Date.now();
   said.set({ id, text, action, bad });
   clearTimeout(sayTimer);
   sayTimer = window.setTimeout(() => said.get()?.id === id && said.set(null), action ? 8000 : 5000);
+  return id;
 }
 export const sayError = (err: unknown) => say(errText(err), undefined, true);
 /** The user is correcting what was refused: the sentence that said so goes (QA #33). Other sentences stay. */
@@ -234,4 +235,54 @@ export function downloadBlob(filename: string, blob: Blob) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---------------------------------------------------------------- the visual viewport
+/**
+ * Where the screen really is, when something is pinned to it (a sheet above the keyboard): the layout
+ * viewport minus what the keyboard covers, and the visual viewport's own left edge and width. Following only
+ * the height and the bottom would leave a sheet where the layout viewport is while the visible part has moved
+ * sideways (a zoom, the page panned to show a field), and the sheet then seems to drift left and right.
+ * Null where the browser has no visual viewport: the sheet then keeps its CSS place.
+ */
+export interface Viewport {
+  bottom: number;
+  height: number;
+  left: number;
+  width: number;
+}
+export function useVisualViewport(on: boolean): Viewport | null {
+  const [v, setV] = useState<Viewport | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!on || !vv) {
+      setV(null);
+      return;
+    }
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const root = document.documentElement;
+      const next = {
+        bottom: Math.max(0, Math.round(root.clientHeight - vv.height - vv.offsetTop)),
+        height: Math.max(160, Math.round(vv.height - 12)),
+        left: Math.max(0, Math.round(vv.offsetLeft)),
+        width: Math.round(vv.width),
+      };
+      setV((p) => (p && p.bottom === next.bottom && p.height === next.height && p.left === next.left && p.width === next.width ? p : next));
+    };
+    // One read a frame: the events come in bursts while the keyboard slides.
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(read);
+    };
+    read();
+    vv.addEventListener("resize", schedule);
+    vv.addEventListener("scroll", schedule);
+    return () => {
+      vv.removeEventListener("resize", schedule);
+      vv.removeEventListener("scroll", schedule);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [on]);
+  return v;
 }

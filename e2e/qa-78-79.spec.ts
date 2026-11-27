@@ -1,6 +1,6 @@
 // QA #78: feedback from inside the app. QA #79: a new account is shown how to use it.
 import { expect, test } from "@playwright/test";
-import { FAKE, reset, signIn, state } from "./helpers";
+import { FAKE, reset, signIn, state, openInbox } from "./helpers";
 
 test.skip(!FAKE, "relies on the fake's seed and state");
 
@@ -13,6 +13,7 @@ test("QA #79: an account that has never saved anything sees how a day goes, with
   await expect(start.locator(".start-ways dt")).toHaveText(["在这个网页上", "安卓", "iPhone", "浏览器扩展（Chrome、Edge、Brave）"]);
   await expect(page.getByTestId("today-empty")).toHaveCount(0);
   // The first save: the guide makes way for the item.
+  await openInbox(page);
   await page.locator(".inbox-box").fill("第一条");
   await page.locator(".inbox-box").press("Meta+Enter");
   await expect(start).toHaveCount(0);

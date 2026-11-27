@@ -46,7 +46,9 @@ export function Stats({ cells, testid }: { cells: { id: string; n: number | stri
 const VERDICT_DOT: Record<Verdict, DotKind> = { worth_deep_dive: "gold-ring", good_to_know: "solid", skippable: "small" };
 export function VerdictMark({ verdict }: { verdict: Verdict }) {
   const rules = useStore(meta)?.shared_rules;
-  return <State dot={VERDICT_DOT[verdict]}>{shared(rules?.verdicts[verdict])}</State>;
+  // "Worth a deep dive" is the one word in gold ink: the hint to look closer. The dot says it as well, and the words always.
+  const words = shared(rules?.verdicts[verdict]);
+  return <State dot={VERDICT_DOT[verdict]}>{verdict === "worth_deep_dive" ? <span class="verdict-worth">{words}</span> : words}</State>;
 }
 
 export function KindIcon({ kind }: { kind: ItemKind }) {
