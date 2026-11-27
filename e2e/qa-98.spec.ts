@@ -16,10 +16,10 @@ test.describe("QA #98 (1): an empty account", () => {
     await reset(request, { empty: true, never_came: true });
     await signIn(page);
     await expect(page.getByTestId("start")).toBeVisible();
-    await expect(status(page)).toContainText("今天还没有存入。把链接或文字贴进「今天」最上面的框。");
+    await expect(status(page)).toContainText("今天还没有存入。点底部的「从剪贴板存入」，或点旁边的圆形按钮输入。");
     await expect(status(page)).not.toContainText("还没来过");
     // The same words as Getting started's first step.
-    await expect(page.getByTestId("start")).toContainText("贴进「今天」最上面的框");
+    await expect(page.getByTestId("start")).toContainText("点「今天」底部的「从剪贴板存入」");
     await expect(page.locator(".status-cell").filter({ hasText: "还没来过" })).toHaveCount(0);
   });
 
@@ -27,9 +27,9 @@ test.describe("QA #98 (1): an empty account", () => {
     await reset(request, { empty: true, never_came: true, account_lang: "en" });
     await signIn(page);
     await expect(page.getByTestId("start")).toBeVisible();
-    await expect(status(page)).toContainText("Nothing saved today yet. Paste a link or some text into the box at the top of Today.");
+    await expect(status(page)).toContainText("Nothing saved today yet. Press “Save from clipboard” at the bottom, or the round button beside it to type.");
     await expect(status(page)).not.toContainText(/has not come yet/i);
-    await expect(page.getByTestId("start")).toContainText("into the box at the top of Today");
+    await expect(page.getByTestId("start")).toContainText("Press “Save from clipboard” at the bottom of Today");
   });
 
   test("once something is waiting for an assistant that has never come, that is said, as it is true", async ({ page, request }) => {
