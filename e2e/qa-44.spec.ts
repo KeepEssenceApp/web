@@ -82,7 +82,7 @@ test("QA #44: a calendar that answered and says no digest: 'nothing saved today 
   await expect(page.getByTestId("today-empty-pending")).toBeVisible();
   await expect(page.getByTestId("today-empty")).toHaveCount(0);
   calendar.release();
-  await expect(page.getByTestId("today-empty")).toHaveText(/今天还没有存入。点底部的「从剪贴板存入」，或点旁边的圆形按钮输入。|Nothing saved today yet\. Press “Save from clipboard”/);
+  await expect(page.getByTestId("today-empty")).toHaveText(/今天还没有存入。把链接或一段文字贴进上面的框，点「存入」。|Nothing saved today yet\. Paste a link/);
   await expect(page.getByTestId("today-empty-pending")).toHaveCount(0);
   await expect(page.getByTestId("today-empty-unknown")).toHaveCount(0);
   // The sentence came once the calendar had answered, not before.
