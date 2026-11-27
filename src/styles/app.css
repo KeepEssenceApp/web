@@ -283,6 +283,11 @@ label > .label { margin-bottom: 6px; }
 .today-cal { position: absolute; top: 0; right: 0; opacity: 0.55; z-index: 0; padding: 4px; }
 .page-head-today .status-press, .page-head-today .status { position: relative; z-index: 1; }
 
+/* An item's own page: the way back on the left, the status bar on the right (a mark on a phone, one line on a wide screen). */
+.item-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.item-top .back { margin-bottom: 0; flex: none; }
+.item-top .status-press, .item-top .status-narrow { min-width: 0; }
+
 /* ---------------------------------------------------------------- status bar */
 .status-press { display: block; color: inherit; }
 .status-wide { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--ke-line); border-bottom: 1px solid var(--ke-line); }
