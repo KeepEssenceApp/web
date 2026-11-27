@@ -56,6 +56,9 @@
 
 - **用令牌部署要同时给 `CLOUDFLARE_ACCOUNT_ID`。** `wrangler.toml` 里没有 `account_id`：这个仓库是公开的，自托管的人用自己的账号，写死一个就让别人部署不了。只给令牌（wrangler 读的变量名是 `CLOUDFLARE_API_TOKEN`）时，wrangler 去调 `/memberships` 找账号，令牌没有这项权限就报 `10000` 鉴权失败。把账号 ID 放在环境变量 `CLOUDFLARE_ACCOUNT_ID` 里，和令牌放在一起，不进仓库；core 用的是同一个账号。用 `wrangler login` 登录的人不会碰到这个。
 
+- **静态文件的地址，状态码 200 说明不了什么。** `wrangler.toml` 里 `not_found_handling = "single-page-application"`：不存在的路径一律回 200 加应用的页面，连 `.png` 结尾的也是（2026-11-27 在线上量过：`/brand/lockup-en-black.png` 在文件发布之前回 `200 text/html`）。所以邮件里引用的图片（`/brand/lockup-{en,zh}-black.png`，core 的邀请通知和验证码邮件用）要看 `Content-Type` 是 `image/png`、文件头是 PNG、字节和 `tests/brand.test.ts` 钉的 sha256 一致。**本地的假核心（`dev/fake-core.mjs`）对「有扩展名又不存在」的路径回 404，不回页面**，和线上不一样：端到端在假核心上通过，只说明构建里有这两个文件，不说明线上的回答；上线后要对真地址量一次。
+- **标志文件是 marketing 的，按 sha256 钉住。** `public/brand/lockup-{en,zh}-black.png` 从 marketing 的 `brand/lockup/` 原样拷来（2026-11-27 取自 marketing 的 PR #2，提交 `b77cb15`，当时还不在它的 `main` 上）。不手改、不重画；那边换了文件，同时换这里的文件和 `tests/brand.test.ts` 里的 sha256，以及 core 的 `src/services/mailcopy.ts` 里写的显示宽度（高度 32 像素时，英文 137、中文 73）。
+
 ## 提交
 
 - 仓库的提交钩子会跑 gitleaks。测试里用来验「像密码」规则的假样本会被它拦下，所以样本在测试里用几段字符串拼出来，不写成整串。
