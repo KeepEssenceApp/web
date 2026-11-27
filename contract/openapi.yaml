@@ -2055,14 +2055,15 @@ components:
 
     Settings:
       type: object
-      required: [rules, expiry_options, notify, timezone, lang, roles, calendar_image]
+      required: [rules, expiry_options, notify, timezone, lang, always_my_language, roles, calendar_image]
       properties:
         rules: { type: string, maxLength: 4000 }
         preference: { type: [string, "null"], description: Read-only. Reserved. }
         expiry_options: { type: array, items: { type: integer, minimum: 1, maximum: 365 } }
         notify: { type: boolean }
         timezone: { type: string }
-        lang: { $ref: "#/components/schemas/Lang" }
+        lang: { $ref: "#/components/schemas/Lang", description: "The language of the interface. It is also the language of an analysis or a daily digest when always_my_language is on, and when the item's own language cannot be told (no text to read, too few letters to judge, or a script other than Chinese and Latin)." }
+        always_my_language: { type: boolean, description: "Off by default: an analysis and a daily digest are written in the language of the item itself (see lang for the cases where that cannot be told). On: every new analysis and daily digest is written in lang, whatever language the item is in. Only what is written afterwards is affected; what already exists is not rewritten or translated." }
         email: { type: string, description: "The email of the account. Only for the manage tier." }
         roles:
           type: object
@@ -2102,13 +2103,14 @@ components:
             created_at: { type: string, format: date-time }
         settings:
           type: object
-          required: [rules, expiry_options, notify, timezone, lang, roles, calendar_image_enabled]
+          required: [rules, expiry_options, notify, timezone, lang, always_my_language, roles, calendar_image_enabled]
           properties:
             rules: { type: string }
             expiry_options: { type: array, items: { type: integer } }
             notify: { type: boolean }
             timezone: { type: string }
             lang: { $ref: "#/components/schemas/Lang" }
+            always_my_language: { type: boolean }
             roles:
               type: object
               description: "The assistant set for each step, or null."
@@ -2182,6 +2184,7 @@ components:
         notify: { type: boolean }
         timezone: { type: string }
         lang: { $ref: "#/components/schemas/Lang" }
+        always_my_language: { type: boolean }
         roles:
           type: object
           additionalProperties: false
@@ -2225,7 +2228,8 @@ components:
               steps: { type: array, items: { $ref: "#/components/schemas/Step" } }
         default_analysis_assistant: { type: [string, "null"] }
         expiry_options: { type: array, items: { type: integer } }
-        lang: { $ref: "#/components/schemas/Lang" }
+        lang: { $ref: "#/components/schemas/Lang", description: "The language of the account. Write in it when always_my_language is true, and when the item's own language cannot be told." }
+        always_my_language: { type: boolean, description: "True: write every analysis and daily digest in lang, whatever language the item is in. False or absent: write each analysis in the language of the item itself, and a daily digest in the language most of that day's analyses are in (lang when they are evenly mixed)." }
         timezone: { type: string }
 
     ItemContext:

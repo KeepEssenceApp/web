@@ -59,6 +59,7 @@
 | 通知 | Notifications |
 | 通知我 | Notify me |
 | 账户 | Account |
+| 总用我的语言 | Always use my language |
 | 退出 | Sign out |
 | 交给哪个助手 | Given to |
 | 保留多久 | Kept for |

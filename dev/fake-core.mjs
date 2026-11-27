@@ -135,7 +135,7 @@ function seed(opts = {}) {
     devices: new Map(), creds: new Map(), assistants: [builtin, adu, ashen],
     settings: {
       rules: "讲工程实践的长文交给阿读，保留 90 天。\n新闻和版本发布保留 7 天。",
-      expiry_options: [7, 30, 90, 365], notify: true,
+      expiry_options: [7, 30, 90, 365], notify: true, always_my_language: false,
       roles: { analysis: "as_builtin", digest: "as_builtin", deep_read: "as_adu", deep_dive: "as_ashen" },
       calendar_enabled: false, calendar_secret: crypto.randomBytes(16).toString("hex"),
     },
@@ -274,7 +274,7 @@ function deviceOut(d, me) {
 const assistantDevice = (a) => ({ id: a.id, name: a.name, category: "assistant", steps: a.steps, created_at: a.connected_at ?? ago(0), last_used_at: a.last_seen_at, notifications: false, this_device: false });
 function settingsOut(origin, tier) {
   const s = S.settings;
-  return { rules: s.rules, preference: null, expiry_options: s.expiry_options, notify: s.notify, timezone: S.user.timezone, lang: S.user.lang,
+  return { rules: s.rules, preference: null, expiry_options: s.expiry_options, notify: s.notify, timezone: S.user.timezone, lang: S.user.lang, always_my_language: !!s.always_my_language,
     // The account's email, for the manage tier only.
     ...(tier === "manage" ? { email: S.email } : {}), roles: s.roles,
     calendar_image: { enabled: s.calendar_enabled, url: s.calendar_enabled && tier === "manage" ? `${origin}/c/${s.calendar_secret}.svg` : null } };
@@ -626,12 +626,13 @@ on("GET", "/v1/usage", "manage", () => [200, { assistants: S.assistants.map((a, 
 on("GET", "/v1/settings", "read", (c) => [200, settingsOut(c.origin, c.device.tier)]);
 on("PATCH", "/v1/settings", "manage", (c) => {
   const b = c.body, s = S.settings;
-  onlyKeys(b, ["rules", "expiry_options", "notify", "timezone", "lang", "roles", "calendar_image_enabled"]);
+  onlyKeys(b, ["rules", "expiry_options", "notify", "timezone", "lang", "always_my_language", "roles", "calendar_image_enabled"]);
   if (b.rules !== undefined) { need(typeof b.rules === "string" && b.rules.length <= 4000); s.rules = b.rules; }
   if (b.expiry_options !== undefined) { need(Array.isArray(b.expiry_options) && b.expiry_options.length >= 1 && b.expiry_options.length <= 6 && b.expiry_options.every((n) => Number.isInteger(n) && n >= 1 && n <= 365)); s.expiry_options = b.expiry_options; }
   if (b.notify !== undefined) { need(typeof b.notify === "boolean"); s.notify = b.notify; }
   if (b.timezone !== undefined) { need(typeof b.timezone === "string" && b.timezone.length > 0); S.user.timezone = b.timezone; }
   if (b.lang !== undefined) { need(["zh", "en"].includes(b.lang)); S.user.lang = b.lang; }
+  if (b.always_my_language !== undefined) { need(typeof b.always_my_language === "boolean"); s.always_my_language = b.always_my_language; }
   if (b.calendar_image_enabled !== undefined) { need(typeof b.calendar_image_enabled === "boolean"); s.calendar_enabled = b.calendar_image_enabled; }
   if (b.roles !== undefined) {
     onlyKeys(b.roles, ["analysis", "digest", "deep_read", "deep_dive"]);
@@ -661,7 +662,7 @@ function exportOut(lang) {
       ? { included: ["你的各项选择。", "每一份每日摘要。", "每一篇笔记，连同出处。", "每一条还在的条目，连同解读和标签。", "你的文件清单。"], not_included: ["已经删除的条目。", "文件本身的内容。"], files: "文件的内容不在这份文档里。每个文件单独下载。" }
       : { included: ["Your rules and choices.", "Every daily digest.", "Every note, with its sources.", "Every item that still exists, with its analysis and tags.", "A list of your files."], not_included: ["Items that were deleted.", "The contents of files."], files: "File contents are not in this document. Each file is downloaded separately." },
     account: { id: S.user.id, email: S.email, created_at: ago(80 * DAY) },
-    settings: { rules: s.rules, expiry_options: s.expiry_options, notify: s.notify, timezone: S.user.timezone, lang: S.user.lang,
+    settings: { rules: s.rules, expiry_options: s.expiry_options, notify: s.notify, timezone: S.user.timezone, lang: S.user.lang, always_my_language: !!s.always_my_language,
       roles: Object.fromEntries(Object.entries(s.roles).map(([k, id]) => [k, sig(id)])), calendar_image_enabled: s.calendar_enabled },
     digests: [...S.digests.values()].sort((a, b) => a.day.localeCompare(b.day)).map((d) => ({ day: d.day, read: d.read, created_at: null, covers: [d.day], summary: d.summary, question: d.question,
       worth: d.item_ids.map((id) => S.items.get(id)).filter((it) => it?.line).map((it) => ({ item_id: it.id, line: it.line })),

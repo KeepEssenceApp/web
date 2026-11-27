@@ -205,6 +205,8 @@ export interface Settings {
   notify: boolean;
   timezone: string;
   lang: Lang;
+  /** Off: an analysis follows the language of the item itself. On: new analyses and daily digests use `lang`. */
+  always_my_language: boolean;
   /** The account's email. Only the manage tier gets it. */
   email?: string;
   roles: Partial<Record<Role, string | null>>;
@@ -216,6 +218,7 @@ export interface SettingsChange {
   notify?: boolean;
   timezone?: string;
   lang?: Lang;
+  always_my_language?: boolean;
   roles?: Partial<Record<Role, string | null>>;
   calendar_image_enabled?: boolean;
 }

@@ -97,7 +97,7 @@ describe("words", () => {
     expect([zh["nav.today"], zh["nav.digest"], zh["nav.notes"], zh["nav.assistants"]]).toEqual(["今天", "每日摘要", "笔记", "助手设置"]);
     expect([en["nav.today"], en["nav.digest"], en["nav.notes"], en["nav.assistants"]]).toEqual(["Today", "Daily digest", "Notes", "Assistants"]);
     const table = read("design/terms.md");
-    for (const [a, b] of [["读了，晚安", "Read. Good night"], ["加入深挖队列", "Add to the deep-dive queue"], ["把结果贴回来", "Paste the result back"], ["移出队列", "Remove from the queue"], ["看精读", "See the deep read"], ["接入一个助手", "Connect an assistant"]]) {
+    for (const [a, b] of [["读了，晚安", "Read. Good night"], ["加入深挖队列", "Add to the deep-dive queue"], ["把结果贴回来", "Paste the result back"], ["移出队列", "Remove from the queue"], ["看精读", "See the deep read"], ["接入一个助手", "Connect an assistant"], ["总用我的语言", "Always use my language"]]) {
       expect(table).toContain(`| ${a} | ${b} |`);
       expect(Object.values(zh)).toContain(a);
       expect(Object.values(en)).toContain(b);
