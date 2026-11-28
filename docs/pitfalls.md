@@ -22,6 +22,7 @@
 - **所有图片都转成 WebP。** 动图（GIF）经 canvas 之后只剩第一帧。
 - **色表里没有遮罩色。** 弹层后面的暗底用 `color-mix(in srgb, var(--ke-black) 55%, transparent)`，没有新增色值。
 - **登录页恒为深色。** 靠在根元素上放 `data-theme="dark"`（色表支持），离开时去掉；不是另写一套颜色。
+- **`overflow-wrap: anywhere` 会传给 flex 子项，把它压成一个字母宽。** `.main` 为了不让长地址撑宽页面设了 `overflow-wrap: anywhere`，这个值会继承；它让一个元素的最小内容宽度降到一个字符，所以 `.row.spread` 里「说明文字 + 开关」空间紧时，开关（flex 子项，默认可缩）被压到 62px，「On」拆成 O 和 n（QA #111：英文在 1440、360 等宽度拆行，1280 刚好放得下，只测手机或只测 1280 都会漏）。`.switch` 现在 `flex: none; white-space: nowrap; overflow-wrap: normal`，让旁边的说明去换行。以后在继承了 `anywhere` 的行里放短标签（开关、计数、状态词），都要给它们这三样；`e2e/qa-111.spec.ts` 按每个字母的纵坐标扫 1440 到 320 的宽度。
 - **同一个类名两处用。** 月历组件的 `cal-card`（尺寸）和笔记页的卡片曾经撞名，卡片改叫 `month-card`。
 
 ## 文案与状态
