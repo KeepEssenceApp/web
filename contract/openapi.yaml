@@ -2351,7 +2351,14 @@ components:
       properties:
         kind: { const: digest }
         day: { $ref: "#/components/schemas/Day" }
-        summary: { type: string, maxLength: 600, description: A few sentences on what was saved. Plain text. }
+        summary:
+          type: string
+          maxLength: 600
+          description: |
+            A few sentences on what was saved. Plain text. If it states how many items were saved or
+            covered, the number must be the number of entries in `analyses` of the digest context (the
+            number the digest then shows as its count); a summary that states another number is refused
+            with `invalid_result`. When unsure, state no number.
         worth:
           type: array
           maxItems: 50
