@@ -395,7 +395,11 @@ export const en: Record<keyof typeof zh, string> = {
 
   "notify.hint": "There is one kind of notification: an analysis is ready, or a deep read is ready. Several in a row arrive as one.",
   "notify.switch": "Notifications",
-  "notify.all": "Applies to all your devices.",
+  // Two separate things (QA #111): the switch is the account's (all devices); what this browser allows is the device's.
+  "notify.all": "On for your account (all your devices).",
+  "notify.all_off": "Off for your account (all your devices).",
+  "notify.here_denied": "This device: the browser did not allow notifications, so nothing shows here.",
+  "notify.here_unsupported": "This device: this browser does not support notifications, so nothing shows here.",
   "notify.can": "This device can receive notifications.",
   "notify.not_yet": "Notifications are not turned on for this device yet.",
   "notify.denied": "This device cannot receive notifications: the browser did not allow them.",

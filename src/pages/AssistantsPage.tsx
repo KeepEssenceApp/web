@@ -708,7 +708,7 @@ function Notify() {
       <section class="stack tight">
         <div class="row spread">
           <span>
-            {t("notify.switch")} <span class="quiet small">{t("notify.all")}</span>
+            {t("notify.switch")} <span class="quiet small" data-testid="notify-scope">{t(s.notify ? "notify.all" : "notify.all_off")}</span>
           </span>
           <Switch
             on={s.notify}
@@ -731,6 +731,13 @@ function Notify() {
             }}
           />
         </div>
+        {/* The switch is the account's and stays as the user set it; what this browser allows is this
+            device's own. When it does not allow them, the sentence right after says so (QA #111). */}
+        {(support === "denied" || support === "unsupported") && (
+          <p class="quiet small" data-testid="notify-here">
+            {t(support === "denied" ? "notify.here_denied" : "notify.here_unsupported")}
+          </p>
+        )}
         {!s.notify && <p class="quiet small">{t("notify.off")}</p>}
       </section>
       <section class="stack tight">

@@ -393,7 +393,11 @@ export const zh = {
 
   "notify.hint": "只有一种通知：解读好了，或精读好了。连着好的合成一条。",
   "notify.switch": "通知",
-  "notify.all": "对你的所有设备生效。",
+  // 账户的开关管所有设备；这个浏览器允不允许，是这台设备自己的事（QA #111）。
+  "notify.all": "账户里开着，对你所有设备生效。",
+  "notify.all_off": "账户里关着，对你所有设备生效。",
+  "notify.here_denied": "本设备：浏览器没允许通知，这里收不到。",
+  "notify.here_unsupported": "本设备：这个浏览器不支持通知，这里收不到。",
   "notify.can": "这台设备收得到通知。",
   "notify.not_yet": "这台设备还没开通知。",
   "notify.denied": "这台设备收不到通知：浏览器没有允许。",

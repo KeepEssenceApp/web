@@ -135,10 +135,17 @@ label > .label { margin-bottom: 6px; }
   font: inherit;
   font-size: var(--ke-size-secondary);
   cursor: pointer;
+  /* "On" / "Off" are one word on one line, whatever the row is squeezed by (QA #111). The page sets
+     overflow-wrap: anywhere (.main), which the switch inherits; that lets a flex item shrink to one
+     letter, and "On" came out as "O" over "n". The label beside the switch is what gives way. */
+  flex: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 .switch::before {
   content: "";
   order: -1;
+  flex: none;
   width: 44px;
   height: 26px;
   border: 1px solid var(--ke-line);
