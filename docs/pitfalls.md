@@ -65,6 +65,23 @@
 
 - 仓库的提交钩子会跑 gitleaks。测试里用来验「像密码」规则的假样本会被它拦下，所以样本在测试里用几段字符串拼出来，不写成整串。
 
+## 合并和发布
+
+- **PR 描述和提交信息里，关闭类关键词后面别跟不带仓库名的编号，否定句也不行。** 发布工作流（`.github/workflows/release.yml`）里，semantic-release 的 `@semantic-release/github` 在发布完成之后还有一步 `success`：它读这次发布的提交信息，**和对应 PR 的描述**，凡是 `close`、`closes`、`closed`、`fix`、`fixes`、`fixed`、`resolve`、`resolves`、`resolved` 后面跟着 `#` 加编号的，都当成「这次发布关掉的 issue」；编号前没有仓库名，就去**当前仓库（web）**里找这个编号。它只认这个字面形状，不看语气：一句说「这个 PR 不关它」的话，只要关键词和编号挨着，照样算。带了仓库名、而仓库名不是当前仓库的（`KeepEssenceApp/internal-qa#…`），这一步会筛掉，不去 web 里找。（用 `issue-parser` 的 `github` 预设和 `@semantic-release/github` 的 `success.js` 里的筛选复现过。）
+- **实际发生的一次（2026-11-28，web#28，release 的 run 46140912271）。** PR 描述里有一句英文否定句：`do not` 加一个关闭关键词，再加 internal-qa 里那条 issue 的短编号（98）。PR 合并、`ci` 通过之后，release 工作流在 `a01d597` 上先建了 tag `v1.11.4`、发布了 GitHub Release（两样都在），然后在 `success` 步骤失败：`Could not resolve to an issue or pull request with the number of 98`（`path: repository.issue98`）。web 里没有第 98 号，那是 internal-qa 的 issue。结果是 run 变红，版本本身是好的；这一步只给相关的 issue 和 PR 留言、加标签，所以没有重跑这次 release，也没有去改那条已合并的 PR 描述。
+- **可以照抄的安全写法：**
+
+  ```
+  Refs KeepEssenceApp/internal-qa#98
+  ```
+
+  `Refs` 不是关闭类关键词，带了仓库名的编号也不会被拿去 web 里找。想说「这条先不关」，就别写关键词加编号，写一句不带它们的话（比如「还要上线后验收，保持打开」），引用单独占上面这一行。PR 标题和正文里也别放「错误写法」的示例，解析器不分示例和真的。
+- **合并前对标题、描述和提交信息查一遍。** 下面这条命令会把三处里长得像关闭语句的行打出来；有输出就先改，再合并（对 web#28 当时的描述会打出那一行；多报没关系，比如 `prefix #12` 也会报）：
+
+  ```
+  gh pr view <N> -R KeepEssenceApp/web --json title,body,commits -q '.title,.body,(.commits[]|.messageHeadline,.messageBody)' | grep -niE '(close[sd]?|fix(e[sd])?|resolve[sd]?):? +([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+'
+  ```
+
 ## 先显示、后确认的动作
 
 - **手动改数据要作废在路上的读取。** 动作一按下就先改界面（卡片离开列表、开关拨过去），再发给核心。如果这时有一次稍早发出的读取还没回来，它带回的旧数据会把刚改的界面改回去，卡片闪一下又出现。`useLoad` 的 `set` 所以会让在路上的读取作废；核心答复后再读一次，以核心为准。
