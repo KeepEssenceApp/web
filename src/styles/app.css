@@ -415,6 +415,10 @@ label > .label { margin-bottom: 6px; }
 .digest-summary { color: var(--ke-text-2); line-height: 1.75; }
 .digest-question { font-size: var(--ke-size-subtitle); font-weight: 600; line-height: 1.5; }
 .rest summary { cursor: pointer; margin: 0; padding: 6px 0; }
+/* "What this digest covers" is a pressable line: no lower than a control (W8, 44 px), at every width and pointer.
+   It stays a list-item summary so the browser's own open/closed mark stays (display: flex would drop it). */
+.scope summary { cursor: pointer; margin: 0; padding: 12px 0; min-height: var(--ke-control-height); }
+.scope p { margin: 4px 0 8px; line-height: 1.7; overflow-wrap: anywhere; }
 .rest ul { display: flex; flex-direction: column; }
 .rest-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--ke-line); color: var(--ke-text-2); font-size: var(--ke-size-secondary); }
 .rest-title { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
