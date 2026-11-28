@@ -80,7 +80,7 @@ test("QA #30: an assistant with nothing recorded says so instead of showing numb
 test("QA #30: Devices lists every client and every connected assistant, not the built-in one, and its sentence says exactly that", async ({ page, request }) => {
   await signIn(page, "/assistants/devices");
   const hint = page.locator(".quiet.small", { hasText: "都是一个设备" });
-  await expect(hint).toHaveText("你接入的每个客户端和每个助手都是一个设备。每个都可以在这里改名、单独撤销，马上生效，别的设备不受影响。内置助手是这个服务的一部分，不在这里列出。");
+  await expect(hint).toHaveText("你接入的每个客户端和每个助手都是一个设备。每个都可以在这里改名、单独撤销，马上生效，别的设备不受影响。只有一处例外：在这个列表里，最后一台管理档的设备不能撤销，也不能降档；退出登录不受这条限制。内置助手是这个服务的一部分，不在这里列出。");
   // The connected assistants are there, each revocable; the built-in one is not.
   for (const id of ["as_adu", "as_ashen"]) {
     const row = page.locator(`[data-device="${id}"]`);
@@ -112,7 +112,7 @@ test("QA #30: in English the row and the Devices sentence read the same way", as
   await expect(row.getByTestId("built-in-fixed")).toContainText("cannot be revoked");
   await page.goto("/assistants/devices");
   await expect(page.locator(".quiet.small", { hasText: "is a device" })).toHaveText(
-    "Every client and every assistant you connected is a device. Each can be renamed and revoked here on its own; it takes effect at once and no other device is affected. The built-in assistant is part of the service and is not listed here.",
+    "Every client and every assistant you connected is a device. Each can be renamed and revoked here on its own; it takes effect at once and no other device is affected. There is one exception: in this list, the last device with Manage permission cannot be revoked or lowered. Signing out is not limited by this. The built-in assistant is part of the service and is not listed here.",
   );
   await ctx.close();
 });
