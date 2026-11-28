@@ -8,7 +8,7 @@ import { Loading, State } from "../components/ui";
 import { ago, dayName, shared, t } from "../i18n";
 import { useDigestWriter } from "../components/StatusBar";
 import { useBusy, useLoad } from "../lib";
-import { canManage, digestUnread, meta, refresh, session } from "../session";
+import { canManage, digestUnread, meta, openDigest, refresh, session } from "../session";
 import { useStore } from "../store";
 import type { Digest, DigestRest, DigestWorth, Signal, Status } from "../types";
 
@@ -155,6 +155,14 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
     });
   }, [elsewhere, digest.data]);
   const d = digest.data;
+  // The list of dates beside this page marks the digest that is open here and must say the same of it (QA #114): it
+  // hears which digest this is, and whether it is read, from here and not from what it read earlier.
+  const dDay = d?.day;
+  const dRead = d?.read;
+  useEffect(() => {
+    if (beside) openDigest.set(dDay === undefined ? null : { day: dDay, read: !!dRead });
+  }, [beside, dDay, dRead]);
+  useEffect(() => (beside ? () => openDigest.set(null) : undefined), [beside]);
   // The line that is open in the panel is shown: the rest unfolds for it (and is never folded for the user).
   const restRef = useRef<HTMLDetailsElement>(null);
   const inRest = !!selected && !!d?.rest.some((r) => r.item_id === selected);

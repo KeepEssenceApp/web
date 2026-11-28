@@ -68,6 +68,8 @@ test.describe("QA #114 at 1440 × 900", () => {
         await expect(page.locator(`article[data-day="${oldest}"] header .state`)).toHaveText(w.unread);
         await expect(current(page)).toHaveCount(1);
         await expect(panel(page).locator(`.digest-dates a[data-day="${oldest}"]`)).toHaveAttribute("aria-current", "true");
+        // Opening another digest from the list does not read the history again.
+        expect(await listRequests(request)).toHaveLength(1);
 
         // From the body's link to the earlier digest, from the one next to it.
         await page.goto(`/digest/${dayAgo(60)}`);
@@ -78,6 +80,9 @@ test.describe("QA #114 at 1440 × 900", () => {
         await expect(page.locator(`article[data-day="${oldest}"] header .state`)).toHaveText(w.unread);
         await expect(current(page)).toHaveCount(1);
         await expect(panel(page).locator(`.digest-dates a[data-day="${oldest}"]`)).toHaveAttribute("aria-current", "true");
+        // The reload of the page was one read; the link to the earlier digest none.
+        await page.waitForTimeout(300);
+        expect(await listRequests(request)).toHaveLength(2);
 
         // Read, good night: the panel follows with no reload.
         await page.evaluate(() => ((window as unknown as { __kept: number }).__kept = 1));
@@ -87,6 +92,9 @@ test.describe("QA #114 at 1440 × 900", () => {
         await expect(panel(page).locator(".digest-dates a", { hasText: w.unread })).toHaveCount(0);
         await expect(rows(page)).toHaveCount(61);
         expect(await page.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(1);
+        // Reading it asked for the history once more, and only once.
+        await page.waitForTimeout(500);
+        expect(await listRequests(request)).toHaveLength(3);
       });
 
       test("60 digests: all read is 60 and 0, only the 60th unread is 60 and 1, one list request each", async ({ page, request }) => {
@@ -135,6 +143,114 @@ test.describe("QA #114 at 1440 × 900", () => {
         await expect(panel(page).locator(".sentence")).toHaveText(w.none);
         await expect(counts(page)).toHaveCount(0);
         await expect(rows(page)).toHaveCount(0);
+        expect(await listRequests(request)).toHaveLength(1);
+      });
+
+      // QA's counter-example on 499bc41: the data changes in the same session, with no reload of the page. The body (one digest) and
+      // the panel (all of them) must say the same thing about the digest that is open.
+      test("a newer digest arrives in the same session and the app goes back to /digest with no reload: body and panel agree, 102 and 1, only the new one is open, one more read of the history", async ({ page, request }) => {
+        await history(request, lang, 101, "none");
+        await signIn(page, `/digest/${dayAgo(60)}`);
+        await expect(counts(page).locator(".stat-n")).toHaveText(["101", "0"]);
+        await expect(rows(page)).toHaveCount(101);
+        await expect(current(page)).toHaveCount(1);
+        await expect(current(page)).toHaveAttribute("data-day", dayAgo(60));
+        expect(await listRequests(request)).toHaveLength(2);
+
+        // Today's digest is written, unread. The page is not reloaded.
+        const today = dayAgo(0);
+        expect((await request.post("/__test/digest-today")).ok()).toBe(true);
+        await page.evaluate(() => ((window as unknown as { __kept: number }).__kept = 1));
+        await page.locator('nav a[href="/digest"]').click();
+        await expect(page).toHaveURL(/\/digest$/);
+        await expect(page.locator(`article[data-day="${today}"]`)).toBeVisible();
+        await expect(page.locator(`article[data-day="${today}"] header .state`)).toHaveText(w.unread);
+
+        // The panel says what the body says.
+        await expect(counts(page).locator(".stat-n")).toHaveText(["102", "1"]);
+        await expect(counts(page).locator(".stat-label")).toHaveText([...w.counts]);
+        await expect(rows(page)).toHaveCount(102);
+        await expect(rows(page).first()).toHaveAttribute("data-day", today);
+        await expect(rows(page).first()).toContainText(w.unread);
+        await expect(rows(page).nth(1)).toHaveAttribute("data-day", dayAgo(1));
+        await expect(panel(page).locator(".digest-dates a", { hasText: w.unread })).toHaveCount(1);
+        await expect(current(page)).toHaveCount(1);
+        await expect(current(page)).toHaveAttribute("data-day", today);
+        expect(await page.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(1);
+        // The history was read again once (two pages of it), not once for every thing the page did.
+        await page.waitForTimeout(500);
+        expect(await listRequests(request)).toHaveLength(4);
+
+        // Reading it: both numbers follow with one more read of the history, and the open one is still only the new one.
+        await page.getByRole("button", { name: w.button }).click();
+        await expect(counts(page).locator(".stat-n")).toHaveText(["102", "0"]);
+        await expect(rows(page).first()).toContainText(w.read);
+        await expect(panel(page).locator(".digest-dates a", { hasText: w.unread })).toHaveCount(0);
+        await expect(current(page)).toHaveCount(1);
+        await expect(current(page)).toHaveAttribute("data-day", today);
+        await page.waitForTimeout(500);
+        expect(await listRequests(request)).toHaveLength(6);
+        expect(await page.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(1);
+      });
+
+      test("the open digest was changed elsewhere (the newest is unread, the list in this page says the oldest is): going back to /digest with no reload, the row says what the body says", async ({ page, request }) => {
+        await history(request, lang, 61, "oldest");
+        await signIn(page, `/digest/${dayAgo(30)}`);
+        await expect(counts(page).locator(".stat-n")).toHaveText(["61", "1"]);
+        await expect(rows(page).last()).toContainText(w.unread);
+        await expect(rows(page).first()).toContainText(w.read);
+        expect(await listRequests(request)).toHaveLength(1);
+
+        await changeHistory(request, 61, "newest");
+        await page.evaluate(() => ((window as unknown as { __kept: number }).__kept = 1));
+        await page.locator('nav a[href="/digest"]').click();
+        await expect(page.locator(`article[data-day="${dayAgo(1)}"] header .state`)).toHaveText(w.unread);
+        await expect(rows(page).first()).toContainText(w.unread);
+        await expect(rows(page).last()).toContainText(w.read);
+        await expect(panel(page).locator(".digest-dates a", { hasText: w.unread })).toHaveCount(1);
+        await expect(counts(page).locator(".stat-n")).toHaveText(["61", "1"]);
+        await expect(current(page)).toHaveCount(1);
+        await expect(current(page)).toHaveAttribute("data-day", dayAgo(1));
+        expect(await page.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(1);
+        await page.waitForTimeout(500);
+        // The hook above started the log again: this one read is the whole history asked for once more.
+        expect(await listRequests(request)).toHaveLength(1);
+      });
+
+      test("the history read that follows a newer digest fails on its second page: the load error and no count, never the first page's; reading the digest then shows 102 and 0", async ({ page, request }) => {
+        await history(request, lang, 101, "none");
+        await signIn(page, `/digest/${dayAgo(60)}`);
+        await expect(counts(page).locator(".stat-n")).toHaveText(["101", "0"]);
+        expect((await request.post("/__test/digest-today")).ok()).toBe(true);
+        const second = /\/v1\/digests\?.*cursor=/;
+        await page.route(second, (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "server_error", message: "" } }) }));
+        await page.locator('nav a[href="/digest"]').click();
+        await expect(page.locator(`article[data-day="${dayAgo(0)}"]`)).toBeVisible();
+        await expect(panel(page).getByRole("alert")).toHaveText(w.failed);
+        await expect(counts(page)).toHaveCount(0);
+        await expect(rows(page)).toHaveCount(0);
+
+        // The page answers again; the next thing the page changes (reading this digest) asks for the history again.
+        await page.unroute(second);
+        await page.getByRole("button", { name: w.button }).click();
+        await expect(counts(page).locator(".stat-n")).toHaveText(["102", "0"]);
+        await expect(rows(page)).toHaveCount(102);
+        await expect(current(page)).toHaveAttribute("data-day", dayAgo(0));
+      });
+
+      test("going from one day to another in the list reads the history no more than once", async ({ page, request }) => {
+        await history(request, lang, 61, "none");
+        await signIn(page, "/digest");
+        await expect(rows(page)).toHaveCount(61);
+        for (const n of [2, 10, 61]) {
+          await panel(page).locator(`.digest-dates a[data-day="${dayAgo(n)}"]`).click();
+          await expect(page.locator(`article[data-day="${dayAgo(n)}"]`)).toBeVisible();
+          await expect(current(page)).toHaveAttribute("data-day", dayAgo(n));
+        }
+        await page.locator('nav a[href="/digest"]').click();
+        await expect(page.locator(`article[data-day="${dayAgo(1)}"]`)).toBeVisible();
+        await expect(current(page)).toHaveAttribute("data-day", dayAgo(1));
+        await page.waitForTimeout(500);
         expect(await listRequests(request)).toHaveLength(1);
       });
 

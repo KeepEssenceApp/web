@@ -11,6 +11,32 @@ export interface DigestsPage {
   next_cursor?: string | null;
 }
 
+/** The digest the page beside the list is showing: its day, and whether it is read. */
+export interface OpenDigest {
+  day: string;
+  read: boolean;
+}
+
+/**
+ * The day the list marks as the open one: the day in the address; for "latest" the day the page beside it shows
+ * (what "latest" came to when it was read, which is not always the first row of a list read earlier), and until
+ * that page has answered the first row.
+ */
+export function markedDay(asked: string, shown: OpenDigest | null, days: DigestDay[]): string | undefined {
+  return asked !== "latest" ? asked : (shown?.day ?? days[0]?.day);
+}
+
+/**
+ * True when the list does not say what the page beside it says about the digest that is open: it has no row for
+ * that day (a digest that came after the list was read), or has it with the other read state. The list is then
+ * out of date, and the page, read later, is not.
+ */
+export function disagrees(shown: OpenDigest | null, days: DigestDay[]): boolean {
+  if (!shown) return false;
+  const row = days.find((d) => d.day === shown.day);
+  return !row || row.read !== shown.read;
+}
+
 /** The most the contract lets one page hold (`limit`): the fewest requests for a long history. */
 export const DIGEST_PAGE = 100;
 

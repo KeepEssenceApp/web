@@ -1,6 +1,6 @@
 // QA #114: the digest history is read to its end, and a failed page gives no history at all.
 import { describe, expect, it } from "vitest";
-import { allDigestDays, DIGEST_PAGE, type DigestDay, type DigestsPage } from "../src/digest-days";
+import { allDigestDays, DIGEST_PAGE, disagrees, markedDay, type DigestDay, type DigestsPage } from "../src/digest-days";
 
 /** A history of `n` digests, newest first, the oldest one unread; served the way the core pages a list: by `cursor`, at most `limit` a page. */
 function history(n: number, failAt?: number) {
@@ -91,5 +91,38 @@ describe("QA #114: allDigestDays", () => {
     };
     await expect(allDigestDays(stuck)).rejects.toThrow();
     expect(asks).toBe(2);
+  });
+});
+
+describe("QA #114: the list and the page beside it say the same of the open digest", () => {
+  // What the list read earlier says: D027 is the newest, all read.
+  const old: DigestDay[] = [{ day: "D027", read: true }, { day: "D026", read: true }];
+
+  it("a digest the list has no row for (one that came after it was read) is a disagreement; one it has, read the same way, is not", () => {
+    expect(disagrees({ day: "D028", read: false }, old)).toBe(true);
+    expect(disagrees({ day: "D027", read: true }, old)).toBe(false);
+    expect(disagrees({ day: "D026", read: true }, old)).toBe(false);
+  });
+
+  it("a row with the other read state is a disagreement, in both directions", () => {
+    expect(disagrees({ day: "D027", read: false }, old)).toBe(true);
+    expect(disagrees({ day: "D027", read: true }, [{ day: "D027", read: false }])).toBe(true);
+  });
+
+  it("no page beside it, or no digest in it: nothing to disagree with", () => {
+    expect(disagrees(null, old)).toBe(false);
+    expect(disagrees(null, [])).toBe(false);
+  });
+
+  it("a digest of a day with an empty list is a disagreement (the list was read when there was none)", () => {
+    expect(disagrees({ day: "D001", read: false }, [])).toBe(true);
+  });
+
+  it("the open day: the address's day; for latest the day the page shows, the first row only until it has answered", () => {
+    expect(markedDay("D010", { day: "D027", read: true }, old)).toBe("D010");
+    expect(markedDay("D010", null, old)).toBe("D010");
+    expect(markedDay("latest", { day: "D028", read: false }, old)).toBe("D028");
+    expect(markedDay("latest", null, old)).toBe("D027");
+    expect(markedDay("latest", null, [])).toBeUndefined();
   });
 });

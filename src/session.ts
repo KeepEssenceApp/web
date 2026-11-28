@@ -1,5 +1,6 @@
 // The device's credential lives in browser storage and nowhere else. Nothing in the
 // interface shows it, copies it or asks for it (rule B8).
+import type { OpenDigest } from "./digest-days";
 import { createStore } from "./store";
 import type { Device, Meta, User } from "./types";
 
@@ -23,6 +24,11 @@ export const session = createStore<Session>({ signedIn: !!read(), device: null, 
 export const meta = createStore<Meta | null>(null);
 /** True while the latest daily digest is unread: one dot on its entry. */
 export const digestUnread = createStore(false);
+/**
+ * The daily digest the page shows beside the list of dates (wide screen), once it has answered: the list marks it
+ * as the open one and must agree with it about it (QA #114). Null when no such page is up or it has no digest.
+ */
+export const openDigest = createStore<OpenDigest | null>(null);
 /** Bumped when something saved or handled elsewhere should make lists reload. */
 export const refresh = createStore(0);
 
@@ -46,6 +52,7 @@ export function dropSession() {
     /* storage unavailable */
   }
   digestUnread.set(false);
+  openDigest.set(null);
   accountEmail.set(null);
   session.set({ signedIn: false, device: null, user: null });
 }
