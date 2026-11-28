@@ -322,3 +322,60 @@ for (const [name, make] of frameCases.filter(([, , says]) => says)) {
     await expect(page.locator(".said")).not.toContainText("动图");
   });
 }
+
+// Over the storage quota the sentence names what was not stored, and the page shows the core's sentence as it is (QA #87):
+// a picture has `saved_image_skipped_quota`, any other file has `saved_file_skipped_quota`. The page has no table of keys.
+const QUOTA_SENTENCES = {
+  zh: { saved: "已存入。", image: "已存入。图片没存入：超出存储配额。", file: "已存入。文件没存入：超出存储配额。" },
+  en: { saved: "Saved.", image: "Saved. The image was not stored: storage quota exceeded.", file: "Saved. The file was not stored: storage quota exceeded." },
+} as const;
+for (const lang of ["zh", "en"] as const) {
+  test.describe(`QA #87: the storage quota sentence, in ${lang === "zh" ? "Chinese" : "English"}`, () => {
+    // The browser speaks the language the page asks the core in; the fake answers in it.
+    test.use({ locale: lang === "zh" ? "zh-CN" : "en-US" });
+    const said = QUOTA_SENTENCES[lang];
+
+    test("a PDF with room is stored and says only that it was saved", async ({ page, request }) => {
+      await signIn(page);
+      const before = (await state(request)).counts;
+      await drop(page, "pdf");
+      await openInbox(page);
+      await page.getByTestId("inbox-save").click();
+      await expect(page.locator(".said")).toHaveText(said.saved);
+      const after = await state(request);
+      expect(after.last_saved).toMatchObject({ kind: "file", asset_content_type: "application/pdf" });
+      expect(after.counts.items).toBe(before.items + 1);
+      expect(after.counts.assets).toBe(before.assets + 1);
+    });
+
+    test("a PDF over the quota is saved without its bytes and says the file was not stored, not the image", async ({ page, request }) => {
+      await reset(request, { over_quota: true });
+      await signIn(page);
+      const before = (await state(request)).counts;
+      await drop(page, "pdf");
+      await openInbox(page);
+      await page.getByTestId("inbox-save").click();
+      await expect(page.locator(".said")).toHaveText(said.file);
+      await expect(page.locator(".said")).not.toContainText(lang === "zh" ? "图片" : "image");
+      const after = await state(request);
+      expect(after.last_saved).toMatchObject({ kind: "file", asset_content_type: "application/pdf" });
+      expect(after.counts.items).toBe(before.items + 1);
+      expect(after.counts.assets).toBe(before.assets);
+    });
+
+    test("a picture over the quota keeps the sentence about the image", async ({ page, request }) => {
+      await reset(request, { over_quota: true });
+      await signIn(page);
+      const before = (await state(request)).counts;
+      await drop(page, "png");
+      await openInbox(page);
+      await page.getByTestId("inbox-save").click();
+      await expect(page.locator(".said")).toHaveText(said.image);
+      await expect(page.locator(".said")).not.toContainText(lang === "zh" ? "文件" : "file");
+      const after = await state(request);
+      expect(after.last_saved).toMatchObject({ kind: "image" });
+      expect(after.counts.items).toBe(before.items + 1);
+      expect(after.counts.assets).toBe(before.assets);
+    });
+  });
+}

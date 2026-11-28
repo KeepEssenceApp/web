@@ -40,6 +40,7 @@ const SHARED_RULES = {
     saved: { zh: "已存入。", en: "Saved." },
     duplicate: { zh: "之前存过了，没有重复存。", en: "Already saved. Nothing was added." },
     saved_image_skipped_quota: { zh: "已存入。图片没存入：超出存储配额。", en: "Saved. The image was not stored: storage quota exceeded." },
+    saved_file_skipped_quota: { zh: "已存入。文件没存入：超出存储配额。", en: "Saved. The file was not stored: storage quota exceeded." },
     queued_offline: { zh: "还没存入，排着队，联网后自动存入。", en: "Not saved yet. Queued, and it will be saved when you are back online." },
     failed: { zh: "没存入：{reason}", en: "Not saved: {reason}" },
     queued_not_connected: { zh: "还没存入，排着队，接入后自动存入。", en: "Not saved yet. Queued, and it will be saved once this device is connected." },
@@ -479,7 +480,8 @@ on("POST", "/v1/items", "save", (c) => {
       // The core reads a text file itself: its text is the item's body.
       body: b.text ?? (asset && !skipped && /^text\/(plain|markdown)$/.test(asset.content_type) ? asset.data.toString("utf8") : null), asset_id: asset && !skipped ? b.asset_id : null, digest_day: null, source: c.device.client };
     S.items.set(it.id, it); S.saved.set(today(), (S.saved.get(today()) ?? 0) + 1);
-    const key = skipped ? "saved_image_skipped_quota" : "saved";
+    // As the core does: over quota, an image has its sentence and any other file (a PDF, a text file) has its own.
+    const key = skipped ? (b.kind === "image" ? "saved_image_skipped_quota" : "saved_file_skipped_quota") : "saved";
     return [201, { status: "saved", item_id: it.id, message_key: key, message: msg(key), ...(asset ? { image_stored: !skipped } : {}) }];
   });
   return [status, body];

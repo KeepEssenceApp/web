@@ -109,10 +109,16 @@ x-shared-rules:
         description: One line, no spaces, 12 to 64 characters, with a lower-case letter, an upper-case letter, a digit and a symbol, and not a URL.
         regex: "^(?!https?://)(?=\\S*[a-z])(?=\\S*[A-Z])(?=\\S*\\d)(?=\\S*[^A-Za-z0-9])\\S{12,64}$"
   save_messages:
-    description: The one sentence a saving client shows. The core returns the key and the text.
+    description: >
+      The one sentence a saving client shows. The core returns the key and the text. When the
+      storage quota leaves no room for the bytes of an attachment, the item is still saved and the
+      core picks the key by the kind of the item: `saved_image_skipped_quota` for an image,
+      `saved_file_skipped_quota` for any other file (a PDF, a text file). `image_stored` is `false`
+      for both.
     saved: { zh: "已存入。", en: "Saved." }
     duplicate: { zh: "之前存过了，没有重复存。", en: "Already saved. Nothing was added." }
     saved_image_skipped_quota: { zh: "已存入。图片没存入：超出存储配额。", en: "Saved. The image was not stored: storage quota exceeded." }
+    saved_file_skipped_quota: { zh: "已存入。文件没存入：超出存储配额。", en: "Saved. The file was not stored: storage quota exceeded." }
     queued_offline: { zh: "还没存入，排着队，联网后自动存入。", en: "Not saved yet. Queued, and it will be saved when you are back online." }
     queued_not_connected: { zh: "还没存入，排着队，接入后自动存入。", en: "Not saved yet. Queued, and it will be saved once this device is connected." }
     declined: { zh: "没存入。", en: "Not saved." }
@@ -825,7 +831,8 @@ paths:
         `upload_url` is always on the core's own origin and carries its own signature, so the
         upload needs no credential and no extra host permission. On `over_quota` nothing is
         uploaded; the client still saves the item with the returned `asset_id`, and the core
-        answers `saved_image_skipped_quota`.
+        answers `saved_image_skipped_quota` for an image or `saved_file_skipped_quota` for any
+        other file.
       x-tier: save
       requestBody:
         required: true
