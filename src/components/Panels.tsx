@@ -151,12 +151,16 @@ export function NotesRest() {
   );
 }
 
-/** The daily digest with nothing open: the digests there are, by date, newest first. */
+/**
+ * The daily digest with nothing open: the digests there are, by date, newest first. The two counts
+ * and the list are from one answer with every digest in it (QA #114); if a page of it fails, the
+ * panel says so and shows no count, since a count of part of the history reads as the total.
+ */
 export function DigestDates({ day }: { day: string }) {
   const tick = useStore(refresh);
-  const list = useLoad(() => api.digests(60), [tick]);
+  const list = useLoad(api.allDigests, [tick]);
   if (!list.data) return <div class="page"><Loading error={list.error} /></div>;
-  const days = list.data.digests;
+  const days = list.data;
   // "latest" is the newest one.
   const open = day === "latest" ? days[0]?.day : day;
   return (

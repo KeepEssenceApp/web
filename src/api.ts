@@ -2,6 +2,7 @@
 import type * as T from "./types";
 import { credential, dropSession } from "./session";
 import { lang } from "./i18n";
+import { allDigestDays, DIGEST_PAGE, type DigestsPage } from "./digest-days";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -101,7 +102,9 @@ export const api = {
   signal: (id: string, signal: T.Signal) => json<void>(`/v1/items/${e(id)}/signal`, { method: "PUT", body: { signal } }),
   clearSignal: (id: string) => json<void>(`/v1/items/${e(id)}/signal`, { method: "DELETE" }),
 
-  digests: (limit = 1) => json<{ digests: { day: string; read: boolean }[] }>(`/v1/digests${q({ limit })}`),
+  digests: (limit = 1, cursor?: string) => json<DigestsPage>(`/v1/digests${q({ limit, cursor })}`),
+  /** Every daily digest, newest first, from all the pages (QA #114). It fails as a whole when a page fails. */
+  allDigests: () => allDigestDays((cursor) => api.digests(DIGEST_PAGE, cursor)),
   digest: (day: string) => json<T.Digest>(`/v1/digests/${e(day)}`),
   markRead: (day: string) => json<void>(`/v1/digests/${e(day)}/read`, { method: "POST" }),
 

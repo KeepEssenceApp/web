@@ -142,7 +142,7 @@ function seed(opts = {}) {
     items: new Map(), digests: new Map(), queue: new Map(), notes: [], assets: new Map(),
     saved: new Map(), noteDays: new Set(), idem: new Map(), codes: new Map(), oauth: new Map(),
     pushes: [], decisions: [], lastSaved: null, noDigestReason: opts.no_digest_reason, overQuota: !!opts.over_quota,
-    delay: 0, failNext: null,
+    delay: 0, failNext: null, digestListRequests: [],
     pushKey: (() => { const e = crypto.createECDH("prime256v1"); e.generateKeys(); return e.getPublicKey().toString("base64url"); })(),
   };
   // An account that exists already, in this language: signing in does not change it.
@@ -519,6 +519,7 @@ on("PUT", "/v1/items/:id/signal", "read", (c) => { need(["not_interested", "seen
 on("DELETE", "/v1/items/:id/signal", "read", (c) => { getItem(c.p.id).signal = null; return [204]; });
 
 on("GET", "/v1/digests", "read", (c) => {
+  S.digestListRequests.push({ limit: c.q.get("limit"), cursor: c.q.get("cursor") });
   const all = [...S.digests.values()].sort((a, b) => b.day.localeCompare(a.day)).map((d) => ({ day: d.day, read: d.read }));
   const { slice, next_cursor } = page(all, c.q);
   return [200, { digests: slice, next_cursor }];
@@ -771,6 +772,22 @@ on("POST", "/__test/digest-today", null, () => {
   S.saved.set(day, Math.max(S.saved.get(day) ?? 0, ids.length));
   return [200, { ok: true, items: ids.length }];
 });
+// A long history of daily digests (#114): the account's digests are replaced by `total` of them, one a day, yesterday back
+// `total` days. `unread` is "oldest" (only the oldest is not read), "none" (all read) or "newest". They have no items:
+// the panel beside a digest only needs the day and whether it was read. The `GET /v1/digests` requests are counted in
+// `/__test/state` (`digest_list_requests`: the `cursor` each one carried), and a reset clears the count.
+on("POST", "/__test/digest-history", null, (c) => {
+  const total = Number(c.body.total), unread = c.body.unread ?? "oldest", a = S.assistants[0];
+  need(Number.isInteger(total) && total >= 0 && total <= 500 && ["oldest", "none", "newest"].includes(unread));
+  S.digests = new Map();
+  for (let n = 1; n <= total; n++) {
+    const day = dayN(n);
+    S.digests.set(day, { day, read: !(unread === "oldest" ? n === total : unread === "newest" && n === 1), item_ids: [], saved: 0,
+      summary: `编的第 ${n} 份摘要。`, question: "明天最想弄明白的一个问题是什么？", assistant: { id: a.id, name: a.name } });
+  }
+  S.digestListRequests = [];
+  return [200, { ok: true, total }];
+});
 on("POST", "/__test/analyse", null, (c) => {
   const it = c.body.item_id ? getItem(c.body.item_id) : [...S.items.values()].filter((i) => !i.digest_day && i.stage !== "analysed").sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? fail(404, "not_found");
   const a = S.assistants[0];
@@ -804,7 +821,7 @@ on("POST", "/__test/set-tier", "save", (c) => { need(TIERS.includes(c.body.tier)
 on("GET", "/__test/state", null, () => [200, {
   counts: { items: S.items.size, today: [...S.items.values()].filter((i) => !i.digest_day).length, notes: S.notes.length, queue: S.queue.size, devices: S.devices.size, assistants: S.assistants.length, digests: S.digests.size, assets: [...S.assets.values()].filter((a) => a.stored).length },
   feedback: S.feedback ?? [], last_saved: S.lastSaved, pushes: S.pushes, decisions: S.decisions, settings: { ...S.settings, calendar_secret: undefined }, user: S.user, email: S.email,
-  deleted_account: DELETED,
+  deleted_account: DELETED, digest_list_requests: S.digestListRequests,
 }]);
 on("GET", "/__test/oauth-done", null, (c) => [200, `<!doctype html><meta charset="utf-8"><title>oauth-done</title><p id="done">oauth-done allowed=${c.q.get("allowed") === "1" ? 1 : 0}</p>`, "text/html; charset=utf-8"]);
 on("POST", "/share", null, () => [303, null, null, { location: "/share" }]);
