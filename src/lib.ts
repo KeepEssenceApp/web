@@ -13,8 +13,14 @@ export interface Loaded<T> {
   /**
    * Asks again without showing it: what is on the page stays until the answer differs, and a
    * failed attempt changes nothing. `changed` hears the new answer and the one before it.
+   * With `showFailure` a failed attempt is not silent: it takes what is shown away and shows the
+   * load error, as a load that failed does (Today, QA #116). Off unless a page asks for it.
    */
-  poll: (changed?: (next: T, prev: T | undefined) => void) => void;
+  poll: (changed?: (next: T, prev: T | undefined) => void, options?: PollOptions) => void;
+}
+
+export interface PollOptions {
+  showFailure?: boolean;
 }
 
 export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
@@ -31,15 +37,16 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
     shown.current = data;
     setState({ data, error: null, status: 200 });
   }, []);
+  // The answer to a read that failed: nothing from before it is kept.
+  const fail = useCallback((err: unknown) => {
+    shown.current = undefined;
+    setState({ error: errText(err), status: err instanceof ApiError ? err.status : 0 });
+  }, []);
   useEffect(() => {
     const mine = ++seq.current;
     fn().then(
       (data) => mine === seq.current && put(data),
-      (err) => {
-        if (mine !== seq.current) return;
-        shown.current = undefined;
-        setState({ error: errText(err), status: err instanceof ApiError ? err.status : 0 });
-      },
+      (err) => mine === seq.current && fail(err),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, n]);
@@ -50,7 +57,7 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
     seq.current++;
     put(data);
   }, []);
-  const poll = useCallback((changed?: (next: T, prev: T | undefined) => void) => {
+  const poll = useCallback((changed?: (next: T, prev: T | undefined) => void, options?: PollOptions) => {
     const at = seq.current;
     ask.current().then(
       (data) => {
@@ -61,7 +68,10 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
         put(data);
         changed?.(data, prev);
       },
-      () => undefined,
+      (err) => {
+        // Silent unless the page asked otherwise, and an old failure is as old as an old answer.
+        if (options?.showFailure && alive.current && at === seq.current) fail(err);
+      },
     );
   }, []);
   return { data: state.data, error: state.error, status: state.status, reload, set, poll };

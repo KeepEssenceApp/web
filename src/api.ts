@@ -3,6 +3,7 @@ import type * as T from "./types";
 import { credential, dropSession } from "./session";
 import { lang } from "./i18n";
 import { allDigestDays, DIGEST_PAGE, type DigestsPage } from "./digest-days";
+import { allItems, ITEM_PAGE, type ItemsPage } from "./item-pages";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -84,16 +85,9 @@ export const api = {
 
   save: (body: { kind: T.ItemKind; url?: string; title?: string; text?: string; asset_id?: string; entry: string }) =>
     json<T.SaveResult>("/v1/items", { method: "POST", body, idempotent: true }),
-  async today(): Promise<T.Item[]> {
-    const all: T.Item[] = [];
-    let cursor: string | null | undefined;
-    do {
-      const page = await json<{ items: T.Item[]; next_cursor?: string | null }>(`/v1/items${q({ state: "today", limit: 100, cursor })}`);
-      all.push(...page.items);
-      cursor = page.next_cursor;
-    } while (cursor && all.length < 500);
-    return all;
-  },
+  /** Every item of today, from all the pages, until the core gives no next page (QA #116). It fails as a whole when a page fails. */
+  today: (): Promise<T.Item[]> =>
+    allItems((cursor) => json<ItemsPage>(`/v1/items${q({ state: "today", limit: ITEM_PAGE, cursor })}`)),
   item: (id: string) => json<T.ItemDetail>(`/v1/items/${e(id)}`),
   updateItem: (id: string, body: { expiry_days?: number; dispatch_to?: string }) =>
     json<T.ItemDetail>(`/v1/items/${e(id)}`, { method: "PATCH", body }),
