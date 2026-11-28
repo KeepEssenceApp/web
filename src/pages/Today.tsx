@@ -52,11 +52,15 @@ export function Today({ selected }: { selected?: string }) {
     const was = new Set((prev ?? []).filter((i) => !i.analysis).map((i) => i.id));
     if (prev === undefined || next.some((i) => i.analysis && was.has(i.id))) refresh.set((n) => n + 1);
   };
-  useWatch(waiting.length > 0, () => items.poll(landed));
-  // A read that failed (or was void three times over) left no list, so there is no waiting row to keep this asking: ask
-  // again on its own, or a "nothing is waiting" that came before would be the last word on a page that now has an error.
+  // Today's quiet ask is not silent when it fails (QA #116): a read that failed on any page, or kept moving for three rounds,
+  // is no list, and the list from before, its counts and a "done" that came with it must not stay on the page as if it still
+  // held. It takes them away and shows the load error, as a failed load does. Other pages' quiet asks stay silent (ItemPage).
+  const askAgain = () => items.poll(landed, { showFailure: true });
+  useWatch(waiting.length > 0, askAgain);
+  // A failed read has no list, so no waiting row to keep the ask above going: ask again on its own until a read holds, which
+  // brings the list back, clears the error and tells the column beside Today (`landed`: an answer after none).
   // Never on together with the one above: a failed read has no list.
-  useWatch(!!items.error, () => items.poll(landed));
+  useWatch(!!items.error, askAgain);
 
   return (
     <div class="page today">

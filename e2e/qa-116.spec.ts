@@ -48,6 +48,27 @@ async function quiet(request: APIRequestContext) {
     .toBe(true);
   return last;
 }
+/**
+ * Winds the page's clock on until Today has asked once (the core has got a request), waits until it has stopped asking, and
+ * says how many requests that one ask made. The page's timer is made in an effect that runs after the render, so the first
+ * wind can find none: wind again only while nothing has reached the core, never while an ask is on its way (that would be a
+ * second ask, and the count would not be one ask's).
+ */
+async function askedOnce(page: Page, request: APIRequestContext) {
+  const from = (await asked(request)).length;
+  for (let tries = 0; tries < 6; tries++) {
+    await page.clock.fastForward(15500);
+    const began = await expect
+      .poll(async () => (await asked(request)).length, { timeout: 1500 })
+      .toBeGreaterThan(from)
+      .then(
+        () => true,
+        () => false,
+      );
+    if (began) break;
+  }
+  return (await quiet(request)) - from;
+}
 /** How many times each page was asked for. */
 const perPage = (log: string[]) => log.reduce<Record<string, number>>((m, c) => ({ ...m, [c]: (m[c] ?? 0) + 1 }), {});
 /** One read of the list is `pages` requests, from the first page to the one with no next cursor; a wide screen reads it twice (the list, and the column beside it). */
@@ -153,25 +174,131 @@ for (const lang of ["zh", "en"] as const) {
       expect(Object.keys(perPage(await asked(request))).sort()).toEqual(["100", "200", "300", "400", "first"]);
     });
 
-    test("a page that fails when Today asks again quietly changes nothing: the whole list from before stays, and it does not say done", async ({ page, request }) => {
-      await page.clock.install();
-      await today(request, lang, 500, 1);
-      await signIn(page, "/");
-      await expect(waitingRows(page)).toHaveCount(1);
-      const sixth = { n: 0 };
-      await page.route(/\/v1\/items\?.*cursor=500/, (route) => {
-        sixth.n++;
-        return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "unavailable", message: "" } }) });
+    // ---- Today's quiet ask is not silent when it fails (#116, item 11). A read that fails on any page, or is void three times
+    // over, is no list: the list from before, its counts and a "done" that came with it are taken away, the load error is shown,
+    // the page keeps asking (the error's own ask, every 15 seconds), and the first read that holds brings the list back, clears
+    // the error and has the column beside Today ask again. Only Today's own list is read by the ask (the column beside it does
+    // not ask by itself), so a quiet ask is one read in both layouts. The other pages' quiet asks stay silent (qa-24-26.spec.ts).
+    const todayColumn = (page: Page) => page.locator(".page.today");
+    for (const at of [
+      { name: "sixth", url: /\/v1\/items\?.*cursor=500/, reached: 5 },
+      { name: "first", url: /\/v1\/items\?(?!.*cursor=)/, reached: 0 },
+    ] as const) {
+      test(`Today asks again quietly (501 items, one waiting) and the ${at.name} page fails (503): the load error replaces the list, the counts and the sentences; it keeps asking; when a read holds, 501 items are back (500 handled, 1 waiting), the error is gone and the column beside Today asks again`, async ({ page, request, isMobile }) => {
+        await page.clock.install();
+        await today(request, lang, 500, 1);
+        await signIn(page, "/");
+        await expect(waitingRows(page)).toHaveCount(1);
+        await expect(handledRows(page)).toHaveCount(500);
+        if (!isMobile) await expect(page.getByTestId("today-counts").locator(".stat-n").nth(1)).toHaveText("1");
+        await quiet(request);
+
+        const failing = { n: 0, fail: true };
+        await page.route(at.url, (route) => {
+          failing.n++;
+          return failing.fail
+            ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "unavailable", message: "" } }) })
+            : route.continue();
+        });
+        const before = (await asked(request)).length;
+        await page.clock.fastForward(15500);
+        // One ask: the pages before the failing one reached the core, the failing one was refused on its way, nothing after it.
+        await expect.poll(() => failing.n).toBe(1);
+        await expect.poll(async () => (await asked(request)).length).toBe(before + at.reached);
+        // The list from before is gone with everything that was said about it. Not a part of it either.
+        await expect(todayColumn(page).getByRole("alert")).toHaveText(w.failed);
+        await expect(done(page)).toHaveCount(0);
+        await expect(waitingRows(page)).toHaveCount(0);
+        await expect(handledTitle(page)).toHaveCount(0);
+        await expect(page.locator(".cards .card")).toHaveCount(0);
+        await expect(todayColumn(page).locator("h2.label")).toHaveCount(0);
+        await quiet(request);
+        expect((await asked(request)).length).toBe(before + at.reached);
+
+        // While it is down the item is analysed. The column beside Today does not ask by itself: it still has the old count.
+        expect((await request.post("/__test/analyse", { data: { item_id: "it_w0001" } })).ok()).toBe(true);
+        if (!isMobile) await expect(page.getByTestId("today-counts").locator(".stat-n").nth(1)).toHaveText("1");
+
+        // The page asks again on its own (the timer is made in the effect that follows the render of the error: wind the clock on
+        // until the page has asked, not once) and while the read fails it stays the error.
+        await expect
+          .poll(async () => {
+            await page.clock.fastForward(15500);
+            return failing.n;
+          })
+          .toBeGreaterThan(1);
+        await expect(todayColumn(page).getByRole("alert")).toHaveText(w.failed);
+        await expect(done(page)).toHaveCount(0);
+        await expect(waitingRows(page)).toHaveCount(0);
+
+        // A read holds: the whole list is back, the error is gone, nothing says done, and the column beside Today asked again.
+        failing.fail = false;
+        await expect
+          .poll(async () => {
+            await page.clock.fastForward(15500);
+            return handledRows(page).count();
+          })
+          .toBe(500);
+        await expect(page.getByRole("alert")).toHaveCount(0);
+        await expect(page.locator('.cards .card[data-item="it_w0001"]')).toBeVisible();
+        await expect(page.locator("section", { hasText: w.analyses(1) })).toBeVisible();
+        await expect(handledTitle(page)).toHaveText(w.handled(500));
+        await expect(waitingRows(page)).toHaveCount(0);
+        await expect(done(page)).toHaveCount(0);
+        if (!isMobile) {
+          const counts = page.getByTestId("today-counts");
+          await expect(counts.locator(".stat-n").nth(1)).toHaveText("0");
+          await expect(counts.locator(".stat-n").nth(2)).toHaveText("1");
+          await expect(counts.locator(".stat-n").nth(3)).toHaveText("500");
+        }
       });
-      const before = (await asked(request)).length;
-      await page.clock.fastForward(15500);
-      // The core got the first five pages again (the sixth was refused on its way); that is the whole of this ask.
-      await expect.poll(() => sixth.n).toBe(1);
-      await expect.poll(async () => (await asked(request)).length).toBe(before + 5);
-      await expect(waitingRows(page)).toHaveCount(1);
+    }
+
+    test("Today asks again quietly and the list is void three times over (it moves under every read): 18 requests and no more, then the load error with no list and no count; it keeps asking; when the list holds still it is whole again", async ({ page, request, isMobile }) => {
+      await page.clock.install();
+      await today(request, lang, 500, 12);
+      await signIn(page, "/");
+      await expect(waitingRows(page)).toHaveCount(12);
       await expect(handledRows(page)).toHaveCount(500);
+      if (!isMobile) await expect(page.getByTestId("today-counts").locator(".stat-n").nth(1)).toHaveText("12");
+      await quiet(request);
+
+      // From now every read of the sixth page is preceded by a shift (the first waiting item is analysed, not seen).
+      expect((await request.post("/__test/today-drift", { data: { cursor: "500", times: 6 } })).ok()).toBe(true);
+      // Three rounds of six pages (each stops at the sixth, where the repeat shows): the ceiling, in both layouts.
+      expect(await askedOnce(page, request)).toBe(18);
+      await expect(todayColumn(page).getByRole("alert")).toHaveText(w.failed);
+      expect((await state(request)).item_list_drifts).toBe(3);
       await expect(done(page)).toHaveCount(0);
+      await expect(waitingRows(page)).toHaveCount(0);
+      await expect(handledTitle(page)).toHaveCount(0);
+      await expect(page.locator(".cards .card")).toHaveCount(0);
+      await expect(todayColumn(page).locator("h2.label")).toHaveCount(0);
+      // The column beside Today did not ask: it has the count from before the shifts.
+      if (!isMobile) await expect(page.getByTestId("today-counts").locator(".stat-n").nth(1)).toHaveText("12");
+
+      // It keeps asking, and the list is still moving: the next ask is another three rounds and the page stays the error.
+      expect(await askedOnce(page, request)).toBe(18);
+      expect((await state(request)).item_list_drifts).toBe(6);
+      await expect(todayColumn(page).getByRole("alert")).toHaveText(w.failed);
+      await expect(done(page)).toHaveCount(0);
+      await expect(page.locator(".cards .card")).toHaveCount(0);
+
+      // The list holds still: the next ask is the whole list (six of the twelve were analysed by the shifts, not seen).
+      expect((await request.post("/__test/today-drift", { data: { cursor: "500", times: 0 } })).ok()).toBe(true);
+      await expect
+        .poll(async () => {
+          await page.clock.fastForward(15500);
+          return handledRows(page).count();
+        })
+        .toBe(500);
       await expect(page.getByRole("alert")).toHaveCount(0);
+      await expect(waitingRows(page)).toHaveCount(6);
+      await expect(page.locator(".cards .card")).toHaveCount(6);
+      await expect(handledTitle(page)).toHaveText(w.handled(500));
+      await expect(done(page)).toHaveCount(0);
+      // The column beside Today asked again with it.
+      if (!isMobile) await expect(page.getByTestId("today-counts").locator(".stat-n").nth(1)).toHaveText("6");
     });
 
     // ---- The list moves while it is read (#116, items 7–9). The core's cursor is a position: an analysis that lands between two
