@@ -8,7 +8,7 @@ import { Loading, State } from "../components/ui";
 import { ago, dayName, shared, t } from "../i18n";
 import { useDigestWriter } from "../components/StatusBar";
 import { useBusy, useLoad } from "../lib";
-import { canManage, digestUnread, meta, refresh, session } from "../session";
+import { canManage, digestUnread, meta, openDigest, refresh, session } from "../session";
 import { useStore } from "../store";
 import type { Digest, DigestRest, DigestWorth, Signal, Status } from "../types";
 
@@ -56,6 +56,9 @@ function RestLine({ r, onRestore, beside, selected }: { r: DigestRest; onRestore
     </li>
   );
 }
+
+/** A digest as it was read, with the refresh it was asked for. */
+type Read = Digest & { round: number };
 
 /** The hour after which the day's digest is written, in the user's time zone (the product's rule). */
 const DIGEST_TIME = "21:00";
@@ -121,7 +124,9 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
   // is no page head and no paging, and a line's item opens beside that day's digest.
   const base = beside || embedded ? (day === "latest" ? "/digest" : `/digest/${day}`) : undefined;
   const tick = useStore(refresh);
-  const digest = useLoad(() => api.digest(day), [day, tick]);
+  // `round`: the refresh this digest was asked for. A digest read before a refresh stays on the page until the one of the
+  // refresh answers; the list of dates beside it must not take the old one for this refresh's (QA #114).
+  const digest = useLoad<Read>(() => api.digest(day).then((dg) => ({ ...dg, round: tick })), [day, tick]);
   const status = useLoad(api.status, [tick]);
   const [busy, run] = useBusy();
   // An action shows at once: the card moves to the rest before the core has answered.
@@ -155,6 +160,16 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
     });
   }, [elsewhere, digest.data]);
   const d = digest.data;
+  // The list of dates beside this page marks the digest that is open here and must say the same of it (QA #114): it
+  // hears which digest this is, whether it is read, and for which refresh that is the answer, from here and not from
+  // what it read earlier.
+  const dDay = d?.day;
+  const dRead = d?.read;
+  const dRound = d?.round;
+  useEffect(() => {
+    if (beside) openDigest.set(dDay === undefined || dRound === undefined ? null : { day: dDay, read: !!dRead, at: dRound });
+  }, [beside, dDay, dRead, dRound]);
+  useEffect(() => (beside ? () => openDigest.set(null) : undefined), [beside]);
   // The line that is open in the panel is shown: the rest unfolds for it (and is never folded for the user).
   const restRef = useRef<HTMLDetailsElement>(null);
   const inRest = !!selected && !!d?.rest.some((r) => r.item_id === selected);
@@ -163,7 +178,7 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
   }, [inRest]);
 
   const restore = (r: DigestRest) => act.restore(r.item_id, { signal: (r.signal as Signal | null) ?? null, in_queue: r.in_queue });
-  const markRead = (dg: Digest) =>
+  const markRead = (dg: Read) =>
     run("read", async () => {
       await api.markRead(dg.day);
       digest.set({ ...dg, read: true });

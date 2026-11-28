@@ -1,10 +1,12 @@
 // What the panel beside a list shows on a wide screen when the opened thing is not an item or a
 // note, or when nothing is open.
+import { useEffect, useRef } from "preact/hooks";
 import { api } from "../api";
+import { markedDay, needsReread, type DigestHistory } from "../digest-days";
 import { dayName, monthName, t } from "../i18n";
 import { useLoad } from "../lib";
 import { go } from "../router";
-import { refresh } from "../session";
+import { openDigest, refresh } from "../session";
 import { useStore } from "../store";
 import type { Calendar, QueueEntry } from "../types";
 import { calendarHref, type CalendarFrom } from "../calendar-link";
@@ -151,14 +153,38 @@ export function NotesRest() {
   );
 }
 
-/** The daily digest with nothing open: the digests there are, by date, newest first. */
+/**
+ * The daily digest with nothing open: the digests there are, by date, newest first. The two counts
+ * and the list are from one answer with every digest in it (QA #114); if a page of it fails, the
+ * panel says so and shows no count, since a count of part of the history reads as the total.
+ *
+ * The digest shown beside it is read when the address changes, this list when something is saved or
+ * handled. So the list is checked against that digest: if it has no row for it (one came since the list
+ * was read) or has it read or unread the other way, the history is read once more, so that the open row
+ * is there, marked, and the counts are of the same history the page is from.
+ */
 export function DigestDates({ day }: { day: string }) {
   const tick = useStore(refresh);
-  const list = useLoad(() => api.digests(60), [tick]);
-  if (!list.data) return <div class="page"><Loading error={list.error} /></div>;
-  const days = list.data.digests;
-  // "latest" is the newest one.
-  const open = day === "latest" ? days[0]?.day : day;
+  const shown = useStore(openDigest);
+  // `at`: the refresh this answer was asked for.
+  const list = useLoad<DigestHistory>(() => api.allDigests().then((days) => ({ days, at: tick })), [tick]);
+  const tried = useRef("");
+  const answer = list.data;
+  useEffect(() => {
+    // Only the answers of the refresh that is current are compared, the list's and the page's alike: the page beside
+    // holds what it showed before a refresh until it has answered it, and what the list of this refresh says is the
+    // news. After a change the page itself makes (reading a digest) both are asked again at once, and those answers
+    // are the ones to compare. Once for each digest, read state and refresh, so a core that keeps disagreeing is not
+    // asked for ever.
+    if (!shown || !needsReread(shown, answer, tick)) return;
+    const key = `${tick}|${shown.day}|${shown.read}`;
+    if (tried.current === key) return;
+    tried.current = key;
+    list.reload();
+  }, [answer, shown, tick]);
+  if (!answer) return <div class="page"><Loading error={list.error} /></div>;
+  const days = answer.days;
+  const open = markedDay(day, shown, days);
   return (
     <div class="page panel-rest" data-testid="panel-rest">
       {days.length > 0 && (
