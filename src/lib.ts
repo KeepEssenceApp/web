@@ -15,6 +15,8 @@ export interface Loaded<T> {
    * failed attempt changes nothing. `changed` hears the new answer and the one before it.
    * With `showFailure` a failed attempt is not silent: it takes what is shown away and shows the
    * load error, as a load that failed does (Today, QA #116). Off unless a page asks for it.
+   * When asks overlap, only the one started last may answer, success or failure, in whichever order they come back: an
+   * answer to an earlier one is dropped (nothing shown changes, `changed` is not called).
    */
   poll: (changed?: (next: T, prev: T | undefined) => void, options?: PollOptions) => void;
 }
@@ -57,20 +59,27 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): Loaded<T> {
     seq.current++;
     put(data);
   }, []);
+  // The quiet asks are numbered in the order they were started, apart from `seq`: an ask must not outdate a load that is
+  // still on its way (a page with no data yet would wait for an answer that is thrown away).
+  const asks = useRef(0);
   const poll = useCallback((changed?: (next: T, prev: T | undefined) => void, options?: PollOptions) => {
     const at = seq.current;
+    const mine = ++asks.current;
+    // Only the ask started last may answer, whether its answer is a success or a failure, and in whichever order the answers
+    // arrive (QA #116: an older complete answer that landed after a newer failure said "everything is handled" for a list in
+    // which an item had been added since). Also not: a load or a change made by hand since this one started.
+    const latest = () => alive.current && at === seq.current && mine === asks.current;
     ask.current().then(
       (data) => {
-        // Something newer happened meanwhile (a load, or a change made by hand): this answer is old.
-        if (!alive.current || at !== seq.current) return;
+        if (!latest()) return;
         const prev = shown.current;
         if (prev !== undefined && JSON.stringify(prev) === JSON.stringify(data)) return;
         put(data);
         changed?.(data, prev);
       },
       (err) => {
-        // Silent unless the page asked otherwise, and an old failure is as old as an old answer.
-        if (options?.showFailure && alive.current && at === seq.current) fail(err);
+        // Silent unless the page asked otherwise.
+        if (options?.showFailure && latest()) fail(err);
       },
     );
   }, []);

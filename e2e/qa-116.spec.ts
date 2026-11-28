@@ -484,6 +484,122 @@ for (const lang of ["zh", "en"] as const) {
       expect((await asked(request)).length).toBe(settled);
     });
 
+    // ---- Two quiet asks overlap (#116, Project 7241967247, QA 7241982507). Only the ask started last may answer, success or
+    // failure, in whichever order the answers come back; an answer to an earlier one changes nothing on the page. QA's
+    // counter-example: 500 handled + 1 waiting is on the page; the other end sees the last one (501 handled, none waiting); an
+    // ask reads six pages and its sixth answer (200: nothing waiting) is held on its way; the other end adds a 502nd item, which
+    // waits; the tab comes back and a new ask starts, whose sixth page is refused (503); then the held 200 arrives. It used to
+    // say "Everything for today is handled." with one item waiting. The page's words are watched from inside the page, so a
+    // sentence that shows for a moment is not missed. Each row is one order of the four answers.
+    const state1 = "w1h500"; // what is shown before: one waiting, 500 handled
+    const state2 = "w1h501"; // what the list is after the other end's two changes: one waiting, 501 handled
+    for (const row of [
+      { older: "ok", newer: "fail", first: "newer", name: "QA's counter-example: the newer ask fails first, then the held older success arrives" },
+      { older: "ok", newer: "fail", first: "older", name: "reverse order: the held older success arrives first, then the newer ask fails" },
+      { older: "fail", newer: "ok", first: "newer", name: "the newer ask succeeds first, then the older one fails" },
+      { older: "fail", newer: "ok", first: "older", name: "the older ask fails first, then the newer one succeeds" },
+      { older: "ok", newer: "ok", first: "newer", name: "both succeed, the newer first: the older complete answer does not bring the old counts back" },
+      { older: "ok", newer: "ok", first: "older", name: "both succeed, the older first: its answer is dropped although nothing newer has answered" },
+      { older: "fail", newer: "fail", first: "newer", name: "both fail, the newer first" },
+      { older: "fail", newer: "fail", first: "older", name: "both fail, the older first: no load error until the newer ask answers" },
+    ] as const) {
+      test(`two quiet asks overlap (${row.name}): no done sentence at any moment; only the newer ask's answer shows; a stable read after it shows the one waiting item`, async ({ page, request }) => {
+        await page.clock.install();
+        await today(request, lang, 500, 1);
+        await signIn(page, "/");
+        await expect(waitingRows(page)).toHaveCount(1);
+        await expect(handledRows(page)).toHaveCount(500);
+        await quiet(request);
+
+        // Watch the page from inside: one entry for each different thing it shows, in order.
+        await page.evaluate(() => {
+          const log: string[] = [];
+          (window as unknown as { __shows: string[] }).__shows = log;
+          const look = () => {
+            const rows = (s: string) => document.querySelectorAll(s).length;
+            const handled = [...document.querySelectorAll("[data-handled]")].filter((e) => e.querySelector(".rest-title")).length;
+            const now = document.querySelector('[data-testid="today-empty"]')
+              ? "done"
+              : document.querySelector('[role="alert"]')
+                ? "error"
+                : `w${rows(".waiting-list li.waiting")}h${handled}`;
+            if (log[log.length - 1] !== now) log.push(now);
+          };
+          look();
+          new MutationObserver(look).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+        });
+        const shows = () => page.evaluate(() => (window as unknown as { __shows: string[] }).__shows);
+
+        // The other end handles the last item: the list the older ask will read has 501 handled and nothing waiting.
+        expect((await request.post("/__test/today-list", { data: { analysed: 501, waiting: 0, handled: true } })).ok()).toBe(true);
+        // The sixth page of the first two asks is held on its way (an answer that was made when the request arrived, delivered
+        // later, so what the older one carries is what the core said then); every later one goes through.
+        const gate = () => {
+          let open!: () => void;
+          const wait = new Promise<void>((r) => (open = r));
+          return { wait, open };
+        };
+        const holds = [gate(), gate()];
+        const reached = [false, false];
+        let sixth = 0;
+        await page.route(/\/v1\/items\?.*cursor=500/, async (route) => {
+          const i = sixth++;
+          if (i > 1) return route.continue();
+          const kind = i === 0 ? row.older : row.newer;
+          const real = kind === "ok" ? await route.fetch() : undefined;
+          reached[i] = true;
+          await holds[i].wait;
+          return real
+            ? route.fulfill({ response: real })
+            : route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "unavailable", message: "" } }) });
+        });
+        // The older ask (the timer), its sixth page held.
+        await page.clock.fastForward(15500);
+        await expect.poll(() => reached[0]).toBe(true);
+        // The other end adds a 502nd item, waiting; the newer ask (the timer again; a tab that comes back is the same call).
+        expect((await request.post("/__test/today-list", { data: { analysed: 501, waiting: 1, handled: true } })).ok()).toBe(true);
+        await page.clock.fastForward(15500);
+        await expect.poll(() => reached[1]).toBe(true);
+        // Nothing has answered yet: the page shows what it showed.
+        expect(await shows()).toEqual([state1]);
+
+        const settle = () => new Promise((r) => setTimeout(r, 400));
+        const release = async (which: 0 | 1) => {
+          holds[which].open();
+          await settle();
+        };
+        const order = row.first === "newer" ? ([1, 0] as const) : ([0, 1] as const);
+
+        await release(order[0]);
+        // The first answer: if it is the newer ask's it shows; the older ask's never does, and the newer one has not answered.
+        const afterFirst = order[0] === 1 ? (row.newer === "ok" ? [state1, state2] : [state1, "error"]) : [state1];
+        expect(await shows()).toEqual(afterFirst);
+        await release(order[1]);
+        // The second answer, whichever it is, changes nothing more than the newer ask's answer did.
+        const newerShows = row.newer === "ok" ? [state1, state2] : [state1, "error"];
+        expect(await shows()).toEqual(newerShows);
+        // No moment of this said done.
+        expect(await shows()).not.toContain("done");
+        await expect(done(page)).toHaveCount(0);
+
+        // A stable read: the page asks again on its own while it shows the error (and keeps asking while an item waits).
+        await expect
+          .poll(async () => {
+            await page.clock.fastForward(15500);
+            return handledRows(page).count();
+          })
+          .toBe(501);
+        await expect(waitingRows(page)).toHaveCount(1);
+        await expect(waitingRows(page).first()).toHaveAttribute("data-item", "it_w0001");
+        await expect(handledTitle(page)).toHaveText(w.handled(501));
+        await expect(page.getByRole("alert")).toHaveCount(0);
+        await expect(done(page)).toHaveCount(0);
+        await settle();
+        expect(await shows()).not.toContain("done");
+        expect((await shows()).at(-1)).toBe(state2);
+      });
+    }
+
     test("the wide column beside Today counts the whole list: 500 handled + 1 waiting is 1 waiting, 500 handled; 501 handled is 501", async ({ page, request, isMobile }) => {
       test.skip(isMobile, "the column is for wide screens");
       await today(request, lang, 500, 1);
@@ -506,6 +622,68 @@ for (const lang of ["zh", "en"] as const) {
     });
   });
 }
+
+// The same rule on a page that keeps quiet (the item's own page: its quiet ask has no `showFailure`). Two asks overlap: the older
+// one's answer is the analysis (held), the newer one fails (held). The failure stays silent, as it always did here; and the
+// older success, which is older than the ask started last, is dropped, whichever of the two comes back first: the page does not
+// move, there is no load error, and the next ask that holds shows the analysis.
+test.describe("QA #116: a quiet ask that overlaps another, on a page that does not show failures", () => {
+  for (const first of ["older", "newer"] as const) {
+    test(`the item's own page: the held older success and the newer failure (the ${first} answers first): nothing shown changes, no error, the next ask shows the analysis`, async ({ page, request, isMobile }) => {
+      // Beside the list the panel is told by the list's own quiet ask when an analysis lands, and reloads: that is another read of
+      // the item, not this page's ask. The phone shows the item alone.
+      test.skip(!isMobile, "on a wide screen the list beside the item tells the panel, which reloads (not the item's own ask)");
+      await reset(request);
+      await page.clock.install();
+      await signIn(page, "/item/it_triaged");
+      const item = page.locator('[data-open-item="it_triaged"]');
+      await expect(item).toContainText("还没解读");
+      await page.waitForLoadState("networkidle");
+
+      const gate = () => {
+        let open!: () => void;
+        const wait = new Promise<void>((r) => (open = r));
+        return { wait, open };
+      };
+      const holds = [gate(), gate()];
+      const reached = [false, false];
+      let n = 0;
+      await page.route(/\/v1\/items\/it_triaged$/, async (route) => {
+        const i = n++;
+        if (i > 1) return route.continue();
+        // The older ask carries the analysis (made when it arrives), the newer one fails.
+        const real = i === 0 ? await route.fetch() : undefined;
+        reached[i] = true;
+        await holds[i].wait;
+        return real ? route.fulfill({ response: real }) : route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "unavailable", message: "" } }) });
+      });
+      expect((await request.post("/__test/analyse", { data: { item_id: "it_triaged" } })).ok()).toBe(true);
+      await page.clock.fastForward(15500);
+      await expect.poll(() => reached[0]).toBe(true);
+      await page.clock.fastForward(15500);
+      await expect.poll(() => reached[1]).toBe(true);
+
+      const settle = () => new Promise((r) => setTimeout(r, 400));
+      for (const which of first === "older" ? ([0, 1] as const) : ([1, 0] as const)) {
+        holds[which].open();
+        await settle();
+        // Nothing the page shows changed: still not analysed, no load error, no message.
+        await expect(item).toContainText("还没解读");
+        await expect(item.locator(".summary")).toHaveCount(0);
+        await expect(page.getByRole("alert")).toHaveCount(0);
+        await expect(page.locator(".said")).toHaveCount(0);
+      }
+      // The next ask holds and shows the analysis.
+      await expect
+        .poll(async () => {
+          await page.clock.fastForward(15500);
+          return item.locator(".summary").count();
+        })
+        .toBe(1);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+    });
+  }
+});
 
 // The page of the empty daily digest counts today's analyses with the same call. The count of analyses is now of the whole
 // day: that follows from the data being whole. The sentences and when they show are not part of this (#113 decides those).
