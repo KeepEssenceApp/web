@@ -11,10 +11,20 @@ export interface DigestsPage {
   next_cursor?: string | null;
 }
 
-/** The digest the page beside the list is showing: its day, and whether it is read. */
+/**
+ * The digest the page beside the list is showing: its day, whether it is read, and `at`, the refresh it was asked for. A
+ * page that has not answered the current refresh yet still holds what it showed before, with an older `at`.
+ */
 export interface OpenDigest {
   day: string;
   read: boolean;
+  at: number;
+}
+
+/** The whole history as one read of it answered, and `at`, the refresh that read was asked for. */
+export interface DigestHistory {
+  days: DigestDay[];
+  at: number;
 }
 
 /**
@@ -35,6 +45,18 @@ export function disagrees(shown: OpenDigest | null, days: DigestDay[]): boolean 
   if (!shown) return false;
   const row = days.find((d) => d.day === shown.day);
   return !row || row.read !== shown.read;
+}
+
+/**
+ * Whether the history is to be read once more because it disagrees with the digest beside it. Only an answer of the
+ * current refresh is compared with an answer of the current refresh: a digest the page showed before this refresh is
+ * what the history of this refresh is meant to correct (the digest was read on another device, say), and has not yet
+ * been asked about again. Comparing the two would read the whole history again for nothing, and a failure of that
+ * read, a page of it, would take the list from the panel. When the page of this refresh answers, it is compared then.
+ */
+export function needsReread(shown: OpenDigest | null, list: DigestHistory | undefined, tick: number): boolean {
+  if (!shown || !list || shown.at !== tick || list.at !== tick) return false;
+  return disagrees(shown, list.days);
 }
 
 /** The most the contract lets one page hold (`limit`): the fewest requests for a long history. */

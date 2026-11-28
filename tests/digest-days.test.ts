@@ -1,6 +1,9 @@
 // QA #114: the digest history is read to its end, and a failed page gives no history at all.
 import { describe, expect, it } from "vitest";
-import { allDigestDays, DIGEST_PAGE, disagrees, markedDay, type DigestDay, type DigestsPage } from "../src/digest-days";
+import { allDigestDays, DIGEST_PAGE, disagrees, markedDay, needsReread, type DigestDay, type DigestsPage, type OpenDigest } from "../src/digest-days";
+
+/** The digest the page beside the list shows, answered for refresh `at`. */
+const shows = (day: string, read: boolean, at = 5): OpenDigest => ({ day, read, at });
 
 /** A history of `n` digests, newest first, the oldest one unread; served the way the core pages a list: by `cursor`, at most `limit` a page. */
 function history(n: number, failAt?: number) {
@@ -99,14 +102,14 @@ describe("QA #114: the list and the page beside it say the same of the open dige
   const old: DigestDay[] = [{ day: "D027", read: true }, { day: "D026", read: true }];
 
   it("a digest the list has no row for (one that came after it was read) is a disagreement; one it has, read the same way, is not", () => {
-    expect(disagrees({ day: "D028", read: false }, old)).toBe(true);
-    expect(disagrees({ day: "D027", read: true }, old)).toBe(false);
-    expect(disagrees({ day: "D026", read: true }, old)).toBe(false);
+    expect(disagrees(shows("D028", false), old)).toBe(true);
+    expect(disagrees(shows("D027", true), old)).toBe(false);
+    expect(disagrees(shows("D026", true), old)).toBe(false);
   });
 
   it("a row with the other read state is a disagreement, in both directions", () => {
-    expect(disagrees({ day: "D027", read: false }, old)).toBe(true);
-    expect(disagrees({ day: "D027", read: true }, [{ day: "D027", read: false }])).toBe(true);
+    expect(disagrees(shows("D027", false), old)).toBe(true);
+    expect(disagrees(shows("D027", true), [{ day: "D027", read: false }])).toBe(true);
   });
 
   it("no page beside it, or no digest in it: nothing to disagree with", () => {
@@ -115,14 +118,52 @@ describe("QA #114: the list and the page beside it say the same of the open dige
   });
 
   it("a digest of a day with an empty list is a disagreement (the list was read when there was none)", () => {
-    expect(disagrees({ day: "D001", read: false }, [])).toBe(true);
+    expect(disagrees(shows("D001", false), [])).toBe(true);
   });
 
   it("the open day: the address's day; for latest the day the page shows, the first row only until it has answered", () => {
-    expect(markedDay("D010", { day: "D027", read: true }, old)).toBe("D010");
+    expect(markedDay("D010", shows("D027", true), old)).toBe("D010");
     expect(markedDay("D010", null, old)).toBe("D010");
-    expect(markedDay("latest", { day: "D028", read: false }, old)).toBe("D028");
+    expect(markedDay("latest", shows("D028", false), old)).toBe("D028");
     expect(markedDay("latest", null, old)).toBe("D027");
     expect(markedDay("latest", null, [])).toBeUndefined();
+  });
+});
+
+describe("QA #114: when the history is read once more", () => {
+  const tick = 7;
+  // The history of refresh 7 says D026 is read.
+  const readNow = { days: [{ day: "D027", read: true }, { day: "D026", read: true }], at: tick };
+
+  it("the page's answer and the list's answer are both of this refresh and disagree: read it once more", () => {
+    // A digest that came after the history was read.
+    expect(needsReread(shows("D028", false, tick), readNow, tick)).toBe(true);
+    // The other read state.
+    expect(needsReread(shows("D026", false, tick), readNow, tick)).toBe(true);
+  });
+
+  it("both are of this refresh and agree: nothing to read", () => {
+    expect(needsReread(shows("D026", true, tick), readNow, tick)).toBe(false);
+    expect(needsReread(shows("D027", true, tick), readNow, tick)).toBe(false);
+  });
+
+  // QA's counter-example: D026 was unread when the page last answered (refresh 6) and was read on another device. The history
+  // of refresh 7 is in; the digest of refresh 7 is not. What the page held is not what this refresh's history is to be held to.
+  it("the page's answer is of an earlier refresh (its answer for this one is not in): no comparison, whatever it says", () => {
+    expect(needsReread(shows("D026", false, tick - 1), readNow, tick)).toBe(false);
+    expect(needsReread(shows("D028", false, tick - 1), readNow, tick)).toBe(false);
+  });
+
+  it("the list's answer is of an earlier refresh (this one's is not in): no comparison", () => {
+    expect(needsReread(shows("D026", false, tick), { ...readNow, at: tick - 1 }, tick)).toBe(false);
+  });
+
+  it("an answer of a later refresh than the one the panel has is not compared either (it will be, when the panel has caught up)", () => {
+    expect(needsReread(shows("D026", false, tick + 1), readNow, tick)).toBe(false);
+  });
+
+  it("no digest on the page or no list yet: nothing to compare", () => {
+    expect(needsReread(null, readNow, tick)).toBe(false);
+    expect(needsReread(shows("D026", false, tick), undefined, tick)).toBe(false);
   });
 });

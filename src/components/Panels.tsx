@@ -2,7 +2,7 @@
 // note, or when nothing is open.
 import { useEffect, useRef } from "preact/hooks";
 import { api } from "../api";
-import { disagrees, markedDay } from "../digest-days";
+import { markedDay, needsReread, type DigestHistory } from "../digest-days";
 import { dayName, monthName, t } from "../i18n";
 import { useLoad } from "../lib";
 import { go } from "../router";
@@ -167,14 +167,16 @@ export function DigestDates({ day }: { day: string }) {
   const tick = useStore(refresh);
   const shown = useStore(openDigest);
   // `at`: the refresh this answer was asked for.
-  const list = useLoad(() => api.allDigests().then((days) => ({ days, at: tick })), [tick]);
+  const list = useLoad<DigestHistory>(() => api.allDigests().then((days) => ({ days, at: tick })), [tick]);
   const tried = useRef("");
   const answer = list.data;
   useEffect(() => {
-    // Only an answer to the refresh that is current is compared: after a change the page itself makes (reading
-    // a digest) the list is asked again at once, and that answer is the one to compare. Once for each digest,
-    // read state and refresh, so a core that keeps disagreeing is not asked for ever.
-    if (!shown || !answer || answer.at !== tick || !disagrees(shown, answer.days)) return;
+    // Only the answers of the refresh that is current are compared, the list's and the page's alike: the page beside
+    // holds what it showed before a refresh until it has answered it, and what the list of this refresh says is the
+    // news. After a change the page itself makes (reading a digest) both are asked again at once, and those answers
+    // are the ones to compare. Once for each digest, read state and refresh, so a core that keeps disagreeing is not
+    // asked for ever.
+    if (!shown || !needsReread(shown, answer, tick)) return;
     const key = `${tick}|${shown.day}|${shown.read}`;
     if (tried.current === key) return;
     tried.current = key;
