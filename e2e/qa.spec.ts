@@ -356,7 +356,7 @@ test("QA #16: with no daily digest the page says when one comes, what it needs, 
   await signIn(page, "/digest");
   await expect(page.getByTestId("digest-none")).toHaveText("还没有每日摘要。");
   await expect(page.getByTestId("digest-when")).toContainText("21:00（Asia/Shanghai）之后出");
-  await expect(page.getByTestId("digest-when")).toContainText("当天至少要有一条解读");
+  await expect(page.getByTestId("digest-when")).toContainText("已经解读过的条目");
   await expect(page.getByTestId("digest-why")).toHaveText("今天的还没到时间。今天到现在有 0 条解读。");
   // Nothing is made on demand: no button here, only the way to today's analyses.
   await expect(page.locator(".digest [data-reason] button")).toHaveCount(0);
