@@ -2,7 +2,7 @@
 import { api, ApiError } from "./api";
 import { meta, refresh } from "./session";
 import { shared, t } from "./i18n";
-import { gifFrames } from "./gif";
+import { imageFrames } from "./frames";
 import { mib } from "./size";
 import { sha256Hex, toWebp } from "./lib";
 
@@ -56,9 +56,10 @@ export async function saveFile(file: File, entry: string): Promise<Outcome> {
     let blob: Blob = file;
     let type = file.type || (/\.(md|markdown)$/i.test(file.name) ? "text/markdown" : "");
     const isImage = type.startsWith("image/");
-    // A GIF is kept as one still picture. Say so only when it was an animation, and not that it is the "first" of them:
-    // what is known is that one picture is kept (QA #87).
-    const animation = type === "image/gif" && gifFrames(new Uint8Array(await file.arrayBuffer())) > 1;
+    // An animation (a GIF, an APNG, an animated WebP) is kept as one still picture. Say so only when the file really holds
+    // more than one, counted from its bytes and not from its type, and not that it is the "first" of them: what is known
+    // is that one picture is kept (QA #87).
+    const animation = isImage && imageFrames(new Uint8Array(await file.arrayBuffer())) > 1;
     if (isImage) {
       // Every image goes up as WebP with the long edge at the contract's limit.
       blob = await toWebp(file, imageLongEdge(), max);

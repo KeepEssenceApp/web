@@ -1,5 +1,6 @@
 // Internal QA #87: what happens to a picture is said once, beside the files that wait (not after each save, not as a
 // question), and a GIF that was an animation says that one picture was kept. The success sentence stays the core's.
+import { deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import { reset, signIn, state, openInbox } from "./helpers";
 
@@ -12,13 +13,95 @@ const gif = (n: number) => {
   return Buffer.from([...header, ...Array.from({ length: n }, () => frame).flat(), 0x3b]).toString("base64");
 };
 
-type Kind = "png" | "txt" | "pdf" | { gif: string };
+// Made-up animations the browser can really read: 8 x 8 pixels, two plain colours, built here byte by byte.
+const SIDE = 8;
+const crcTable = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+const crc32 = (b: Buffer) => {
+  let c = 0xffffffff;
+  for (const x of b) c = crcTable[(c ^ x) & 255] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+};
+const u32 = (n: number) => {
+  const b = Buffer.alloc(4);
+  b.writeUInt32BE(n >>> 0);
+  return b;
+};
+const pngChunk = (type: string, data: Buffer) => {
+  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  return Buffer.concat([u32(data.length), body, u32(crc32(body))]);
+};
+const colour = (rgb: number[]) => deflateSync(Buffer.concat(Array.from({ length: SIDE }, () => Buffer.from([0, ...Array.from({ length: SIDE }, () => [...rgb, 255]).flat()]))));
+const frameControl = (sequence: number) => {
+  const d = Buffer.alloc(26);
+  d.writeUInt32BE(sequence, 0);
+  d.writeUInt32BE(SIDE, 4);
+  d.writeUInt32BE(SIDE, 8);
+  d.writeUInt16BE(10, 20); // 10 / 100 s
+  d.writeUInt16BE(100, 22);
+  return pngChunk("fcTL", d);
+};
+/** An APNG whose `acTL` says `frames` pictures (with 1 it is a still picture that carries the chunk), as base64. */
+const apng = (frames: number) => {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(SIDE, 0);
+  header.writeUInt32BE(SIDE, 4);
+  header[8] = 8; // bit depth
+  header[9] = 6; // colour type: RGBA
+  const parts = [pngChunk("IHDR", header), pngChunk("acTL", Buffer.concat([u32(frames), u32(0)])), frameControl(0), pngChunk("IDAT", colour([200, 30, 30]))];
+  let sequence = 1;
+  for (let f = 1; f < frames; f++) parts.push(frameControl(sequence++), pngChunk("fdAT", Buffer.concat([u32(sequence++), colour([30, 30, 200])])));
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), ...parts, pngChunk("IEND", Buffer.alloc(0))]).toString("base64");
+};
+
+const le = (n: number, bytes: number) => {
+  const b = Buffer.alloc(bytes);
+  b.writeUIntLE(n, 0, bytes);
+  return b;
+};
+const riffChunk = (type: string, data: Buffer) => Buffer.concat([Buffer.from(type, "ascii"), le(data.length, 4), data, Buffer.alloc(data.length & 1)]);
+const riff = (...chunks: Buffer[]) => {
+  const body = Buffer.concat([Buffer.from("WEBP", "ascii"), ...chunks]);
+  return Buffer.concat([Buffer.from("RIFF", "ascii"), le(body.length, 4), body]);
+};
+const vp8x = (flags: number) => riffChunk("VP8X", Buffer.concat([Buffer.from([flags, 0, 0, 0]), le(SIDE - 1, 3), le(SIDE - 1, 3)]));
+const anmf = (picture: Buffer) => riffChunk("ANMF", Buffer.concat([le(0, 3), le(0, 3), le(SIDE - 1, 3), le(SIDE - 1, 3), le(100, 3), Buffer.from([0]), picture]));
+/** The picture chunks (VP8 or VP8L, with ALPH) of a still 8 x 8 WebP that the browser's own encoder makes. */
+async function webpPicture(page: Page): Promise<Buffer> {
+  const base64 = await page.evaluate(async (side) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = side;
+    canvas.height = side;
+    const g = canvas.getContext("2d")!;
+    g.fillStyle = "#c81e1e";
+    g.fillRect(0, 0, side, side);
+    const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), "image/webp", 1));
+    return btoa(String.fromCharCode(...new Uint8Array(await blob.arrayBuffer())));
+  }, SIDE);
+  const still = Buffer.from(base64, "base64");
+  const keep: Buffer[] = [];
+  for (let i = 12; i + 8 <= still.length; ) {
+    const size = still.readUInt32LE(i + 4);
+    const end = i + 8 + size + (size & 1);
+    if (["ALPH", "VP8 ", "VP8L"].includes(still.toString("ascii", i, i + 4))) keep.push(still.subarray(i, end));
+    i = end;
+  }
+  expect(keep.length, "the encoder made a WebP with a picture in it").toBeGreaterThan(0);
+  return Buffer.concat(keep);
+}
+const animatedWebp = (picture: Buffer, frames: number) => riff(vp8x(0x02), riffChunk("ANIM", Buffer.alloc(6)), ...Array.from({ length: frames }, () => anmf(picture)));
+
+type Kind = "png" | "txt" | "pdf" | { gif: string } | { bytes: string; name: string; type: string };
 /** Puts one file on the inbox the way a drop does. */
 async function drop(page: Page, kind: Kind) {
   await page.evaluate(async (k) => {
     let file: File;
     if (typeof k === "object") {
-      file = new File([Uint8Array.from(atob(k.gif), (c) => c.charCodeAt(0))], "motion.gif", { type: "image/gif" });
+      const [base64, name, type] = "gif" in k ? [k.gif, "motion.gif", "image/gif"] : [k.bytes, k.name, k.type];
+      file = new File([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], name, { type });
     } else if (k === "png") {
       const canvas = document.createElement("canvas");
       canvas.width = 3000;
@@ -201,3 +284,41 @@ test("QA #87: an animation whose picture was not stored (over the storage quota)
   await expect(page.locator(".said")).toHaveText("已存入。图片没存入：超出存储配额。");
   await expect(page.locator(".said")).not.toContainText("动图");
 });
+
+// The count is the file's own (QA #87 ruling, 2026-11-28): an APNG and an animated WebP are told like a GIF, by their bytes.
+const file = (bytes: Buffer, name: string, type: string): Kind => ({ bytes: bytes.toString("base64"), name, type });
+const frameCases: [string, (page: Page) => Promise<Kind>, boolean][] = [
+  ["an APNG of two frames", async () => ({ bytes: apng(2), name: "motion.png", type: "image/png" }), true],
+  ["an APNG of five frames", async () => ({ bytes: apng(5), name: "motion.png", type: "image/png" }), true],
+  ["an animated WebP of two frames", async (page) => file(animatedWebp(await webpPicture(page), 2), "motion.webp", "image/webp"), true],
+  ["an animated WebP that came with the wrong type", async (page) => file(animatedWebp(await webpPicture(page), 2), "motion.png", "image/png"), true],
+  ["a PNG that has an acTL chunk with one frame", async () => ({ bytes: apng(1), name: "still.png", type: "image/png" }), false],
+  ["a still PNG", async () => "png", false],
+  ["a still WebP", async (page) => file(riff(await webpPicture(page)), "still.webp", "image/webp"), false],
+  ["a still WebP under a VP8X header without the animation flag", async (page) => file(riff(vp8x(0x10), await webpPicture(page)), "still.webp", "image/webp"), false],
+  ["a WebP with the animation flag and one frame", async (page) => file(animatedWebp(await webpPicture(page), 1), "one.webp", "image/webp"), false],
+];
+for (const [name, make, says] of frameCases) {
+  test(`QA #87: ${name} ${says ? "says that one picture was kept, and not which" : "says nothing about frames"}`, async ({ page }) => {
+    await signIn(page);
+    const before = (await state(page.request)).counts.items;
+    await drop(page, await make(page));
+    await openInbox(page);
+    await page.getByTestId("inbox-save").click();
+    await expect(page.locator(".said")).toHaveText(says ? "已存入。 动图只保留了一帧。" : "已存入。");
+    await expect(page.locator(".said")).not.toContainText("第一");
+    expect((await state(page.request)).counts.items).toBe(before + 1);
+  });
+}
+
+for (const [name, make] of frameCases.filter(([, , says]) => says)) {
+  test(`QA #87: ${name} whose picture was not stored (over the storage quota) does not say that a frame was kept`, async ({ page, request }) => {
+    await reset(request, { over_quota: true });
+    await signIn(page);
+    await drop(page, await make(page));
+    await openInbox(page);
+    await page.getByTestId("inbox-save").click();
+    await expect(page.locator(".said")).toHaveText("已存入。图片没存入：超出存储配额。");
+    await expect(page.locator(".said")).not.toContainText("动图");
+  });
+}
