@@ -168,6 +168,8 @@ export const en: Record<keyof typeof zh, string> = {
   "dive.queue_nobody": "No assistant can deep read or deep dive yet. Adding it to the queue now only keeps the item: while it is in the queue it is not deleted, and it waits at the top of Notes; after {days} day{s:days} with no activity it leaves the queue. Nothing reads it until you connect an assistant that does deep reads.",
 
   "digest.header": "{saved} in this daily digest. {worth} worth a deep dive not dealt with yet.",
+  "digest.scope": "What a daily digest covers",
+  "digest.scope_body": "A daily digest isn't built from “everything saved today”. When it's written, it picks from items you haven't deleted that have been processed (including any we couldn't analyse) and haven't been in a digest yet, earliest-processed first, up to a set limit per digest. So it can include items from earlier days. Items saved that day that weren't processed yet when it was written, or didn't fit, won't be in it; they may be picked for a later digest if they still qualify (for example, you haven't deleted them), but not on a set day. The Calendar's Saved count and the digest count measure different things, so they can differ.",
   "digest.summary": "Summary",
   "digest.worth": "Worth a deep dive",
   "digest.rest": "The rest",

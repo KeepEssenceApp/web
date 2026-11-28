@@ -194,6 +194,11 @@ export function DigestPage({ day, beside = false, selected, embedded = false }: 
             <p class="digest-counts" data-testid="digest-header">
               {t("digest.header", { saved: d.counts?.saved ?? d.worth.length + d.rest.length, worth: d.counts?.worth ?? d.worth.length })}
             </p>
+            {/* What the number above counts, apart from what was saved that day (QA #110). Closed until asked. */}
+            <details class="scope" data-testid="digest-scope">
+              <summary class="quiet small">{t("digest.scope")}</summary>
+              <p class="quiet small" data-testid="digest-scope-body">{t("digest.scope_body")}</p>
+            </details>
             <p class="quiet small">{t("digest.signed", { name: d.assistant.name })}</p>
           </header>
 

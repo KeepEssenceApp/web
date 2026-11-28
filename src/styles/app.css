@@ -414,7 +414,8 @@ label > .label { margin-bottom: 6px; }
 .digest-counts { font-size: var(--ke-size-item); font-weight: 600; }
 .digest-summary { color: var(--ke-text-2); line-height: 1.75; }
 .digest-question { font-size: var(--ke-size-subtitle); font-weight: 600; line-height: 1.5; }
-.rest summary { cursor: pointer; margin: 0; padding: 6px 0; }
+.rest summary, .scope summary { cursor: pointer; margin: 0; padding: 6px 0; }
+.scope p { margin: 4px 0 8px; line-height: 1.7; overflow-wrap: anywhere; }
 .rest ul { display: flex; flex-direction: column; }
 .rest-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--ke-line); color: var(--ke-text-2); font-size: var(--ke-size-secondary); }
 .rest-title { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
