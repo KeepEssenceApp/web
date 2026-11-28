@@ -332,7 +332,7 @@ export const en: Record<keyof typeof zh, string> = {
   "rules.expiry_hint": "1 to 6 values, each 1 to 365 days, separated by commas.",
   "rules.expiry_invalid": "Enter 1 to 6 numbers, each from 1 to 365.",
 
-  "devices.hint": "Every client and every assistant you connected is a device. Each can be renamed and revoked here on its own; it takes effect at once and no other device is affected. The built-in assistant is part of the service and is not listed here.",
+  "devices.hint": "Every client and every assistant you connected is a device. Each can be renamed and revoked here on its own; it takes effect at once and no other device is affected. There is one exception: in this list, the last device with Manage permission cannot be revoked or lowered. Signing out is not limited by this. The built-in assistant is part of the service and is not listed here.",
   "devices.this": "This device",
   "devices.client": "Client",
   "devices.used": "used {when}",
