@@ -486,7 +486,20 @@ on("POST", "/v1/items", "save", (c) => {
 });
 on("GET", "/v1/items", "read", (c) => {
   const state = c.q.get("state"); need(["today", "digested", "pinned"].includes(state));
-  if (state === "today") S.itemListRequests.push({ limit: c.q.get("limit"), cursor: c.q.get("cursor") });
+  if (state === "today") {
+    S.itemListRequests.push({ limit: c.q.get("limit"), cursor: c.q.get("cursor") });
+    // A shift while Today is being read (#116, `/__test/today-drift`): just before this page is served, the first item still
+    // waiting is analysed and not seen, so it moves to the front and every item before its old place moves back one (the core's
+    // cursor is a position). The page asked for then starts with the item the page before it ended with.
+    const d = S.todayDrift;
+    if (d && d.times > 0 && (c.q.get("cursor") ?? "first") === d.cursor) {
+      const w = [...S.items.values()].filter((i) => !i.digest_day && !i.analysis).sort((a, b) => a.id.localeCompare(b.id))[0];
+      if (w) {
+        d.times--; d.done++;
+        w.stage = "analysed"; w.analysis = analysis(S.assistants[0], `刚交回的解读，内容是编的（${w.id}）。`, "文章 · 约 1000 字", [], "good_to_know", null, 0);
+      }
+    }
+  }
   // As the core orders Today (`listItems`): the analysed first, the newest analysis first, the ones not analysed yet after them.
   const at = (i) => i.analysis?.created_at ?? i.created_at;
   const order = state === "today"
@@ -816,7 +829,19 @@ on("POST", "/__test/today-list", null, (c) => {
   }
   S.queue.clear();
   S.itemListRequests = [];
+  S.todayDrift = null;
   return [200, { ok: true, analysed, waiting }];
+});
+// Arms a shift of Today's list (#116): the next `times` requests for `state=today` that carry `cursor` (`"first"` for the first
+// page, else the cursor value, e.g. "500" for the sixth page) are each preceded by the analysis of the first item still waiting
+// (never seen), which the core's order then puts first (see `GET /v1/items`). `times: 1` is the counter-example of QA #116 (an
+// analysis lands between the fifth and the sixth page); `times` as large as the reads asked for is a list that keeps moving.
+// `GET /__test/state` has `item_list_drifts`, how many were applied. The list hook and a reset clear it.
+on("POST", "/__test/today-drift", null, (c) => {
+  const times = Number(c.body.times ?? 1), cursor = String(c.body.cursor ?? "500");
+  need(Number.isInteger(times) && times >= 0);
+  S.todayDrift = { cursor, times, done: 0 };
+  return [200, { ok: true, cursor, times }];
 });
 on("POST", "/__test/analyse", null, (c) => {
   const it = c.body.item_id ? getItem(c.body.item_id) : [...S.items.values()].filter((i) => !i.digest_day && i.stage !== "analysed").sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? fail(404, "not_found");
@@ -851,7 +876,7 @@ on("POST", "/__test/set-tier", "save", (c) => { need(TIERS.includes(c.body.tier)
 on("GET", "/__test/state", null, () => [200, {
   counts: { items: S.items.size, today: [...S.items.values()].filter((i) => !i.digest_day).length, notes: S.notes.length, queue: S.queue.size, devices: S.devices.size, assistants: S.assistants.length, digests: S.digests.size, assets: [...S.assets.values()].filter((a) => a.stored).length },
   feedback: S.feedback ?? [], last_saved: S.lastSaved, pushes: S.pushes, decisions: S.decisions, settings: { ...S.settings, calendar_secret: undefined }, user: S.user, email: S.email,
-  deleted_account: DELETED, digest_list_requests: S.digestListRequests, item_list_requests: S.itemListRequests,
+  deleted_account: DELETED, digest_list_requests: S.digestListRequests, item_list_requests: S.itemListRequests, item_list_drifts: S.todayDrift?.done ?? 0,
 }]);
 on("GET", "/__test/oauth-done", null, (c) => [200, `<!doctype html><meta charset="utf-8"><title>oauth-done</title><p id="done">oauth-done allowed=${c.q.get("allowed") === "1" ? 1 : 0}</p>`, "text/html; charset=utf-8"]);
 on("POST", "/share", null, () => [303, null, null, { location: "/share" }]);

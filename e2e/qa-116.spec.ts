@@ -28,11 +28,34 @@ async function today(request: APIRequestContext, lang: Lang, analysed: number, w
 /** The requests for Today's list, in the order the core got them: the cursor each one carried. */
 const asked = async (request: APIRequestContext) =>
   ((await state(request)).item_list_requests as { limit: string | null; cursor: string | null }[]).filter((r) => r.limit === "100").map((r) => r.cursor ?? "first");
+/**
+ * Waits until the requests for Today's list have stopped (the count is the same on two reads 400 ms apart) and says how many there
+ * were. `page.waitForLoadState("networkidle")` returns at once when the page was idle before, so it cannot say that nothing is in
+ * flight now: a count taken after it can be taken in the middle of a read.
+ */
+async function quiet(request: APIRequestContext) {
+  let last = -1;
+  await expect
+    .poll(
+      async () => {
+        const n = (await asked(request)).length;
+        const same = n === last;
+        last = n;
+        return same;
+      },
+      { intervals: [400], timeout: 20000 },
+    )
+    .toBe(true);
+  return last;
+}
 /** How many times each page was asked for. */
 const perPage = (log: string[]) => log.reduce<Record<string, number>>((m, c) => ({ ...m, [c]: (m[c] ?? 0) + 1 }), {});
 /** One read of the list is `pages` requests, from the first page to the one with no next cursor; a wide screen reads it twice (the list, and the column beside it). */
 const reads = (pages: number, sweeps: number) =>
   Object.fromEntries(Array.from({ length: pages }, (_, p) => [p === 0 ? "first" : String(p * 100), sweeps]));
+
+/** What the service worker sends when a notification arrives while the page is open: the app's ordinary refresh. */
+const refreshApp = (page: Page) => page.evaluate(() => navigator.serviceWorker.dispatchEvent(new MessageEvent("message", { data: { type: "refresh" } })));
 
 test.beforeEach(async ({ request }) => reset(request));
 
@@ -66,7 +89,7 @@ for (const lang of ["zh", "en"] as const) {
       await expect(handledRows(page)).toHaveCount(500);
       await expect(done(page)).toHaveCount(0);
       if (!isMobile) await expect(page.getByTestId("today-counts")).toBeVisible();
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       const log = await asked(request);
       expect(perPage(log)).toEqual(reads(6, isMobile ? 1 : 2));
       // The page after the 500th item is asked with the cursor the fifth page gave, and nothing is asked beyond it.
@@ -81,7 +104,7 @@ for (const lang of ["zh", "en"] as const) {
       await expect(handledTitle(page)).toHaveText(w.handled(501));
       await expect(handledRows(page)).toHaveCount(501);
       await expect(waitingRows(page)).toHaveCount(0);
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       expect(perPage(await asked(request))).toEqual(reads(6, isMobile ? 1 : 2));
     });
 
@@ -90,7 +113,7 @@ for (const lang of ["zh", "en"] as const) {
       await signIn(page, "/");
       await expect(done(page)).toHaveText(w.done);
       await expect(handledTitle(page)).toHaveText(w.handled(500));
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       expect(perPage(await asked(request))).toEqual(reads(5, isMobile ? 1 : 2));
     });
 
@@ -99,7 +122,7 @@ for (const lang of ["zh", "en"] as const) {
       await signIn(page, "/");
       await expect(done(page)).toHaveText(w.done);
       await expect(handledTitle(page)).toHaveText(w.handled(37));
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       expect(perPage(await asked(request))).toEqual(reads(1, isMobile ? 1 : 2));
     });
 
@@ -151,20 +174,169 @@ for (const lang of ["zh", "en"] as const) {
       await expect(page.getByRole("alert")).toHaveCount(0);
     });
 
+    // ---- The list moves while it is read (#116, items 7–9). The core's cursor is a position: an analysis that lands between two
+    // pages puts its item first and moves the ones before it back, so the next page starts with the last item of the one before.
+    // `/__test/today-drift` makes that happen just before the page with the given cursor is served. A phone reads the list once
+    // (a read of 501 items is six requests); a wide screen reads it twice (the list, and the column beside it), so there the
+    // number of requests is the phone's times two, and the same bound.
+
+    test("QA's counter-example: the only waiting item is analysed between the fifth and the sixth page: no done sentence; the read starts over; in the end 501 items, 500 handled, the new analysis not seen", async ({ page, request, isMobile }) => {
+      await today(request, lang, 500, 1);
+      expect((await request.post("/__test/today-drift", { data: { cursor: "500", times: 1 } })).ok()).toBe(true);
+      await signIn(page, "/");
+      // The analysis that landed is listed as an analysis, not seen (it is not among the handled), and nothing is waiting.
+      await expect(page.locator('.cards .card[data-item="it_w0001"]')).toBeVisible();
+      await expect(page.locator("section", { hasText: w.analyses(1) })).toBeVisible();
+      await expect(handledTitle(page)).toHaveText(w.handled(500));
+      await expect(handledRows(page)).toHaveCount(500);
+      await expect(page.locator('[data-handled="it_w0001"]')).toHaveCount(0);
+      await expect(waitingRows(page)).toHaveCount(0);
+      await expect(done(page)).toHaveCount(0);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      await quiet(request);
+      expect((await state(request)).item_list_drifts).toBe(1);
+      const log = await asked(request);
+      if (isMobile) {
+        // Round one stops at the sixth page (the repeat is seen there); round two reads all six.
+        expect(perPage(log)).toEqual(reads(6, 2));
+      } else {
+        expect(log.length).toBeLessThanOrEqual(36);
+        expect(Object.keys(perPage(log)).sort()).toEqual(["100", "200", "300", "400", "500", "first"]);
+      }
+    });
+
+    test("a list that moves in every read: after three reads and no more the load error, no done sentence, no list, no count", async ({ page, request, isMobile }) => {
+      await page.clock.install();
+      await today(request, lang, 500, 12);
+      // Every request for the sixth page is preceded by a shift (12 waiting, so there is always one to analyse).
+      expect((await request.post("/__test/today-drift", { data: { cursor: "500", times: 12 } })).ok()).toBe(true);
+      await signIn(page, "/");
+      await expect(page.getByRole("alert").first()).toHaveText(w.failed);
+      await quiet(request);
+      await expect(done(page)).toHaveCount(0);
+      await expect(waitingRows(page)).toHaveCount(0);
+      await expect(handledTitle(page)).toHaveCount(0);
+      await expect(page.locator(".cards .card")).toHaveCount(0);
+      await expect(page.locator("h2.label")).toHaveCount(0);
+      // Three reads of six pages (each stops at the sixth) and the core is asked nothing more by itself: 18 requests on a phone.
+      // A wide screen has two readers, 36 at most: each one's shift can end the other's read on an earlier page, so how many
+      // pages each read got to is not fixed, only that it is three reads each and no more.
+      const log = await asked(request);
+      const drifts = (await state(request)).item_list_drifts as number;
+      if (isMobile) {
+        expect(perPage(log)).toEqual(reads(6, 3));
+        expect(drifts).toBe(3);
+      } else {
+        expect(log.length).toBeLessThanOrEqual(36);
+        expect(drifts).toBeGreaterThanOrEqual(3);
+      }
+      await quiet(request);
+      expect((await asked(request)).length).toBe(log.length);
+    });
+
+    test("the read before said done, the next read fails (503): the load error replaces the sentence; the page keeps asking; when the read works it shows the item that is waiting", async ({ page, request, isMobile }) => {
+      await page.clock.install();
+      await today(request, lang, 501, 0);
+      await signIn(page, "/");
+      await expect(done(page)).toHaveText(w.done);
+      await expect(handledTitle(page)).toHaveText(w.handled(501));
+
+      // From now the sixth page fails, and an item that is not analysed is in Today.
+      const sixth = { n: 0, fail: true };
+      await page.route(/\/v1\/items\?.*cursor=500/, (route) => {
+        sixth.n++;
+        return sixth.fail
+          ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "unavailable", message: "" } }) })
+          : route.continue();
+      });
+      expect((await request.post("/__test/today-list", { data: { analysed: 500, waiting: 1, handled: true } })).ok()).toBe(true);
+      await refreshApp(page);
+      // This read failed: no sentence from the read before it, no part of a list.
+      await expect(page.getByRole("alert").first()).toHaveText(w.failed);
+      await expect(done(page)).toHaveCount(0);
+      await expect(handledTitle(page)).toHaveCount(0);
+      await expect(waitingRows(page)).toHaveCount(0);
+      const failedOnce = sixth.n;
+      expect(failedOnce).toBeGreaterThan(0);
+
+      // Nothing was waiting in the list before; it asks again nevertheless, and while it fails it stays the error. The timer is
+      // made in the effect that follows the render of the error, which can be a moment after the error is on the screen: wind the
+      // clock on until the page has asked, not once.
+      await expect
+        .poll(async () => {
+          await page.clock.fastForward(15500);
+          return sixth.n;
+        })
+        .toBeGreaterThan(failedOnce);
+      await expect(page.getByRole("alert").first()).toHaveText(w.failed);
+      await expect(done(page)).toHaveCount(0);
+
+      // The core answers again: the list is whole, with the waiting item in it, and nothing says it is done.
+      sixth.fail = false;
+      await page.clock.fastForward(15500);
+      await expect(waitingRows(page)).toHaveCount(1);
+      await expect(waitingRows(page).first()).toHaveAttribute("data-item", "it_w0001");
+      await expect(handledTitle(page)).toHaveText(w.handled(500));
+      await expect(done(page)).toHaveCount(0);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      if (!isMobile) {
+        // The column beside Today does not ask again by itself: it asked again with the page when the list came back.
+        const counts = page.getByTestId("today-counts");
+        await expect(counts.locator(".stat-n").nth(1)).toHaveText("1");
+        await expect(counts.locator(".stat-n").nth(3)).toHaveText("500");
+      }
+    });
+
+    test("the read before said done, the next read is void three times over: the load error replaces the sentence, at most three reads; the page keeps asking; when the list holds still it is the whole list", async ({ page, request, isMobile }) => {
+      await page.clock.install();
+      await today(request, lang, 500, 0);
+      await signIn(page, "/");
+      await expect(done(page)).toHaveText(w.done);
+      await expect(handledTitle(page)).toHaveText(w.handled(500));
+
+      // Twelve items are waiting now (500 + 12), and the list moves under every read.
+      expect((await request.post("/__test/today-list", { data: { analysed: 500, waiting: 12, handled: true } })).ok()).toBe(true);
+      expect((await request.post("/__test/today-drift", { data: { cursor: "500", times: 12 } })).ok()).toBe(true);
+      await refreshApp(page);
+      await expect(page.getByRole("alert").first()).toHaveText(w.failed);
+      await quiet(request);
+      await expect(done(page)).toHaveCount(0);
+      await expect(handledTitle(page)).toHaveCount(0);
+      await expect(page.locator("h2.label")).toHaveCount(0);
+      const log = await asked(request);
+      const drifted = (await state(request)).item_list_drifts as number;
+      if (isMobile) {
+        expect(perPage(log)).toEqual(reads(6, 3));
+        expect(drifted).toBe(3);
+      } else {
+        expect(log.length).toBeLessThanOrEqual(36);
+      }
+
+      // It keeps asking: the list is quiet now (no more shifts), the next ask is whole. The shifts analysed `drifted` of the 12
+      // (not seen), the rest wait.
+      expect((await request.post("/__test/today-drift", { data: { cursor: "500", times: 0 } })).ok()).toBe(true);
+      await page.clock.fastForward(15500);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      await expect(waitingRows(page)).toHaveCount(12 - drifted);
+      await expect(page.locator(".cards .card")).toHaveCount(drifted);
+      await expect(handledTitle(page)).toHaveText(w.handled(500));
+      await expect(done(page)).toHaveCount(0);
+    });
+
     test("every quiet ask is the whole list again (six requests for 501 items); the 501st's analysis, when it lands, moves up with no reload", async ({ page, request, isMobile }) => {
       await page.clock.install();
       await today(request, lang, 500, 1);
       await signIn(page, "/");
       await expect(waitingRows(page)).toHaveCount(1);
       if (!isMobile) await expect(page.getByTestId("today-counts")).toBeVisible();
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       await page.evaluate(() => ((window as unknown as { __kept: number }).__kept = 1));
 
       // A quiet ask with nothing new: the six pages, once.
       const first = (await asked(request)).length;
       await page.clock.fastForward(15500);
       await expect.poll(async () => (await asked(request)).length).toBe(first + 6);
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       expect((await asked(request)).length).toBe(first + 6);
       expect((await asked(request)).slice(first)).toEqual(["first", "100", "200", "300", "400", "500"]);
       await expect(waitingRows(page)).toHaveCount(1);
@@ -178,10 +350,10 @@ for (const lang of ["zh", "en"] as const) {
       expect(await page.evaluate(() => (window as unknown as { __kept?: number }).__kept)).toBe(1);
 
       // Nothing is waiting now: the page stops asking.
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       const settled = (await asked(request)).length;
       await page.clock.fastForward(60000);
-      await page.waitForLoadState("networkidle");
+      await quiet(request);
       expect((await asked(request)).length).toBe(settled);
     });
 
@@ -216,7 +388,7 @@ test.describe("QA #116: the same call elsewhere", () => {
     expect((await request.post("/__test/today-list", { data: { analysed: 501, waiting: 0, handled: false } })).ok()).toBe(true);
     await signIn(page, "/digest");
     await expect(page.getByTestId("digest-why")).toContainText("501");
-    await page.waitForLoadState("networkidle");
+    await quiet(request);
     expect(perPage(await asked(request))).toEqual(reads(6, 1));
   });
 });

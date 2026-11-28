@@ -46,11 +46,17 @@ export function Today({ selected }: { selected?: string }) {
   const count = (n: number) => ` · ${t("today.n", { n })}`;
   // While items wait, the list asks again quietly; an analysis that lands moves its item up
   // into the analyses without a reload (QA #26). The panel and the status bar are told.
+  // An answer after none (the read had failed or kept moving, QA #116) is news too: the column beside Today, which does not
+  // ask again by itself, may be showing that failure, and asks again with the rest of the page.
   const landed = (next: Item[], prev: Item[] | undefined) => {
     const was = new Set((prev ?? []).filter((i) => !i.analysis).map((i) => i.id));
-    if (next.some((i) => i.analysis && was.has(i.id))) refresh.set((n) => n + 1);
+    if (prev === undefined || next.some((i) => i.analysis && was.has(i.id))) refresh.set((n) => n + 1);
   };
   useWatch(waiting.length > 0, () => items.poll(landed));
+  // A read that failed (or was void three times over) left no list, so there is no waiting row to keep this asking: ask
+  // again on its own, or a "nothing is waiting" that came before would be the last word on a page that now has an error.
+  // Never on together with the one above: a failed read has no list.
+  useWatch(!!items.error, () => items.poll(landed));
 
   return (
     <div class="page today">
